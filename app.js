@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.1 — сворачиваемые отработки в скриптах
+ * ЕЦТ Скрипты v2.2 — цветное форматирование скриптов
  */
 
 const STORAGE_KEY = 'ect_scripts_data_v1';
@@ -26,7 +26,6 @@ let state = {
   otabotkiCat: '',
   otabotkiScriptFilter: '',
   expandedNodes: {},
-  // Для сворачивания блоков отработок/штрафов в скрипте
   collapsedBlocks: {}
 };
 
@@ -47,7 +46,6 @@ function loadLocalSettings() {
     }
   } catch (e) {}
   state.cloud.enabled = !!(state.cloud.binId && state.cloud.apiKey);
-  // Загружаем состояние свёрнутых блоков
   try {
     const cb = localStorage.getItem('ect_collapsed_blocks');
     if (cb) state.collapsedBlocks = JSON.parse(cb);
@@ -91,19 +89,16 @@ function getDemoScripts() {
       id: uid(),
       title: 'Входящий звонок — запись на приём',
       category: 'Медицина',
-      content: `Здравствуйте, оператор [Имя], единый центр телефонии. Чем могу помочь?
-
-Клиент: Хочу записаться к терапевту.
-
-— Подскажите, пожалуйста, ФИО и номер СНИЛС.
-— Какой город / поликлиника?
-— Есть предпочтения по дате и времени?
-
-[Проверка свободных слотов]
-
-— Есть талон на [дата] в [время]. Записываю вас?
-— Запись подтверждена. Вам придёт SMS с напоминанием.
-Спасибо за обращение, до свидания!`,
+      content: `<p>Здравствуйте, оператор [Имя], единый центр телефонии. Чем могу помочь?</p>
+<p>Клиент: Хочу записаться к терапевту.</p>
+<p>— Подскажите, пожалуйста, ФИО и номер СНИЛС.<br>
+— Какой город / поликлиника?<br>
+— Есть предпочтения по дате и времени?</p>
+<p>[Проверка свободных слотов]</p>
+<p>— Есть талон на [дата] в [время]. Записываю вас?<br>
+— Запись подтверждена. Вам придёт SMS с напоминанием.<br>
+Спасибо за обращение, до свидания!</p>`,
+      plainContent: 'Здравствуйте, оператор [Имя], единый центр телефонии. Чем могу помочь?\nКлиент: Хочу записаться к терапевту.\n— Подскажите, пожалуйста, ФИО и номер СНИЛС.\n— Какой город / поликлиника?\n— Есть предпочтения по дате и времени?\n[Проверка свободных слотов]\n— Есть талон на [дата] в [время]. Записываю вас?\n— Запись подтверждена. Вам придёт SMS с напоминанием.\nСпасибо за обращение, до свидания!',
       otabotki: [
         { id: uid(), title: 'Нет свободных талонов', text: 'К сожалению, сейчас свободных талонов нет. Могу сформировать заявку в лист ожидания — вам перезвонят из поликлиники. Сформировать?', children: [] },
         { id: uid(), title: 'Клиент не знает СНИЛС', text: 'Можете назвать дату рождения и адрес регистрации — попробуем найти вас в системе.', children: [] }
@@ -120,14 +115,14 @@ function getDemoScripts() {
       id: uid(),
       title: 'Исходящий — подтверждение записи',
       category: 'Медицина',
-      content: `Здравствуйте, [Имя Клиента]! Это оператор [Имя] из единого центра телефонии.
-Звоню подтвердить вашу запись к [специалист] на [дата] в [время].
-Вы сможете прийти?
-
-Если да:
-— Отлично, ждём вас. Возьмите с собой паспорт и полис.
-Если нет:
-— Хотите перенести запись? На какую дату удобнее?`,
+      content: `<p>Здравствуйте, [Имя Клиента]! Это оператор [Имя] из единого центра телефонии.<br>
+Звоню подтвердить вашу запись к [специалист] на [дата] в [время].<br>
+Вы сможете прийти?</p>
+<p>Если да:<br>
+— Отлично, ждём вас. Возьмите с собой паспорт и полис.<br>
+Если нет:<br>
+— Хотите перенести запись? На какую дату удобнее?</p>`,
+      plainContent: 'Здравствуйте, [Имя Клиента]! Это оператор [Имя] из единого центра телефонии.\nЗвоню подтвердить вашу запись к [специалист] на [дата] в [время].\nВы сможете прийти?\nЕсли да:\n— Отлично, ждём вас. Возьмите с собой паспорт и полис.\nЕсли нет:\n— Хотите перенести запись? На какую дату удобнее?',
       otabotki: [
         { id: uid(), title: 'Клиент передумал', text: 'Поняла. Запись отменяю. Если понадобится — звоните, будем рады помочь.', children: [] }
       ],
@@ -140,17 +135,15 @@ function getDemoScripts() {
       id: uid(),
       title: 'Авто — консультация по марке',
       category: 'Авто',
-      content: `Здравствуйте! Единый центр телефонии, оператор [Имя].
-Интересует автомобиль [марка/модель]?
-
-— Какой год выпуска рассматриваете?
-— Бюджет?
-— Новый или с пробегом?
-— Город покупки?
-
-[Используйте автокаталог для подбора]
-
-Могу предложить несколько вариантов и передать контакты дилера.`,
+      content: `<p>Здравствуйте! Единый центр телефонии, оператор [Имя].<br>
+Интересует автомобиль [марка/модель]?</p>
+<p>— Какой год выпуска рассматриваете?<br>
+— Бюджет?<br>
+— Новый или с пробегом?<br>
+— Город покупки?</p>
+<p>[Используйте автокаталог для подбора]</p>
+<p>Могу предложить несколько вариантов и передать контакты дилера.</p>`,
+      plainContent: 'Здравствуйте! Единый центр телефонии, оператор [Имя].\nИнтересует автомобиль [марка/модель]?\n— Какой год выпуска рассматриваете?\n— Бюджет?\n— Новый или с пробегом?\n— Город покупки?\n[Используйте автокаталог для подбора]\nМогу предложить несколько вариантов и передать контакты дилера.',
       otabotki: [
         { id: uid(), title: 'Слишком дорого', text: 'Понимаю. Есть варианты в более доступном сегменте / с пробегом. Рассмотреть?', children: [] }
       ],
@@ -458,7 +451,7 @@ function renderScriptsList() {
     list = list.filter(s =>
       s.title.toLowerCase().includes(q) ||
       (s.category || '').toLowerCase().includes(q) ||
-      (s.content || '').toLowerCase().includes(q)
+      (s.plainContent || '').toLowerCase().includes(q)
     );
   }
   list = [...list].sort((a, b) => b.updatedAt - a.updatedAt);
@@ -555,9 +548,7 @@ function renderScriptDetail() {
       </div>
 
       <div class="crm-layout">
-        <!-- LEFT: закреплённые подсказки -->
         <aside class="crm-side">
-          <!-- Блок с названием скрипта -->
           <section class="crm-block">
             <div class="crm-block-head crm-block-head-script">
               <span>📄 ${escapeHtml(script.title)}</span>
@@ -599,10 +590,9 @@ function renderScriptDetail() {
           </section>
         </aside>
 
-        <!-- RIGHT: прокручиваемый скрипт -->
         <main class="crm-script">
           <div class="crm-script-label">📄 Текст скрипта</div>
-          <div class="crm-script-body">${escapeHtml(script.content)}</div>
+          <div class="crm-script-body">${script.content || ''}</div>
         </main>
       </div>
     </div>
@@ -755,20 +745,35 @@ function showAddScriptModal() {
     'Новый скрипт',
     `<div class="form-group"><label>Название</label><input type="text" id="fTitle" placeholder="Например: Входящий звонок"></div>
      <div class="form-group"><label>Категория</label><input type="text" id="fCategory" placeholder="Медицина, Авто..."></div>
-     <div class="form-group"><label>Текст скрипта</label><textarea id="fContent" placeholder="Текст разговора..."></textarea></div>`,
+     <div class="form-group"><label>Текст скрипта</label>
+       <div class="editor-toolbar">
+         <button class="color-btn red" data-action="apply-color" data-color="#ef4444" title="Красный"></button>
+         <button class="color-btn blue" data-action="apply-color" data-color="#3b82f6" title="Синий"></button>
+         <button class="color-btn yellow" data-action="apply-color" data-color="#fbbf24" title="Жёлтый"></button>
+         <button class="color-btn orange" data-action="apply-color" data-color="#f97316" title="Оранжевый"></button>
+         <span style="font-size:0.8rem;color:var(--text-muted);margin-left:8px;">Выделите текст и нажмите на цвет</span>
+       </div>
+       <div class="editor-content" id="editorContent" contenteditable="true" spellcheck="true"></div>
+     </div>`,
     `<button class="btn btn-outline" data-action="close-modal">Отмена</button>
      <button class="btn btn-primary" data-action="save-new-script">Сохранить</button>`
   );
-  setTimeout(() => document.getElementById('fTitle')?.focus(), 80);
+  setTimeout(() => {
+    const ed = document.getElementById('editorContent');
+    if (ed) ed.focus();
+  }, 100);
 }
 
 async function saveNewScript() {
   const title = document.getElementById('fTitle')?.value.trim();
   const category = document.getElementById('fCategory')?.value.trim() || '';
-  const content = document.getElementById('fContent')?.value.trim() || '';
+  const editor = document.getElementById('editorContent');
+  const content = editor ? editor.innerHTML : '';
   if (!title) { toast('Укажите название', 'error'); return; }
+  // plainContent
+  const plainContent = editor ? editor.textContent : '';
   const script = {
-    id: uid(), title, category, content,
+    id: uid(), title, category, content, plainContent,
     otabotki: [], shtrafy: [],
     opens: 0,
     createdAt: Date.now(), updatedAt: Date.now()
@@ -787,10 +792,30 @@ function showEditScriptModal(id) {
     'Редактировать скрипт',
     `<div class="form-group"><label>Название</label><input type="text" id="fTitle" value="${escapeAttr(script.title)}"></div>
      <div class="form-group"><label>Категория</label><input type="text" id="fCategory" value="${escapeAttr(script.category || '')}"></div>
-     <div class="form-group"><label>Текст скрипта</label><textarea id="fContent">${escapeHtml(script.content)}</textarea></div>`,
+     <div class="form-group"><label>Текст скрипта</label>
+       <div class="editor-toolbar">
+         <button class="color-btn red" data-action="apply-color" data-color="#ef4444" title="Красный"></button>
+         <button class="color-btn blue" data-action="apply-color" data-color="#3b82f6" title="Синий"></button>
+         <button class="color-btn yellow" data-action="apply-color" data-color="#fbbf24" title="Жёлтый"></button>
+         <button class="color-btn orange" data-action="apply-color" data-color="#f97316" title="Оранжевый"></button>
+         <span style="font-size:0.8rem;color:var(--text-muted);margin-left:8px;">Выделите текст и нажмите на цвет</span>
+       </div>
+       <div class="editor-content" id="editorContent" contenteditable="true" spellcheck="true">${script.content || ''}</div>
+     </div>`,
     `<button class="btn btn-outline" data-action="close-modal">Отмена</button>
      <button class="btn btn-primary" data-action="save-edit-script" data-id="${id}">Сохранить</button>`
   );
+  setTimeout(() => {
+    const ed = document.getElementById('editorContent');
+    if (ed) ed.focus();
+    // Place caret at end
+    const range = document.createRange();
+    range.selectNodeContents(ed);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }, 100);
 }
 
 async function saveEditScript(id) {
@@ -800,7 +825,9 @@ async function saveEditScript(id) {
   if (!title) { toast('Укажите название', 'error'); return; }
   script.title = title;
   script.category = document.getElementById('fCategory')?.value.trim() || '';
-  script.content = document.getElementById('fContent')?.value || '';
+  const editor = document.getElementById('editorContent');
+  script.content = editor ? editor.innerHTML : '';
+  script.plainContent = editor ? editor.textContent : '';
   script.updatedAt = Date.now();
   await saveData();
   closeModal();
@@ -1042,6 +1069,29 @@ function toggleItemText(id) {
   render();
 }
 
+function applyColor(color) {
+  const editor = document.getElementById('editorContent');
+  if (!editor) return;
+  const sel = window.getSelection();
+  if (!sel.rangeCount) {
+    toast('Сначала выделите текст', 'error');
+    return;
+  }
+  const range = sel.getRangeAt(0);
+  if (range.collapsed) {
+    toast('Выделите текст для окрашивания', 'error');
+    return;
+  }
+  // Wrap selected content in a span with color
+  const span = document.createElement('span');
+  span.style.color = color;
+  span.appendChild(range.extractContents());
+  range.insertNode(span);
+  // Restore selection
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
 /* ========== Events ========== */
 function handleClick(e) {
   const el = e.target.closest('[data-action]');
@@ -1080,6 +1130,7 @@ function handleClick(e) {
     case 'sync-now': syncNow(); break;
     case 'toggle-block': toggleBlock(el.dataset.key); break;
     case 'toggle-item-text': toggleItemText(el.dataset.id); break;
+    case 'apply-color': applyColor(el.dataset.color); break;
   }
 }
 
