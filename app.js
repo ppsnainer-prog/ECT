@@ -1,6 +1,5 @@
 /**
- * ЕЦТ Скрипты v1.2 — общее облачное хранилище (JSONBin) + localStorage
- * Когда настроены Bin ID + API Key — данные общие для всех.
+ * ЕЦТ Скрипты v2.0 — улучшенный интерфейс для операторов
  */
 
 const STORAGE_KEY = 'ect_scripts_data_v1';
@@ -18,7 +17,7 @@ let state = {
     binId: '6a9025d8f5f4af5e29495699',
     apiKey: '$2a$10$J.O3.hgzgqvHtXslrKLB4u9AuzyRwQcuvuU8GgloaYzNR3pxroN52',
     lastSync: null,
-    status: 'local' // local | syncing | ok | error
+    status: 'local'
   },
   currentPage: 'home',
   currentScriptId: null,
@@ -26,6 +25,7 @@ let state = {
   searchQuery: '',
   otabotkiQuery: '',
   otabotkiCat: '',
+  otabotkiScriptFilter: '', // фильтр по скрипту
   expandedNodes: {}
 };
 
@@ -41,7 +41,6 @@ function loadLocalSettings() {
     const rawC = localStorage.getItem(CLOUD_CFG_KEY);
     if (rawC) {
       const c = JSON.parse(rawC);
-      // If user previously saved config — use it; otherwise keep defaults from state
       if (c.binId) state.cloud.binId = c.binId;
       if (c.apiKey) state.cloud.apiKey = c.apiKey;
     }
@@ -99,13 +98,14 @@ function getDemoScripts() {
 — Запись подтверждена. Вам придёт SMS с напоминанием.
 Спасибо за обращение, до свидания!`,
       otabotki: [
-        { id: uid(), title: 'Нет свободных талонов', text: 'К сожалению, сейчас свободных талонов нет. Могу сформировать заявку в лист ожидания — вам перезвонят из поликлиники. Сформировать?' },
-        { id: uid(), title: 'Клиент не знает СНИЛС', text: 'Можете назвать дату рождения и адрес регистрации — попробуем найти вас в системе.' }
+        { id: uid(), title: 'Нет свободных талонов', text: 'К сожалению, сейчас свободных талонов нет. Могу сформировать заявку в лист ожидания — вам перезвонят из поликлиники. Сформировать?', children: [] },
+        { id: uid(), title: 'Клиент не знает СНИЛС', text: 'Можете назвать дату рождения и адрес регистрации — попробуем найти вас в системе.', children: [] }
       ],
       shtrafy: [
-        { id: uid(), title: 'Не представился', text: 'Штраф 50 ₽. Обязательно называть имя в начале разговора.' },
-        { id: uid(), title: 'Не предложил лист ожидания', text: 'При отсутствии талонов обязательно предлагать лист ожидания. Штраф 100 ₽.' }
+        { id: uid(), title: 'Не представился', text: 'Штраф 50 ₽. Обязательно называть имя в начале разговора.', children: [] },
+        { id: uid(), title: 'Не предложил лист ожидания', text: 'При отсутствии талонов обязательно предлагать лист ожидания. Штраф 100 ₽.', children: [] }
       ],
+      opens: 0,
       createdAt: Date.now() - 86400000 * 3,
       updatedAt: Date.now() - 86400000
     },
@@ -122,9 +122,10 @@ function getDemoScripts() {
 Если нет:
 — Хотите перенести запись? На какую дату удобнее?`,
       otabotki: [
-        { id: uid(), title: 'Клиент передумал', text: 'Поняла. Запись отменяю. Если понадобится — звоните, будем рады помочь.' }
+        { id: uid(), title: 'Клиент передумал', text: 'Поняла. Запись отменяю. Если понадобится — звоните, будем рады помочь.', children: [] }
       ],
       shtrafy: [],
+      opens: 0,
       createdAt: Date.now() - 86400000 * 5,
       updatedAt: Date.now() - 86400000 * 2
     },
@@ -144,11 +145,12 @@ function getDemoScripts() {
 
 Могу предложить несколько вариантов и передать контакты дилера.`,
       otabotki: [
-        { id: uid(), title: 'Слишком дорого', text: 'Понимаю. Есть варианты в более доступном сегменте / с пробегом. Рассмотреть?' }
+        { id: uid(), title: 'Слишком дорого', text: 'Понимаю. Есть варианты в более доступном сегменте / с пробегом. Рассмотреть?', children: [] }
       ],
       shtrafy: [
-        { id: uid(), title: 'Не использовал каталог', text: 'При консультации по авто обязательно сверяться с актуальным каталогом.' }
+        { id: uid(), title: 'Не использовал каталог', text: 'При консультации по авто обязательно сверяться с актуальным каталогом.', children: [] }
       ],
+      opens: 0,
       createdAt: Date.now() - 86400000,
       updatedAt: Date.now()
     }
@@ -162,9 +164,7 @@ async function cloudFetch() {
   updateSyncBadge();
   try {
     const res = await fetch(`https://api.jsonbin.io/v3/b/${state.cloud.binId}/latest`, {
-      headers: {
-        'X-Master-Key': state.cloud.apiKey
-      }
+      headers: { 'X-Master-Key': state.cloud.apiKey }
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
@@ -221,10 +221,9 @@ async function loadData() {
     const remote = await cloudFetch();
     if (remote && Array.isArray(remote.scripts)) {
       state.scripts = remote.scripts;
-      saveLocalScripts(); // mirror
+      saveLocalScripts();
     } else {
       loadLocalScripts();
-      // first time: push local to cloud
       await cloudSave();
     }
   } else {
@@ -242,14 +241,10 @@ async function saveData() {
 function startAutoSync() {
   stopAutoSync();
   if (!state.cloud.enabled) return;
-  // pull every 25 sec
   syncTimer = setInterval(async () => {
     if (document.hidden) return;
     const remote = await cloudFetch();
     if (remote && Array.isArray(remote.scripts)) {
-      const remoteUpdated = remote.updatedAt || 0;
-      const localMax = Math.max(0, ...state.scripts.map(s => s.updatedAt || 0));
-      // simple: if remote has different count or newer content — take remote
       const remoteStr = JSON.stringify(remote.scripts.map(s => s.id + s.updatedAt).sort());
       const localStr = JSON.stringify(state.scripts.map(s => s.id + s.updatedAt).sort());
       if (remoteStr !== localStr) {
@@ -342,7 +337,9 @@ function navigate(page, scriptId = null) {
   state.currentPage = page;
   state.currentScriptId = scriptId;
   if (page !== 'script') state.currentTab = 'content';
-  if (page !== 'scripts') state.searchQuery = '';
+  if (page !== 'scripts') {
+    // Не сбрасываем поиск глобально, он остаётся в шапке
+  }
 
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.page === page || (page === 'script' && el.dataset.page === 'scripts'));
@@ -357,12 +354,20 @@ function navigate(page, scriptId = null) {
     script: 'Скрипт'
   };
   let title = titles[page] || page;
-  // Не дублируем длинное название скрипта в шапке
   if (page === 'script') title = 'Скрипт';
   document.getElementById('pageTitle').textContent = title;
 
   const addBtn = document.getElementById('addScriptBtn');
   if (addBtn) addBtn.style.display = (page === 'scripts') ? 'inline-flex' : 'none';
+
+  // Если открываем скрипт, увеличиваем счётчик
+  if (page === 'script' && scriptId) {
+    const scr = state.scripts.find(s => s.id === scriptId);
+    if (scr) {
+      scr.opens = (scr.opens || 0) + 1;
+      saveLocalScripts(); // не ждём облако
+    }
+  }
 
   render();
 }
@@ -380,6 +385,9 @@ function render() {
     default: content.innerHTML = '<p>Страница не найдена</p>';
   }
   updateSyncBadge();
+  // обновить значение глобального поиска
+  const gs = document.getElementById('globalSearch');
+  if (gs) gs.value = state.searchQuery || '';
 }
 
 function renderHome() {
@@ -387,6 +395,8 @@ function renderHome() {
   const withO = state.scripts.filter(s => (s.otabotki || []).length).length;
   const withS = state.scripts.filter(s => (s.shtrafy || []).length).length;
   const recent = [...state.scripts].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 5);
+  // Топ-5 по открытиям
+  const top = [...state.scripts].filter(s => (s.opens || 0) > 0).sort((a, b) => (b.opens || 0) - (a.opens || 0)).slice(0, 5);
 
   return `
     <div class="home-grid">
@@ -399,6 +409,20 @@ function renderHome() {
           <div class="stat"><div class="stat-value">${withS}</div><div class="stat-label">Со штрафами</div></div>
         </div>
       </div>
+
+      ${top.length ? `
+      <div class="card">
+        <div class="section-title"><span>⭐ Часто используемые</span></div>
+        <div class="item-list">
+          ${top.map(s => `
+            <div class="item-card card-interactive" data-action="open-script" data-id="${s.id}" style="cursor:pointer">
+              <h4>${escapeHtml(s.title)} <span style="font-size:0.8rem;font-weight:400;color:var(--text-muted)">(${s.opens || 0} раз)</span></h4>
+              <p style="font-size:0.82rem;margin:0">${escapeHtml(s.category || 'Без категории')} · ${formatDate(s.updatedAt)}</p>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      ` : ''}
 
       <div class="card">
         <div class="section-title">
@@ -419,7 +443,7 @@ function renderHome() {
       <div class="card">
         <div class="section-title"><span>🚗 Автокаталог</span></div>
         <p style="color:var(--text-muted);margin-bottom:18px;font-size:0.92rem">
-          Каталог автомобилей и города России.
+          Каталог автомобилей и городов России.
         </p>
         <div class="actions-row">
           <button class="btn btn-primary" data-action="nav" data-page="catalog">Открыть каталог</button>
@@ -458,8 +482,9 @@ function renderScriptsList() {
             <h3>${escapeHtml(s.title)}</h3>
             <div class="script-meta">
               ${s.category ? `<span class="badge badge-primary">${escapeHtml(s.category)}</span>` : ''}
-              <span class="badge badge-teal">🔄 ${(s.otabotki || []).length}</span>
-              <span class="badge badge-danger">⚠ ${(s.shtrafy || []).length}</span>
+              <span class="badge badge-teal">🔄 ${countTree(s.otabotki || [])}</span>
+              <span class="badge badge-danger">⚠ ${countTree(s.shtrafy || [])}</span>
+              <span class="badge">👁 ${s.opens || 0}</span>
             </div>
             <p style="font-size:0.8rem;color:var(--text-muted);margin-top:10px">${formatDate(s.updatedAt)}</p>
           </div>
@@ -468,12 +493,19 @@ function renderScriptsList() {
   `;
 }
 
+function countTree(items) {
+  if (!items) return 0;
+  let n = items.length;
+  for (const it of items) n += countTree(it.children);
+  return n;
+}
+
 function renderTreeItems(items, scriptId, type, depth = 0) {
   if (!items || !items.length) return '';
   return items.map(item => {
     const hasChildren = item.children && item.children.length > 0;
     const expKey = type + ':' + item.id;
-    const expanded = state.expandedNodes[expKey] !== false; // default open
+    const expanded = state.expandedNodes[expKey] !== false;
     return `
       <div class="tree-node" style="margin-left:${depth * 14}px">
         <div class="crm-hint crm-hint-${type === 'otabotki' ? 'otabotka' : 'shtraf'}">
@@ -496,13 +528,6 @@ function renderTreeItems(items, scriptId, type, depth = 0) {
   }).join('');
 }
 
-function countTree(items) {
-  if (!items) return 0;
-  let n = items.length;
-  for (const it of items) n += countTree(it.children);
-  return n;
-}
-
 function renderScriptDetail() {
   const script = state.scripts.find(s => s.id === state.currentScriptId);
   if (!script) {
@@ -514,17 +539,11 @@ function renderScriptDetail() {
   const shtrafy = script.shtrafy || [];
 
   return `
-    <div class="script-detail script-detail-full">
+    <div class="script-detail-full">
       <div class="script-detail-top">
         <div class="script-detail-top-left">
           <button class="btn btn-sm btn-outline" data-action="nav" data-page="scripts">← Назад</button>
-          <div>
-            <h2>${escapeHtml(script.title)}</h2>
-            <div class="script-meta">
-              ${script.category ? `<span class="badge badge-primary">${escapeHtml(script.category)}</span>` : ''}
-              <span class="badge">Обновлён ${formatDate(script.updatedAt)}</span>
-            </div>
-          </div>
+          <span style="font-size:0.9rem;color:var(--text-muted)">${escapeHtml(script.category || 'Без категории')}</span>
         </div>
         <div class="actions-row">
           <button class="btn btn-outline btn-sm" data-action="edit-script" data-id="${script.id}">✏️ Редактировать</button>
@@ -535,6 +554,17 @@ function renderScriptDetail() {
       <div class="crm-layout">
         <!-- LEFT: закреплённые подсказки -->
         <aside class="crm-side">
+          <!-- Блок с названием скрипта -->
+          <section class="crm-block">
+            <div class="crm-block-head crm-block-head-script">
+              <span>📄 ${escapeHtml(script.title)}</span>
+              <span class="badge">👁 ${script.opens || 0}</span>
+            </div>
+            <div class="crm-block-body" style="padding:12px; gap:4px;">
+              <div style="font-size:0.85rem;color:var(--text-muted)">Обновлён ${formatDate(script.updatedAt)}</div>
+            </div>
+          </section>
+
           <section class="crm-block">
             <div class="crm-block-head crm-block-head-teal">
               <span>🔄 Отработки <span class="badge badge-teal">${countTree(otabotki)}</span></span>
@@ -562,7 +592,7 @@ function renderScriptDetail() {
 
         <!-- RIGHT: прокручиваемый скрипт -->
         <main class="crm-script">
-          <div class="crm-script-label">📄 Скрипт</div>
+          <div class="crm-script-label">📄 Текст скрипта</div>
           <div class="crm-script-body">${escapeHtml(script.content)}</div>
         </main>
       </div>
@@ -597,10 +627,16 @@ function collectAllOtabotki() {
 function renderOtabotkiCatalog() {
   const q = (state.otabotkiQuery || '').toLowerCase().trim();
   const catFilter = state.otabotkiCat || '';
+  const scriptFilter = state.otabotkiScriptFilter || '';
   let list = collectAllOtabotki();
   const categories = [...new Set(list.map(x => x.category))].sort();
+  const scriptOptions = [...new Set(list.map(x => x.scriptId))].map(id => {
+    const s = state.scripts.find(sc => sc.id === id);
+    return s ? { id: s.id, title: s.title } : null;
+  }).filter(Boolean).sort((a,b) => a.title.localeCompare(b.title));
 
   if (catFilter) list = list.filter(x => x.category === catFilter);
+  if (scriptFilter) list = list.filter(x => x.scriptId === scriptFilter);
   if (q) {
     list = list.filter(x =>
       x.title.toLowerCase().includes(q) ||
@@ -612,14 +648,18 @@ function renderOtabotkiCatalog() {
 
   return `
     <div class="search-bar">
-      <input type="search" class="search-input" id="otabotkiSearch" placeholder="Поиск отработок по тексту, названию, скрипту..." value="${escapeAttr(state.otabotkiQuery || '')}">
-      <select class="search-input" id="otabotkiCat" style="flex:0 0 200px;cursor:pointer">
+      <input type="search" class="search-input" id="otabotkiSearch" placeholder="Поиск отработок..." value="${escapeAttr(state.otabotkiQuery || '')}">
+      <select class="search-input" id="otabotkiCat" style="flex:0 0 180px;cursor:pointer">
         <option value="">Все категории</option>
         ${categories.map(c => `<option value="${escapeAttr(c)}" ${c === catFilter ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
       </select>
+      <select class="search-input" id="otabotkiScriptFilter" style="flex:0 0 200px;cursor:pointer">
+        <option value="">Все скрипты</option>
+        ${scriptOptions.map(s => `<option value="${s.id}" ${s.id === scriptFilter ? 'selected' : ''}>${escapeHtml(s.title)}</option>`).join('')}
+      </select>
     </div>
     <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:16px">
-      Найдено: <b>${list.length}</b> · отработки собраны из всех скриптов
+      Найдено: <b>${list.length}</b> отработок
     </p>
     ${list.length === 0
       ? '<div class="empty-state"><div class="empty-icon">🔄</div><p>Отработок не найдено</p></div>'
@@ -721,6 +761,7 @@ async function saveNewScript() {
   const script = {
     id: uid(), title, category, content,
     otabotki: [], shtrafy: [],
+    opens: 0,
     createdAt: Date.now(), updatedAt: Date.now()
   };
   state.scripts.push(script);
@@ -774,7 +815,6 @@ async function deleteScript(id) {
   toast('Скрипт удалён');
   navigate('scripts');
 }
-
 
 function findInTree(items, id, parentList = null) {
   if (!items) return null;
@@ -943,7 +983,6 @@ async function saveCloudConfig() {
       saveLocalScripts();
       toast('Загружено из облака: ' + state.scripts.length + ' скриптов');
     } else {
-      // empty bin or first connect — push current
       await cloudSave();
       toast('Облако подключено, данные отправлены');
     }
@@ -1054,6 +1093,17 @@ function bindGlobalEvents() {
     e.target.value = '';
   });
 
+  // Глобальный поиск
+  document.getElementById('globalSearch').addEventListener('input', (e) => {
+    const val = e.target.value;
+    state.searchQuery = val;
+    if (state.currentPage !== 'scripts') {
+      navigate('scripts');
+    } else {
+      render();
+    }
+  });
+
   document.addEventListener('input', (e) => {
     if (e.target.id === 'searchInput') {
       state.searchQuery = e.target.value;
@@ -1074,6 +1124,10 @@ function bindGlobalEvents() {
   document.addEventListener('change', (e) => {
     if (e.target.id === 'otabotkiCat') {
       state.otabotkiCat = e.target.value;
+      if (state.currentPage === 'otabotki') render();
+    }
+    if (e.target.id === 'otabotkiScriptFilter') {
+      state.otabotkiScriptFilter = e.target.value;
       if (state.currentPage === 'otabotki') render();
     }
   });
