@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.3 — исправление ошибок сохранения в облако
+ * ЕЦТ Скрипты v2.3 — улучшенная работа с облаком
  */
 
 const STORAGE_KEY = 'ect_scripts_data_v1';
@@ -157,16 +157,36 @@ function getDemoScripts() {
   ];
 }
 
-/* ========== Cloud (JSONBin) ========== */
+/* ========== Cloud (JSONBin) с определением типа ключа ========== */
+function getCloudHeaders() {
+  const key = state.cloud.apiKey || '';
+  // Если ключ начинается с $2a$10$ и длинный — это скорее Access Key, используем X-Access-Key
+  // Если ключ короче (обычно 32-40 символов) — это Master Key
+  const isAccessKey = key.startsWith('$2a$10$') && key.length > 40;
+  return {
+    'Content-Type': 'application/json',
+    [isAccessKey ? 'X-Access-Key' : 'X-Master-Key']: key
+  };
+}
+
 async function cloudFetch() {
   if (!state.cloud.enabled) return null;
   state.cloud.status = 'syncing';
   updateSyncBadge();
   try {
+    const headers = getCloudHeaders();
     const res = await fetch(`https://api.jsonbin.io/v3/b/${state.cloud.binId}/latest`, {
-      headers: { 'X-Master-Key': state.cloud.apiKey }
+      headers
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      if (res.status === 403) {
+        toast('Ошибка доступа к облаку (403). Проверьте Bin ID и API Key в настройках.', 'error');
+        state.cloud.status = 'error';
+        updateSyncBadge();
+        return null;
+      }
+      throw new Error(`HTTP ${res.status}`);
+    }
     const json = await res.json();
     const record = json.record || json;
     state.cloud.status = 'ok';
@@ -191,20 +211,17 @@ async function cloudSave() {
       updatedAt: Date.now(),
       version: 1
     };
+    const headers = getCloudHeaders();
     const res = await fetch(`https://api.jsonbin.io/v3/b/${state.cloud.binId}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Master-Key': state.cloud.apiKey
-      },
+      headers,
       body: JSON.stringify(payload)
     });
     if (!res.ok) {
-      // Если 403 — обычно проблема с ключом или бином
       if (res.status === 403) {
+        toast('Ошибка доступа к облаку (403). Проверьте Bin ID и API Key в настройках.', 'error');
         state.cloud.status = 'error';
         updateSyncBadge();
-        toast('Ошибка доступа к облаку (403). Проверьте Bin ID и API Key в настройках.', 'error');
         return false;
       }
       throw new Error(`HTTP ${res.status}`);
@@ -217,7 +234,6 @@ async function cloudSave() {
     console.warn('Cloud save error', e);
     state.cloud.status = 'error';
     updateSyncBadge();
-    // Показываем общее сообщение об ошибке
     toast('Ошибка сохранения в облако: ' + e.message, 'error');
     return false;
   }
@@ -242,13 +258,10 @@ async function loadData() {
 }
 
 async function saveData() {
-  // Всегда сохраняем локально
   saveLocalScripts();
-  // Пытаемся сохранить в облако, но не блокируем выполнение
   if (state.cloud.enabled) {
     const ok = await cloudSave();
     if (!ok) {
-      // Если облако не сохранилось, показываем предупреждение, но локально уже сохранено
       toast('Скрипт сохранён локально, но в облако не отправлен', 'error');
     }
   }
@@ -382,7 +395,7 @@ function navigate(page, scriptId = null) {
   render();
 }
 
-/* ========== Render ========== */
+/* ========== Render (без изменений, кроме работы с облаком) ========== */
 function render() {
   const content = document.getElementById('content');
   switch (state.currentPage) {
@@ -719,8 +732,11 @@ function renderSettings() {
         <input type="text" id="cfgBinId" value="${escapeAttr(c.binId)}" placeholder="например 68a1b2c3d4e5f6...">
       </div>
       <div class="form-group">
-        <label>Master Key (API Key)</label>
+        <label>API Key (Master или Access)</label>
         <input type="password" id="cfgApiKey" value="${escapeAttr(c.apiKey)}" placeholder="\$2a\$10\$...">
+        <div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">
+          Можно использовать как Master Key, так и Access Key. Если Access — он будет отправлен в заголовке X-Access-Key.
+        </div>
       </div>
       <div class="actions-row">
         <button class="btn btn-primary btn-sm" data-action="save-cloud">Подключить / Сохранить</button>
@@ -794,9 +810,9 @@ async function saveNewScript() {
     createdAt: Date.now(), updatedAt: Date.now()
   };
   state.scripts.push(script);
-  await saveData(); // Теперь saveData не выбрасывает исключение, даже если облако недоступно
+  await saveData();
   closeModal();
-  toast('Скрипт создан' + (state.cloud.enabled && state.cloud.status === 'ok' ? ' и отправлен в облако' : ' (локально)'));
+  toast('Скрипт создан' + (state.cloud.enabled ? ' и отправлен в облако' : ' (локально)'));
   navigate('script', script.id);
 }
 
@@ -845,7 +861,7 @@ async function saveEditScript(id) {
   script.updatedAt = Date.now();
   await saveData();
   closeModal();
-  toast('Сохранено' + (state.cloud.enabled && state.cloud.status === 'ok' ? ' в облако' : ' (локально)'));
+  toast('Сохранено' + (state.cloud.enabled ? ' в облако' : ' (локально)'));
   render();
 }
 
