@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.2 — цветное форматирование скриптов
+ * ЕЦТ Скрипты v2.3 — исправление ошибок сохранения в облако
  */
 
 const STORAGE_KEY = 'ect_scripts_data_v1';
@@ -199,7 +199,16 @@ async function cloudSave() {
       },
       body: JSON.stringify(payload)
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      // Если 403 — обычно проблема с ключом или бином
+      if (res.status === 403) {
+        state.cloud.status = 'error';
+        updateSyncBadge();
+        toast('Ошибка доступа к облаку (403). Проверьте Bin ID и API Key в настройках.', 'error');
+        return false;
+      }
+      throw new Error(`HTTP ${res.status}`);
+    }
     state.cloud.status = 'ok';
     state.cloud.lastSync = Date.now();
     updateSyncBadge();
@@ -208,6 +217,7 @@ async function cloudSave() {
     console.warn('Cloud save error', e);
     state.cloud.status = 'error';
     updateSyncBadge();
+    // Показываем общее сообщение об ошибке
     toast('Ошибка сохранения в облако: ' + e.message, 'error');
     return false;
   }
@@ -232,9 +242,15 @@ async function loadData() {
 }
 
 async function saveData() {
+  // Всегда сохраняем локально
   saveLocalScripts();
+  // Пытаемся сохранить в облако, но не блокируем выполнение
   if (state.cloud.enabled) {
-    await cloudSave();
+    const ok = await cloudSave();
+    if (!ok) {
+      // Если облако не сохранилось, показываем предупреждение, но локально уже сохранено
+      toast('Скрипт сохранён локально, но в облако не отправлен', 'error');
+    }
   }
 }
 
@@ -770,7 +786,6 @@ async function saveNewScript() {
   const editor = document.getElementById('editorContent');
   const content = editor ? editor.innerHTML : '';
   if (!title) { toast('Укажите название', 'error'); return; }
-  // plainContent
   const plainContent = editor ? editor.textContent : '';
   const script = {
     id: uid(), title, category, content, plainContent,
@@ -779,9 +794,9 @@ async function saveNewScript() {
     createdAt: Date.now(), updatedAt: Date.now()
   };
   state.scripts.push(script);
-  await saveData();
+  await saveData(); // Теперь saveData не выбрасывает исключение, даже если облако недоступно
   closeModal();
-  toast('Скрипт создан' + (state.cloud.enabled ? ' и отправлен в облако' : ''));
+  toast('Скрипт создан' + (state.cloud.enabled && state.cloud.status === 'ok' ? ' и отправлен в облако' : ' (локально)'));
   navigate('script', script.id);
 }
 
@@ -808,7 +823,6 @@ function showEditScriptModal(id) {
   setTimeout(() => {
     const ed = document.getElementById('editorContent');
     if (ed) ed.focus();
-    // Place caret at end
     const range = document.createRange();
     range.selectNodeContents(ed);
     range.collapse(false);
@@ -831,7 +845,7 @@ async function saveEditScript(id) {
   script.updatedAt = Date.now();
   await saveData();
   closeModal();
-  toast('Сохранено' + (state.cloud.enabled ? ' в облако' : ''));
+  toast('Сохранено' + (state.cloud.enabled && state.cloud.status === 'ok' ? ' в облако' : ' (локально)'));
   render();
 }
 
@@ -1082,12 +1096,10 @@ function applyColor(color) {
     toast('Выделите текст для окрашивания', 'error');
     return;
   }
-  // Wrap selected content in a span with color
   const span = document.createElement('span');
   span.style.color = color;
   span.appendChild(range.extractContents());
   range.insertNode(span);
-  // Restore selection
   sel.removeAllRanges();
   sel.addRange(range);
 }
