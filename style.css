@@ -1031,4 +1031,13 @@ code {
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-/* Анимация для сворачи
+/* Анимация для сворачивания */
+.crm-block-body {
+  max-height: 1000px;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+}
+.crm-block-body.collapsed {
+  max-height: 0 !important;
+  padding: 0 8px !important;
+  overflow: hidden;
+}
