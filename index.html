@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Скрипты ЕЦТ — Единый центр телефонии</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📞</text></svg>" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- Login gate -->
+  <section id="loginScreen" class="login-screen" aria-label="Вход">
+    <div class="login-card">
+      <div class="login-logo">📞</div>
+      <h1>ЕЦТ Скрипты</h1>
+      <p class="login-subtitle">Закрытый доступ для команды</p>
+
+      <div class="login-field">
+        <label for="loginUser">Пользователь</label>
+        <select id="loginUser">
+          <option value="">Выберите пользователя</option>
+          <option value="Александр">Александр</option>
+          <option value="Айнур">Айнур</option>
+          <option value="Илья">Илья</option>
+          <option value="Екатерина">Екатерина</option>
+          <option value="Общая">Общая — только просмотр</option>
+        </select>
+      </div>
+
+      <div class="login-field">
+        <label for="loginPassword">Пароль</label>
+        <div class="password-wrap">
+          <input id="loginPassword" type="password" autocomplete="current-password"
+                 placeholder="Введите пароль" />
+          <button type="button" class="password-toggle" id="toggleLoginPassword" aria-label="Показать пароль">◉</button>
+        </div>
+      </div>
+
+      <button class="btn btn-primary login-button" id="loginButton">Войти</button>
+      <p class="login-error" id="loginError" role="alert"></p>
+      <p class="login-note">Доступ только для участников команды.</p>
+    </div>
+  </section>
+
+  <div id="app" hidden>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <span class="logo-icon">📞</span>
+          <span class="logo-text">ЕЦТ Скрипты</span>
+        </div>
+        <button class="btn-icon sidebar-toggle" id="sidebarToggle" title="Свернуть">☰</button>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-page="home">
+          <span class="nav-icon">🏠</span>
+          <span class="nav-label">Главная</span>
+        </button>
+        <button class="nav-item" data-page="scripts">
+          <span class="nav-icon">📜</span>
+          <span class="nav-label">Скрипты</span>
+        </button>
+        <button class="nav-item" data-page="otabotki">
+          <span class="nav-icon">🔄</span>
+          <span class="nav-label">Отработки</span>
+        </button>
+        <button class="nav-item" data-page="catalog">
+          <span class="nav-icon">🚗</span>
+          <span class="nav-label">Автокаталог</span>
+        </button>
+        <button class="nav-item" data-page="settings">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-label">Настройки</span>
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="btn btn-sm btn-outline" id="exportData">Экспорт</button>
+        <button class="btn btn-sm btn-outline" id="importData">Импорт</button>
+        <input type="file" id="importFile" accept=".json" hidden />
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <h1 id="pageTitle">Главная</h1>
+        </div>
+        <div class="topbar-right">
+          <span class="login-user-badge" id="currentUserBadge"></span>
+          <button class="btn btn-sm btn-outline logout-btn" id="logoutBtn" title="Выйти из аккаунта">Выйти</button>
+          <span class="sync-badge local" id="syncBadge" title="Статус синхронизации">Локально</span>
+          <button class="btn btn-primary" id="addScriptBtn" style="display:none">+ Новый скрипт</button>
+          <button class="btn btn-sm btn-outline" id="quickSearchBtn" title="Ctrl+B — быстрый поиск">🔍 Поиск</button>
+          <button class="btn btn-sm btn-outline" id="hotkeysBtn" title="Ctrl+/ — справка">⌨</button>
+          <button class="btn-icon" id="themeToggle" title="Тема">🌙</button>
+        </div>
+      </header>
+
+      <div class="content" id="content">
+        <!-- Pages will be rendered here -->
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modalOverlay" hidden>
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <h2 id="modalTitle">Модальное окно</h2>
+        <button class="btn-icon modal-close" id="modalClose">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer" id="modalFooter"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="app.js"></script>
+<script>
+(function () {
+  const USERS = {
+    "Александр": "Ect-A7!Kp29",
+    "Айнур": "Ect-N4@vL83",
+    "Илья": "Ect-I6#rT41",
+    "Екатерина": "Ect-E9$zQ57",
+    "Общая": "Ect-C3!mR72"
+  };
+
+  function setMessage(text) {
+    const el = document.getElementById("loginError");
+    if (el) el.textContent = text || "";
+  }
+
+  function showMainUI(user) {
+    const login = document.getElementById("loginScreen");
+    const app = document.getElementById("app");
+    if (login) {
+      login.hidden = true;
+      login.setAttribute("hidden", "");
+      login.style.display = "none";
+    }
+    if (app) {
+      app.hidden = false;
+      app.removeAttribute("hidden");
+      app.style.display = "flex";
+    }
+    const badge = document.getElementById("currentUserBadge");
+    if (badge) badge.textContent = "👤 " + user;
+    try { sessionStorage.setItem("ect_team_session_v1", user); } catch (_) {}
+    if (typeof state !== "undefined") state.currentUser = user;
+  }
+
+  function showLoginUI() {
+    const login = document.getElementById("loginScreen");
+    const app = document.getElementById("app");
+    if (app) {
+      app.hidden = true;
+      app.setAttribute("hidden", "");
+      app.style.display = "none";
+    }
+    if (login) {
+      login.hidden = false;
+      login.removeAttribute("hidden");
+      login.style.display = "flex";
+    }
+  }
+
+  async function bootApp(user) {
+    if (typeof state !== "undefined") state.currentUser = user;
+    try {
+      if (typeof applyAccountPermissions === "function") applyAccountPermissions();
+    } catch (e) { console.warn("permissions", e); }
+
+    if (typeof startApplication !== "function") {
+      throw new Error("startApplication не найден");
+    }
+    await startApplication();
+  }
+
+  async function openApp(user) {
+    window.__ectOpening = false; // сброс залипшего флага
+    const btn = document.getElementById("loginButton");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Входим…";
+    }
+    setMessage("");
+
+    // 1) Сразу показать интерфейс — до любых async
+    showMainUI(user);
+
+    try {
+      await bootApp(user);
+      setMessage("");
+    } catch (err) {
+      console.error("boot error", err);
+      // UI уже открыт — не возвращаем на логин
+      setMessage("Сайт открыт. Предупреждение: " + (err && err.message ? err.message : err));
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Войти";
+      }
+      window.__ectOpening = false;
+    }
+  }
+
+  function doLogin() {
+    try {
+      const userEl = document.getElementById("loginUser");
+      const passEl = document.getElementById("loginPassword");
+      const user = (userEl && userEl.value) ? userEl.value.trim() : "";
+      const password = (passEl && passEl.value) ? passEl.value : "";
+
+      setMessage("");
+
+      if (!user) {
+        setMessage("Сначала выберите пользователя.");
+        return;
+      }
+      if (!password) {
+        setMessage("Введите пароль.");
+        if (passEl) passEl.focus();
+        return;
+      }
+
+      const expected = USERS[user];
+      if (!expected) {
+        setMessage("Неизвестный пользователь.");
+        return;
+      }
+
+      // Сравнение без лишних пробелов по краям пароля
+      if (password.trim() !== expected && password !== expected) {
+        setMessage("Неверный пароль.");
+        if (passEl) { passEl.value = ""; passEl.focus(); }
+        return;
+      }
+
+      // Успех
+      openApp(user);
+    } catch (e) {
+      console.error("doLogin crash", e);
+      setMessage("Ошибка входа: " + (e && e.message ? e.message : e));
+    }
+  }
+
+  function installLogin() {
+    const toggle = document.getElementById("toggleLoginPassword");
+    const passForToggle = document.getElementById("loginPassword");
+    if (toggle && passForToggle) {
+      toggle.onclick = function (e) {
+        e.preventDefault();
+        passForToggle.type = passForToggle.type === "password" ? "text" : "password";
+      };
+    }
+
+    const btn = document.getElementById("loginButton");
+    const pass = document.getElementById("loginPassword");
+    const user = document.getElementById("loginUser");
+
+    if (btn) {
+      btn.type = "button";
+      btn.onclick = function (e) {
+        e.preventDefault();
+        doLogin();
+      };
+    }
+    if (pass) {
+      pass.onkeydown = function (e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          doLogin();
+        }
+      };
+    }
+    if (user) {
+      user.onchange = function () { setMessage(""); };
+    }
+
+    // Восстановление сессии — только если всё ок
+    try {
+      const saved = sessionStorage.getItem("ect_team_session_v1");
+      if (saved && USERS[saved]) {
+        openApp(saved);
+      } else {
+        showLoginUI();
+      }
+    } catch (_) {
+      showLoginUI();
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", installLogin);
+  } else {
+    installLogin();
+  }
+
+  window.__ECT_LOGIN_TEST = function () {
+    return {
+      buttonFound: !!document.getElementById("loginButton"),
+      appJsLoaded: typeof startApplication === "function",
+      users: Object.keys(USERS),
+      appHidden: document.getElementById("app") && document.getElementById("app").hidden,
+      loginHidden: document.getElementById("loginScreen") && document.getElementById("loginScreen").hidden
+    };
+  };
+
+  // Ручной вход из консоли для диагностики
+  window.__ECT_FORCE_LOGIN = function (name) {
+    name = name || "Александр";
+    if (!USERS[name]) return "нет такого пользователя";
+    openApp(name);
+    return "ok " + name;
+  };
+})();
+</script>
+
+
+</body>
+</html>
