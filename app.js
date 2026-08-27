@@ -1565,9 +1565,9 @@ function showHotkeysHelp() {
     `<div style="line-height:1.7;font-size:0.95rem">
       <p><b>Глобально</b></p>
       <ul style="padding-left:18px;margin:8px 0 16px">
-        <li><code>Ctrl + K</code> — быстрый поиск скриптов</li>
-        <li><code>Ctrl + J</code> — быстрый переход к скрипту</li>
-        <li><code>Ctrl + N</code> — новый скрипт</li>
+        <li><code>Ctrl + Q</code> — быстрый поиск скриптов</li>
+        <li><code>Ctrl + B</code> — быстрый переход к скрипту</li>
+        <li><code>Ctrl + I</code> — новый скрипт</li>
         <li><code>Ctrl + /</code> — эта справка</li>
         <li><code>Esc</code> — закрыть окно / назад</li>
       </ul>
