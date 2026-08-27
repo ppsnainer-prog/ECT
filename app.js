@@ -1,4 +1,4 @@
-/**
+**
  * ЕЦТ Скрипты v2.4 — поддержка приватных бинов и улучшенная диагностика
  */
 
@@ -16,7 +16,8 @@ let state = {
     enabled: true,
     binId: '6a9025d8f5f4af5e29495699',
     apiKey: '$2a$10$J.O3.hgzgqvHtXslrKLB4u9AuzyRwQcuvuU8GgloaYzNR3pxroN52',
-    private: false,   // <-- новый флаг
+    private: true,    // бин Private на jsonbin
+    useAccessKey: false, // false = X-Master-Key
     lastSync: null,
     status: 'local'
   },
@@ -45,6 +46,7 @@ function loadLocalSettings() {
       if (c.binId) state.cloud.binId = c.binId;
       if (c.apiKey) state.cloud.apiKey = c.apiKey;
       if (c.private !== undefined) state.cloud.private = c.private;
+      if (c.useAccessKey !== undefined) state.cloud.useAccessKey = c.useAccessKey;
     }
   } catch (e) {}
   state.cloud.enabled = !!(state.cloud.binId && state.cloud.apiKey);
@@ -59,7 +61,8 @@ function saveLocalSettings() {
   localStorage.setItem(CLOUD_CFG_KEY, JSON.stringify({
     binId: state.cloud.binId,
     apiKey: state.cloud.apiKey,
-    private: state.cloud.private
+    private: state.cloud.private,
+    useAccessKey: state.cloud.useAccessKey
   }));
   localStorage.setItem('ect_collapsed_blocks', JSON.stringify(state.collapsedBlocks));
 }
@@ -163,15 +166,18 @@ function getDemoScripts() {
 
 /* ========== Cloud (JSONBin) с поддержкой приватных бинов ========== */
 function getCloudHeaders() {
-  const key = state.cloud.apiKey || '';
-  const isAccessKey = key.startsWith('$2a$10$') && key.length > 40;
+  const key = (state.cloud.apiKey || '').trim();
+  // Важно: Master Key и Access Key выглядят одинаково ($2a$10$...).
+  // Для приватных бинов нужен именно X-Master-Key (или Access Key с правами).
+  // По умолчанию всегда шлём X-Master-Key — это работает с Master Key.
+  // Если ключ помечен как access в настройках — используем X-Access-Key.
   const headers = {
-    'Content-Type': 'application/json',
-    [isAccessKey ? 'X-Access-Key' : 'X-Master-Key']: key
+    'Content-Type': 'application/json'
   };
-  // Если бин приватный, добавляем заголовок
-  if (state.cloud.private) {
-    headers['X-Bin-Private'] = 'true';
+  if (state.cloud.useAccessKey) {
+    headers['X-Access-Key'] = key;
+  } else {
+    headers['X-Master-Key'] = key;
   }
   return headers;
 }
@@ -187,7 +193,7 @@ async function cloudFetch() {
     });
     if (!res.ok) {
       if (res.status === 401) {
-        toast('Ошибка 401 — проверьте Bin ID, ключ и флаг "Приватный бин" в настройках.', 'error');
+        toast('Ошибка 401 — нужен Master Key (не Access Key). Скопируйте X-MASTER-KEY с jsonbin.io', 'error');
         state.cloud.status = 'error';
         updateSyncBadge();
         return null;
@@ -232,7 +238,7 @@ async function cloudSave() {
     });
     if (!res.ok) {
       if (res.status === 401) {
-        toast('Ошибка 401 — проверьте Bin ID, ключ и флаг "Приватный бин" в настройках.', 'error');
+        toast('Ошибка 401 — нужен Master Key (не Access Key). Скопируйте X-MASTER-KEY с jsonbin.io', 'error');
         state.cloud.status = 'error';
         updateSyncBadge();
         return false;
@@ -753,12 +759,16 @@ function renderSettings() {
         <label>API Key (Master или Access)</label>
         <input type="password" id="cfgApiKey" value="${escapeAttr(c.apiKey)}" placeholder="\$2a\$10\$...">
         <div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">
-          Если используете Access Key, убедитесь, что он привязан к этому бину.
+          Важно: вставляйте <b>X-MASTER-KEY</b>, не Access Key. Access Key без прав даёт ошибку 401.
         </div>
       </div>
       <div class="checkbox-group">
         <input type="checkbox" id="cfgPrivate" ${c.private ? 'checked' : ''}>
-        <label for="cfgPrivate">Приватный бин (требуется заголовок X-Bin-Private)</label>
+        <label for="cfgPrivate">Бин Private (на jsonbin стоит замок) — просто напоминание</label>
+      </div>
+      <div class="checkbox-group">
+        <input type="checkbox" id="cfgUseAccess" ${c.useAccessKey ? 'checked' : ''}>
+        <label for="cfgUseAccess">Использовать Access Key вместо Master Key (обычно НЕ нужно)</label>
       </div>
       <div class="actions-row">
         <button class="btn btn-primary btn-sm" data-action="save-cloud">Подключить / Сохранить</button>
@@ -1076,9 +1086,11 @@ async function saveCloudConfig() {
   const binId = document.getElementById('cfgBinId')?.value.trim() || '';
   const apiKey = document.getElementById('cfgApiKey')?.value.trim() || '';
   const isPrivate = document.getElementById('cfgPrivate')?.checked || false;
+  const useAccess = document.getElementById('cfgUseAccess')?.checked || false;
   state.cloud.binId = binId;
   state.cloud.apiKey = apiKey;
   state.cloud.private = isPrivate;
+  state.cloud.useAccessKey = useAccess;
   state.cloud.enabled = !!(binId && apiKey);
   saveLocalSettings();
 
@@ -1089,11 +1101,15 @@ async function saveCloudConfig() {
       state.scripts = remote.scripts;
       saveLocalScripts();
       toast('Загружено из облака: ' + state.scripts.length + ' скриптов');
+      startAutoSync();
+    } else if (remote && Array.isArray(remote.scripts)) {
+      const ok = await cloudSave();
+      toast(ok ? 'Облако подключено, данные отправлены' : 'Облако: чтение OK, но запись не удалась', ok ? 'success' : 'error');
+      if (ok) startAutoSync();
     } else {
-      await cloudSave();
-      toast('Облако подключено, данные отправлены');
+      toast('Не удалось подключиться к облаку. Используйте Master Key (X-MASTER-KEY).', 'error');
+      state.cloud.status = 'error';
     }
-    startAutoSync();
   } else {
     stopAutoSync();
     toast('Укажите Bin ID и API Key', 'error');
