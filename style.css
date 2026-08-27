@@ -694,7 +694,6 @@ html, body {
   min-height: 0;
   max-width: 100%;
 }
-/* Стили для цветного текста внутри скрипта */
 .crm-script-body [style*="color"] {
   white-space: pre-wrap;
 }
@@ -974,6 +973,25 @@ html, body {
   box-shadow: 0 0 0 3px var(--primary-soft);
 }
 
+/* Чекбокс для приватного бина */
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.checkbox-group input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+.checkbox-group label {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
 .toast-container {
   position: fixed;
   bottom: 28px;
@@ -1085,7 +1103,6 @@ code {
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-/* Анимация для сворачивания */
 .crm-block-body {
   max-height: 1000px;
   transition: max-height 0.3s ease, padding 0.3s ease;
