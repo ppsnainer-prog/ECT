@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.3 — улучшенная работа с облаком
+ * ЕЦТ Скрипты v2.4 — поддержка приватных бинов и улучшенная диагностика
  */
 
 const STORAGE_KEY = 'ect_scripts_data_v1';
@@ -16,6 +16,7 @@ let state = {
     enabled: true,
     binId: '6a9025d8f5f4af5e29495699',
     apiKey: '$2a$10$J.O3.hgzgqvHtXslrKLB4u9AuzyRwQcuvuU8GgloaYzNR3pxroN52',
+    private: false,   // <-- новый флаг
     lastSync: null,
     status: 'local'
   },
@@ -43,6 +44,7 @@ function loadLocalSettings() {
       const c = JSON.parse(rawC);
       if (c.binId) state.cloud.binId = c.binId;
       if (c.apiKey) state.cloud.apiKey = c.apiKey;
+      if (c.private !== undefined) state.cloud.private = c.private;
     }
   } catch (e) {}
   state.cloud.enabled = !!(state.cloud.binId && state.cloud.apiKey);
@@ -56,7 +58,8 @@ function saveLocalSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
   localStorage.setItem(CLOUD_CFG_KEY, JSON.stringify({
     binId: state.cloud.binId,
-    apiKey: state.cloud.apiKey
+    apiKey: state.cloud.apiKey,
+    private: state.cloud.private
   }));
   localStorage.setItem('ect_collapsed_blocks', JSON.stringify(state.collapsedBlocks));
 }
@@ -84,6 +87,7 @@ function uid() {
 }
 
 function getDemoScripts() {
+  // ... (без изменений, можно оставить как было)
   return [
     {
       id: uid(),
@@ -157,16 +161,19 @@ function getDemoScripts() {
   ];
 }
 
-/* ========== Cloud (JSONBin) с определением типа ключа ========== */
+/* ========== Cloud (JSONBin) с поддержкой приватных бинов ========== */
 function getCloudHeaders() {
   const key = state.cloud.apiKey || '';
-  // Если ключ начинается с $2a$10$ и длинный — это скорее Access Key, используем X-Access-Key
-  // Если ключ короче (обычно 32-40 символов) — это Master Key
   const isAccessKey = key.startsWith('$2a$10$') && key.length > 40;
-  return {
+  const headers = {
     'Content-Type': 'application/json',
     [isAccessKey ? 'X-Access-Key' : 'X-Master-Key']: key
   };
+  // Если бин приватный, добавляем заголовок
+  if (state.cloud.private) {
+    headers['X-Bin-Private'] = 'true';
+  }
+  return headers;
 }
 
 async function cloudFetch() {
@@ -179,8 +186,14 @@ async function cloudFetch() {
       headers
     });
     if (!res.ok) {
+      if (res.status === 401) {
+        toast('Ошибка 401 — проверьте Bin ID, ключ и флаг "Приватный бин" в настройках.', 'error');
+        state.cloud.status = 'error';
+        updateSyncBadge();
+        return null;
+      }
       if (res.status === 403) {
-        toast('Ошибка доступа к облаку (403). Проверьте Bin ID и API Key в настройках.', 'error');
+        toast('Ошибка 403 — доступ запрещён. Возможно, бин приватный и не передан заголовок.', 'error');
         state.cloud.status = 'error';
         updateSyncBadge();
         return null;
@@ -218,8 +231,14 @@ async function cloudSave() {
       body: JSON.stringify(payload)
     });
     if (!res.ok) {
+      if (res.status === 401) {
+        toast('Ошибка 401 — проверьте Bin ID, ключ и флаг "Приватный бин" в настройках.', 'error');
+        state.cloud.status = 'error';
+        updateSyncBadge();
+        return false;
+      }
       if (res.status === 403) {
-        toast('Ошибка доступа к облаку (403). Проверьте Bin ID и API Key в настройках.', 'error');
+        toast('Ошибка 403 — доступ запрещён. Возможно, бин приватный и не передан заголовок.', 'error');
         state.cloud.status = 'error';
         updateSyncBadge();
         return false;
@@ -261,10 +280,9 @@ async function saveData() {
   saveLocalScripts();
   if (state.cloud.enabled) {
     const ok = await cloudSave();
-    if (!ok) {
-      toast('Скрипт сохранён локально, но в облако не отправлен', 'error');
-    }
+    return ok;
   }
+  return true;
 }
 
 function startAutoSync() {
@@ -395,7 +413,7 @@ function navigate(page, scriptId = null) {
   render();
 }
 
-/* ========== Render (без изменений, кроме работы с облаком) ========== */
+/* ========== Render (без изменений, кроме настроек) ========== */
 function render() {
   const content = document.getElementById('content');
   switch (state.currentPage) {
@@ -735,8 +753,12 @@ function renderSettings() {
         <label>API Key (Master или Access)</label>
         <input type="password" id="cfgApiKey" value="${escapeAttr(c.apiKey)}" placeholder="\$2a\$10\$...">
         <div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">
-          Можно использовать как Master Key, так и Access Key. Если Access — он будет отправлен в заголовке X-Access-Key.
+          Если используете Access Key, убедитесь, что он привязан к этому бину.
         </div>
+      </div>
+      <div class="checkbox-group">
+        <input type="checkbox" id="cfgPrivate" ${c.private ? 'checked' : ''}>
+        <label for="cfgPrivate">Приватный бин (требуется заголовок X-Bin-Private)</label>
       </div>
       <div class="actions-row">
         <button class="btn btn-primary btn-sm" data-action="save-cloud">Подключить / Сохранить</button>
@@ -746,6 +768,7 @@ function renderSettings() {
       <p style="margin-top:12px;font-size:0.85rem;color:var(--text-muted)">
         Статус: <strong id="cloudStatusText">${c.enabled ? (c.status === 'ok' ? 'подключено' : c.status) : 'только локально'}</strong>
         ${c.lastSync ? ' · последняя синхронизация: ' + new Date(c.lastSync).toLocaleTimeString('ru-RU') : ''}
+        ${c.private ? ' · приватный бин' : ''}
       </p>
     </div>
 
@@ -810,9 +833,13 @@ async function saveNewScript() {
     createdAt: Date.now(), updatedAt: Date.now()
   };
   state.scripts.push(script);
-  await saveData();
+  const saved = await saveData();
   closeModal();
-  toast('Скрипт создан' + (state.cloud.enabled ? ' и отправлен в облако' : ' (локально)'));
+  if (saved) {
+    toast('Скрипт создан и отправлен в облако');
+  } else {
+    toast('Скрипт сохранён локально, но в облако не отправлен', 'error');
+  }
   navigate('script', script.id);
 }
 
@@ -859,9 +886,13 @@ async function saveEditScript(id) {
   script.content = editor ? editor.innerHTML : '';
   script.plainContent = editor ? editor.textContent : '';
   script.updatedAt = Date.now();
-  await saveData();
+  const saved = await saveData();
   closeModal();
-  toast('Сохранено' + (state.cloud.enabled ? ' в облако' : ' (локально)'));
+  if (saved) {
+    toast('Скрипт обновлён в облаке');
+  } else {
+    toast('Скрипт обновлён локально, но в облако не отправлен', 'error');
+  }
   render();
 }
 
@@ -927,9 +958,13 @@ async function saveNewItem(scriptId, type, parentId = null) {
     script[type].push(node);
   }
   script.updatedAt = Date.now();
-  await saveData();
+  const saved = await saveData();
   closeModal();
-  toast('Добавлено');
+  if (saved) {
+    toast('Добавлено и отправлено в облако');
+  } else {
+    toast('Добавлено локально, но в облако не отправлено', 'error');
+  }
   render();
 }
 
@@ -959,9 +994,13 @@ async function saveEditItem(scriptId, type, itemId) {
   item.title = title;
   item.text = document.getElementById('fItemText')?.value || '';
   script.updatedAt = Date.now();
-  await saveData();
+  const saved = await saveData();
   closeModal();
-  toast('Сохранено');
+  if (saved) {
+    toast('Сохранено в облаке');
+  } else {
+    toast('Сохранено локально, но не в облаке', 'error');
+  }
   render();
 }
 
@@ -1036,8 +1075,10 @@ async function resetAll() {
 async function saveCloudConfig() {
   const binId = document.getElementById('cfgBinId')?.value.trim() || '';
   const apiKey = document.getElementById('cfgApiKey')?.value.trim() || '';
+  const isPrivate = document.getElementById('cfgPrivate')?.checked || false;
   state.cloud.binId = binId;
   state.cloud.apiKey = apiKey;
+  state.cloud.private = isPrivate;
   state.cloud.enabled = !!(binId && apiKey);
   saveLocalSettings();
 
@@ -1064,6 +1105,7 @@ function disconnectCloud() {
   state.cloud.enabled = false;
   state.cloud.binId = '';
   state.cloud.apiKey = '';
+  state.cloud.private = false;
   state.cloud.status = 'local';
   saveLocalSettings();
   stopAutoSync();
