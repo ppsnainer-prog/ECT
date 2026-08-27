@@ -1,17 +1,24 @@
 /**
- * ЕЦТ Скрипты — клиентское приложение v1.1
- * Данные в localStorage. Все клики через делегирование.
+ * ЕЦТ Скрипты v1.2 — общее облачное хранилище (JSONBin) + localStorage
+ * Когда настроены Bin ID + API Key — данные общие для всех.
  */
 
 const STORAGE_KEY = 'ect_scripts_data_v1';
 const SETTINGS_KEY = 'ect_scripts_settings_v1';
+const CLOUD_CFG_KEY = 'ect_cloud_cfg_v1';
 
 let state = {
   scripts: [],
   settings: {
     theme: 'dark',
-    layout: 'cards',
     sidebarCollapsed: false
+  },
+  cloud: {
+    enabled: true,
+    binId: '6a9025d8f5f4af5e29495699',
+    apiKey: '$2a$10$J.O3.hgzgqvHtXslrKLB4u9AuzyRwQcuvuU8GgloaYzNR3pxroN52',
+    lastSync: null,
+    status: 'local' // local | syncing | ok | error
   },
   currentPage: 'home',
   currentScriptId: null,
@@ -19,32 +26,50 @@ let state = {
   searchQuery: ''
 };
 
-function loadData() {
+let syncTimer = null;
+
+/* ========== Persistence ========== */
+function loadLocalSettings() {
+  try {
+    const rawS = localStorage.getItem(SETTINGS_KEY);
+    if (rawS) state.settings = { ...state.settings, ...JSON.parse(rawS) };
+  } catch (e) {}
+  try {
+    const rawC = localStorage.getItem(CLOUD_CFG_KEY);
+    if (rawC) {
+      const c = JSON.parse(rawC);
+      // If user previously saved config — use it; otherwise keep defaults from state
+      if (c.binId) state.cloud.binId = c.binId;
+      if (c.apiKey) state.cloud.apiKey = c.apiKey;
+    }
+  } catch (e) {}
+  state.cloud.enabled = !!(state.cloud.binId && state.cloud.apiKey);
+}
+
+function saveLocalSettings() {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
+  localStorage.setItem(CLOUD_CFG_KEY, JSON.stringify({
+    binId: state.cloud.binId,
+    apiKey: state.cloud.apiKey
+  }));
+}
+
+function loadLocalScripts() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const data = JSON.parse(raw);
       state.scripts = data.scripts || [];
     }
-  } catch (e) {
-    console.warn('Ошибка загрузки', e);
-  }
-  try {
-    const rawS = localStorage.getItem(SETTINGS_KEY);
-    if (rawS) {
-      state.settings = { ...state.settings, ...JSON.parse(rawS) };
-    }
   } catch (e) {}
   if (state.scripts.length === 0) {
     state.scripts = getDemoScripts();
-    saveData();
+    saveLocalScripts();
   }
-  applyTheme();
 }
 
-function saveData() {
+function saveLocalScripts() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ scripts: state.scripts }));
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
 }
 
 function uid() {
@@ -127,12 +152,149 @@ function getDemoScripts() {
   ];
 }
 
+/* ========== Cloud (JSONBin) ========== */
+async function cloudFetch() {
+  if (!state.cloud.enabled) return null;
+  state.cloud.status = 'syncing';
+  updateSyncBadge();
+  try {
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${state.cloud.binId}/latest`, {
+      headers: {
+        'X-Master-Key': state.cloud.apiKey
+      }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    const record = json.record || json;
+    state.cloud.status = 'ok';
+    state.cloud.lastSync = Date.now();
+    updateSyncBadge();
+    return record;
+  } catch (e) {
+    console.warn('Cloud fetch error', e);
+    state.cloud.status = 'error';
+    updateSyncBadge();
+    return null;
+  }
+}
+
+async function cloudSave() {
+  if (!state.cloud.enabled) return false;
+  state.cloud.status = 'syncing';
+  updateSyncBadge();
+  try {
+    const payload = {
+      scripts: state.scripts,
+      updatedAt: Date.now(),
+      version: 1
+    };
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${state.cloud.binId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': state.cloud.apiKey
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    state.cloud.status = 'ok';
+    state.cloud.lastSync = Date.now();
+    updateSyncBadge();
+    return true;
+  } catch (e) {
+    console.warn('Cloud save error', e);
+    state.cloud.status = 'error';
+    updateSyncBadge();
+    toast('Ошибка сохранения в облако: ' + e.message, 'error');
+    return false;
+  }
+}
+
+async function loadData() {
+  loadLocalSettings();
+  applyTheme();
+
+  if (state.cloud.enabled) {
+    const remote = await cloudFetch();
+    if (remote && Array.isArray(remote.scripts)) {
+      state.scripts = remote.scripts;
+      saveLocalScripts(); // mirror
+    } else {
+      loadLocalScripts();
+      // first time: push local to cloud
+      await cloudSave();
+    }
+  } else {
+    loadLocalScripts();
+  }
+}
+
+async function saveData() {
+  saveLocalScripts();
+  if (state.cloud.enabled) {
+    await cloudSave();
+  }
+}
+
+function startAutoSync() {
+  stopAutoSync();
+  if (!state.cloud.enabled) return;
+  // pull every 25 sec
+  syncTimer = setInterval(async () => {
+    if (document.hidden) return;
+    const remote = await cloudFetch();
+    if (remote && Array.isArray(remote.scripts)) {
+      const remoteUpdated = remote.updatedAt || 0;
+      const localMax = Math.max(0, ...state.scripts.map(s => s.updatedAt || 0));
+      // simple: if remote has different count or newer content — take remote
+      const remoteStr = JSON.stringify(remote.scripts.map(s => s.id + s.updatedAt).sort());
+      const localStr = JSON.stringify(state.scripts.map(s => s.id + s.updatedAt).sort());
+      if (remoteStr !== localStr) {
+        state.scripts = remote.scripts;
+        saveLocalScripts();
+        if (state.currentPage === 'scripts' || state.currentPage === 'home' || state.currentPage === 'script') {
+          render();
+        }
+        toast('Данные обновлены из облака');
+      }
+    }
+  }, 25000);
+}
+
+function stopAutoSync() {
+  if (syncTimer) {
+    clearInterval(syncTimer);
+    syncTimer = null;
+  }
+}
+
+function updateSyncBadge() {
+  const el = document.getElementById('syncBadge');
+  if (!el) return;
+  if (!state.cloud.enabled) {
+    el.textContent = 'Локально';
+    el.className = 'sync-badge local';
+    return;
+  }
+  const map = {
+    syncing: ['Синхронизация…', 'syncing'],
+    ok: ['Облако ✓', 'ok'],
+    error: ['Ошибка облака', 'error'],
+    local: ['Локально', 'local']
+  };
+  const [text, cls] = map[state.cloud.status] || map.local;
+  el.textContent = text;
+  el.className = 'sync-badge ' + cls;
+}
+
+/* ========== Theme ========== */
 function applyTheme() {
   document.documentElement.setAttribute('data-theme', state.settings.theme);
   const btn = document.getElementById('themeToggle');
   if (btn) btn.textContent = state.settings.theme === 'dark' ? '☀️' : '🌙';
 }
 
+/* ========== UI helpers ========== */
 function toast(msg, type = 'success') {
   const container = document.getElementById('toastContainer');
   const el = document.createElement('div');
@@ -146,8 +308,7 @@ function openModal(title, bodyHtml, footerHtml) {
   document.getElementById('modalTitle').textContent = title;
   document.getElementById('modalBody').innerHTML = bodyHtml;
   document.getElementById('modalFooter').innerHTML = footerHtml || '';
-  const overlay = document.getElementById('modalOverlay');
-  overlay.hidden = false;
+  document.getElementById('modalOverlay').hidden = false;
 }
 
 function closeModal() {
@@ -173,6 +334,7 @@ function escapeAttr(str) {
   return escapeHtml(str).replace(/'/g, '&#39;');
 }
 
+/* ========== Navigation ========== */
 function navigate(page, scriptId = null) {
   state.currentPage = page;
   state.currentScriptId = scriptId;
@@ -203,6 +365,7 @@ function navigate(page, scriptId = null) {
   render();
 }
 
+/* ========== Render ========== */
 function render() {
   const content = document.getElementById('content');
   switch (state.currentPage) {
@@ -213,6 +376,7 @@ function render() {
     case 'settings': content.innerHTML = renderSettings(); break;
     default: content.innerHTML = '<p>Страница не найдена</p>';
   }
+  updateSyncBadge();
 }
 
 function renderHome() {
@@ -225,7 +389,7 @@ function renderHome() {
     <div class="home-grid">
       <div class="card welcome-card">
         <h2>Добро пожаловать в ЕЦТ Скрипты</h2>
-        <p>Храните скрипты разговоров, отработки возражений и штрафы в одном месте. Всё редактируется вами.</p>
+        <p>Храните скрипты, отработки и штрафы. ${state.cloud.enabled ? 'Данные общие для всей команды (облако).' : 'Сейчас данные только в этом браузере — подключите облако в Настройках.'}</p>
         <div class="stats-row">
           <div class="stat"><div class="stat-value">${total}</div><div class="stat-label">Скриптов</div></div>
           <div class="stat"><div class="stat-value">${withO}</div><div class="stat-label">С отработками</div></div>
@@ -252,7 +416,7 @@ function renderHome() {
       <div class="card">
         <div class="section-title"><span>🚗 Автокаталог</span></div>
         <p style="color:var(--text-muted);margin-bottom:18px;font-size:0.92rem">
-          Каталог автомобилей и города России. Откройте прямо здесь или в новой вкладке.
+          Каталог автомобилей и города России.
         </p>
         <div class="actions-row">
           <button class="btn btn-primary" data-action="nav" data-page="catalog">Открыть каталог</button>
@@ -385,7 +549,6 @@ function renderCatalog() {
   return `
     <div style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
       <a class="btn btn-outline btn-sm" href="https://kowmarikk0-max.github.io/car/" target="_blank" rel="noopener">Открыть в новой вкладке ↗</a>
-      <span style="color:var(--text-muted);font-size:0.85rem">Каталог можно дополнять отдельно</span>
     </div>
     <iframe class="catalog-frame" src="https://kowmarikk0-max.github.io/car/" title="Автокаталог"></iframe>
   `;
@@ -393,7 +556,35 @@ function renderCatalog() {
 
 function renderSettings() {
   const s = state.settings;
+  const c = state.cloud;
   return `
+    <div class="settings-section card">
+      <h3>☁ Облачное хранилище (общее для всех)</h3>
+      <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:14px;line-height:1.6">
+        Чтобы изменения видели все, подключи <a href="https://jsonbin.io" target="_blank" rel="noopener" style="color:var(--primary)">JSONBin.io</a> (бесплатно).<br>
+        1. Зарегистрируйся → API Keys → скопируй <b>Master Key</b><br>
+        2. Create Bin → вставь <code>{"scripts":[]}</code> → создай → скопируй <b>Bin ID</b><br>
+        3. Вставь оба значения ниже и нажми «Подключить»
+      </p>
+      <div class="form-group">
+        <label>Bin ID</label>
+        <input type="text" id="cfgBinId" value="${escapeAttr(c.binId)}" placeholder="например 68a1b2c3d4e5f6...">
+      </div>
+      <div class="form-group">
+        <label>Master Key (API Key)</label>
+        <input type="password" id="cfgApiKey" value="${escapeAttr(c.apiKey)}" placeholder="\$2a\$10\$...">
+      </div>
+      <div class="actions-row">
+        <button class="btn btn-primary btn-sm" data-action="save-cloud">Подключить / Сохранить</button>
+        <button class="btn btn-outline btn-sm" data-action="sync-now">Обновить сейчас</button>
+        <button class="btn btn-outline btn-sm" data-action="disconnect-cloud">Отключить облако</button>
+      </div>
+      <p style="margin-top:12px;font-size:0.85rem;color:var(--text-muted)">
+        Статус: <strong id="cloudStatusText">${c.enabled ? (c.status === 'ok' ? 'подключено' : c.status) : 'только локально'}</strong>
+        ${c.lastSync ? ' · последняя синхронизация: ' + new Date(c.lastSync).toLocaleTimeString('ru-RU') : ''}
+      </p>
+    </div>
+
     <div class="settings-section card">
       <h3>Тема оформления</h3>
       <div class="layout-options">
@@ -401,23 +592,17 @@ function renderSettings() {
         <div class="layout-option ${s.theme === 'light' ? 'active' : ''}" data-action="set-theme" data-theme="light">☀️ Светлая</div>
       </div>
     </div>
+
     <div class="settings-section card">
-      <h3>Данные</h3>
+      <h3>Локальные данные</h3>
       <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:14px">
-        Все скрипты хранятся локально в браузере. Экспортируйте JSON для бэкапа.
+        Экспорт/импорт JSON — запасной способ переноса.
       </p>
       <div class="actions-row">
         <button class="btn btn-primary btn-sm" data-action="export">📥 Экспорт JSON</button>
         <button class="btn btn-outline btn-sm" data-action="import-click">📤 Импорт JSON</button>
-        <button class="btn btn-danger btn-sm" data-action="reset">🗑 Сбросить всё</button>
+        <button class="btn btn-danger btn-sm" data-action="reset">🗑 Сбросить локально</button>
       </div>
-    </div>
-    <div class="settings-section card">
-      <h3>О сайте</h3>
-      <p style="color:var(--text-muted);font-size:0.9rem">
-        Версия 1.1 — скрипты, отработки, штрафы, автокаталог.<br>
-        Можно добавлять: категории, теги, шаблоны, drag-and-drop.
-      </p>
     </div>
   `;
 }
@@ -435,7 +620,7 @@ function showAddScriptModal() {
   setTimeout(() => document.getElementById('fTitle')?.focus(), 80);
 }
 
-function saveNewScript() {
+async function saveNewScript() {
   const title = document.getElementById('fTitle')?.value.trim();
   const category = document.getElementById('fCategory')?.value.trim() || '';
   const content = document.getElementById('fContent')?.value.trim() || '';
@@ -446,9 +631,9 @@ function saveNewScript() {
     createdAt: Date.now(), updatedAt: Date.now()
   };
   state.scripts.push(script);
-  saveData();
+  await saveData();
   closeModal();
-  toast('Скрипт создан');
+  toast('Скрипт создан' + (state.cloud.enabled ? ' и отправлен в облако' : ''));
   navigate('script', script.id);
 }
 
@@ -465,7 +650,7 @@ function showEditScriptModal(id) {
   );
 }
 
-function saveEditScript(id) {
+async function saveEditScript(id) {
   const script = state.scripts.find(s => s.id === id);
   if (!script) return;
   const title = document.getElementById('fTitle')?.value.trim();
@@ -474,24 +659,24 @@ function saveEditScript(id) {
   script.category = document.getElementById('fCategory')?.value.trim() || '';
   script.content = document.getElementById('fContent')?.value || '';
   script.updatedAt = Date.now();
-  saveData();
+  await saveData();
   closeModal();
-  toast('Сохранено');
+  toast('Сохранено' + (state.cloud.enabled ? ' в облако' : ''));
   render();
 }
 
 function confirmDeleteScript(id) {
   openModal(
     'Удалить скрипт?',
-    '<p>Скрипт и все связанные отработки/штрафы будут удалены. Это нельзя отменить.</p>',
+    '<p>Скрипт и все связанные отработки/штрафы будут удалены.</p>',
     `<button class="btn btn-outline" data-action="close-modal">Отмена</button>
      <button class="btn btn-danger" data-action="confirm-delete-script" data-id="${id}">Удалить</button>`
   );
 }
 
-function deleteScript(id) {
+async function deleteScript(id) {
   state.scripts = state.scripts.filter(s => s.id !== id);
-  saveData();
+  await saveData();
   closeModal();
   toast('Скрипт удалён');
   navigate('scripts');
@@ -509,7 +694,7 @@ function showAddItemModal(scriptId, type) {
   setTimeout(() => document.getElementById('fItemTitle')?.focus(), 80);
 }
 
-function saveNewItem(scriptId, type) {
+async function saveNewItem(scriptId, type) {
   const script = state.scripts.find(s => s.id === scriptId);
   if (!script) return;
   const title = document.getElementById('fItemTitle')?.value.trim();
@@ -518,7 +703,7 @@ function saveNewItem(scriptId, type) {
   if (!script[type]) script[type] = [];
   script[type].push({ id: uid(), title, text });
   script.updatedAt = Date.now();
-  saveData();
+  await saveData();
   closeModal();
   toast('Добавлено');
   state.currentTab = type;
@@ -538,7 +723,7 @@ function showEditItemModal(scriptId, type, itemId) {
   );
 }
 
-function saveEditItem(scriptId, type, itemId) {
+async function saveEditItem(scriptId, type, itemId) {
   const script = state.scripts.find(s => s.id === scriptId);
   const item = script?.[type]?.find(i => i.id === itemId);
   if (!item) return;
@@ -547,18 +732,18 @@ function saveEditItem(scriptId, type, itemId) {
   item.title = title;
   item.text = document.getElementById('fItemText')?.value || '';
   script.updatedAt = Date.now();
-  saveData();
+  await saveData();
   closeModal();
   toast('Сохранено');
   render();
 }
 
-function deleteItem(scriptId, type, itemId) {
+async function deleteItem(scriptId, type, itemId) {
   const script = state.scripts.find(s => s.id === scriptId);
   if (!script) return;
   script[type] = (script[type] || []).filter(i => i.id !== itemId);
   script.updatedAt = Date.now();
-  saveData();
+  await saveData();
   toast('Удалено');
   render();
 }
@@ -566,7 +751,7 @@ function deleteItem(scriptId, type, itemId) {
 function setTheme(theme) {
   state.settings.theme = theme;
   applyTheme();
-  saveData();
+  saveLocalSettings();
   render();
 }
 
@@ -584,12 +769,12 @@ function exportData() {
 
 function importData(file) {
   const reader = new FileReader();
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
     try {
       const data = JSON.parse(e.target.result);
       if (!Array.isArray(data.scripts)) throw new Error('Нет массива scripts');
       state.scripts = data.scripts;
-      saveData();
+      await saveData();
       toast(`Импортировано: ${state.scripts.length} скриптов`);
       navigate('scripts');
     } catch (err) {
@@ -601,90 +786,106 @@ function importData(file) {
 
 function confirmReset() {
   openModal(
-    'Сбросить все данные?',
-    '<p>Будут удалены все скрипты. Действие необратимо.</p>',
+    'Сбросить локальные данные?',
+    '<p>Локальные скрипты будут заменены демо. Если облако подключено — потом можно снова загрузить из облака.</p>',
     `<button class="btn btn-outline" data-action="close-modal">Отмена</button>
      <button class="btn btn-danger" data-action="confirm-reset">Сбросить</button>`
   );
 }
 
-function resetAll() {
+async function resetAll() {
   state.scripts = getDemoScripts();
-  saveData();
+  saveLocalScripts();
   closeModal();
-  toast('Данные сброшены к демо');
+  toast('Локальные данные сброшены');
   navigate('home');
 }
 
-/* ========== Event delegation ========== */
+async function saveCloudConfig() {
+  const binId = document.getElementById('cfgBinId')?.value.trim() || '';
+  const apiKey = document.getElementById('cfgApiKey')?.value.trim() || '';
+  state.cloud.binId = binId;
+  state.cloud.apiKey = apiKey;
+  state.cloud.enabled = !!(binId && apiKey);
+  saveLocalSettings();
+
+  if (state.cloud.enabled) {
+    toast('Подключаем облако…');
+    const remote = await cloudFetch();
+    if (remote && Array.isArray(remote.scripts) && remote.scripts.length > 0) {
+      state.scripts = remote.scripts;
+      saveLocalScripts();
+      toast('Загружено из облака: ' + state.scripts.length + ' скриптов');
+    } else {
+      // empty bin or first connect — push current
+      await cloudSave();
+      toast('Облако подключено, данные отправлены');
+    }
+    startAutoSync();
+  } else {
+    stopAutoSync();
+    toast('Укажите Bin ID и API Key', 'error');
+  }
+  render();
+}
+
+function disconnectCloud() {
+  state.cloud.enabled = false;
+  state.cloud.binId = '';
+  state.cloud.apiKey = '';
+  state.cloud.status = 'local';
+  saveLocalSettings();
+  stopAutoSync();
+  toast('Облако отключено — данные только локально');
+  render();
+}
+
+async function syncNow() {
+  if (!state.cloud.enabled) {
+    toast('Сначала подключите облако', 'error');
+    return;
+  }
+  const remote = await cloudFetch();
+  if (remote && Array.isArray(remote.scripts)) {
+    state.scripts = remote.scripts;
+    saveLocalScripts();
+    toast('Синхронизировано: ' + state.scripts.length + ' скриптов');
+    render();
+  } else {
+    toast('Не удалось загрузить из облака', 'error');
+  }
+}
+
+/* ========== Events ========== */
 function handleClick(e) {
   const el = e.target.closest('[data-action]');
   if (!el) return;
-
   const action = el.dataset.action;
 
   switch (action) {
-    case 'nav':
-      navigate(el.dataset.page);
-      break;
-    case 'open-script':
-      navigate('script', el.dataset.id);
-      break;
-    case 'add-script':
-      showAddScriptModal();
-      break;
-    case 'edit-script':
-      showEditScriptModal(el.dataset.id);
-      break;
-    case 'delete-script':
-      confirmDeleteScript(el.dataset.id);
-      break;
-    case 'confirm-delete-script':
-      deleteScript(el.dataset.id);
-      break;
-    case 'tab':
-      state.currentTab = el.dataset.tab;
-      render();
-      break;
-    case 'add-item':
-      showAddItemModal(el.dataset.id, el.dataset.type);
-      break;
-    case 'edit-item':
-      showEditItemModal(el.dataset.sid, el.dataset.type, el.dataset.iid);
-      break;
-    case 'delete-item':
-      deleteItem(el.dataset.sid, el.dataset.type, el.dataset.iid);
-      break;
-    case 'save-new-script':
-      saveNewScript();
-      break;
-    case 'save-edit-script':
-      saveEditScript(el.dataset.id);
-      break;
-    case 'save-new-item':
-      saveNewItem(el.dataset.id, el.dataset.type);
-      break;
-    case 'save-edit-item':
-      saveEditItem(el.dataset.sid, el.dataset.type, el.dataset.iid);
-      break;
-    case 'close-modal':
-      closeModal();
-      break;
-    case 'set-theme':
-      setTheme(el.dataset.theme);
-      break;
-    case 'export':
-      exportData();
-      break;
-    case 'import-click':
-      document.getElementById('importFile').click();
-      break;
-    case 'reset':
-      confirmReset();
-      break;
-    case 'confirm-reset':
-      resetAll();
-      break;
+    case 'nav': navigate(el.dataset.page); break;
+    case 'open-script': navigate('script', el.dataset.id); break;
+    case 'add-script': showAddScriptModal(); break;
+    case 'edit-script': showEditScriptModal(el.dataset.id); break;
+    case 'delete-script': confirmDeleteScript(el.dataset.id); break;
+    case 'confirm-delete-script': deleteScript(el.dataset.id); break;
+    case 'tab': state.currentTab = el.dataset.tab; render(); break;
+    case 'add-item': showAddItemModal(el.dataset.id, el.dataset.type); break;
+    case 'edit-item': showEditItemModal(el.dataset.sid, el.dataset.type, el.dataset.iid); break;
+    case 'delete-item': deleteItem(el.dataset.sid, el.dataset.type, el.dataset.iid); break;
+    case 'save-new-script': saveNewScript(); break;
+    case 'save-edit-script': saveEditScript(el.dataset.id); break;
+    case 'save-new-item': saveNewItem(el.dataset.id, el.dataset.type); break;
+    case 'save-edit-item': saveEditItem(el.dataset.sid, el.dataset.type, el.dataset.iid); break;
+    case 'close-modal': closeModal(); break;
+    case 'set-theme': setTheme(el.dataset.theme); break;
+    case 'export': exportData(); break;
+    case 'import-click': document.getElementById('importFile').click(); break;
+    case 'reset': confirmReset(); break;
+    case 'confirm-reset': resetAll(); break;
+    case 'save-cloud': saveCloudConfig(); break;
+    case 'disconnect-cloud': disconnectCloud(); break;
+    case 'sync-now': syncNow(); break;
   }
 }
 
@@ -694,11 +895,10 @@ function bindGlobalEvents() {
   document.getElementById('themeToggle').addEventListener('click', () => {
     state.settings.theme = state.settings.theme === 'dark' ? 'light' : 'dark';
     applyTheme();
-    saveData();
+    saveLocalSettings();
   });
 
   document.getElementById('addScriptBtn').addEventListener('click', showAddScriptModal);
-
   document.getElementById('modalClose').addEventListener('click', closeModal);
   document.getElementById('modalOverlay').addEventListener('click', (e) => {
     if (e.target === e.currentTarget) closeModal();
@@ -708,7 +908,7 @@ function bindGlobalEvents() {
     const sb = document.getElementById('sidebar');
     sb.classList.toggle('collapsed');
     state.settings.sidebarCollapsed = sb.classList.contains('collapsed');
-    saveData();
+    saveLocalSettings();
   });
 
   document.getElementById('exportData').addEventListener('click', exportData);
@@ -721,7 +921,6 @@ function bindGlobalEvents() {
     e.target.value = '';
   });
 
-  // Search with debounce via input event on document
   document.addEventListener('input', (e) => {
     if (e.target.id === 'searchInput') {
       state.searchQuery = e.target.value;
@@ -736,16 +935,18 @@ function bindGlobalEvents() {
     if (e.key === 'Escape') closeModal();
   });
 
-  // Nav items
   document.querySelectorAll('.nav-item').forEach(btn => {
     btn.addEventListener('click', () => navigate(btn.dataset.page));
   });
 }
 
 /* ========== Init ========== */
-loadData();
-if (state.settings.sidebarCollapsed) {
-  document.getElementById('sidebar').classList.add('collapsed');
-}
-bindGlobalEvents();
-navigate('home');
+(async function init() {
+  await loadData();
+  if (state.settings.sidebarCollapsed) {
+    document.getElementById('sidebar').classList.add('collapsed');
+  }
+  bindGlobalEvents();
+  navigate('home');
+  startAutoSync();
+})();
