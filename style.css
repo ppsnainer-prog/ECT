@@ -211,25 +211,6 @@ html, body {
   gap: 12px;
   flex-wrap: wrap;
 }
-.global-search {
-  padding: 10px 16px;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-card);
-  color: var(--text);
-  font-size: 0.9rem;
-  font-family: inherit;
-  outline: none;
-  transition: all var(--transition);
-  min-width: 200px;
-}
-.global-search:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-soft);
-}
-.global-search::placeholder {
-  color: var(--text-muted);
-}
 
 .content {
   flex: 1;
@@ -494,6 +475,7 @@ html, body {
   color: var(--success);
 }
 
+/* ===== СТРАНИЦА СКРИПТА ===== */
 .script-detail-full {
   max-width: 100%;
   height: calc(100vh - 110px);
@@ -563,6 +545,11 @@ html, body {
   position: sticky;
   top: 0;
   z-index: 2;
+  cursor: pointer;
+  user-select: none;
+}
+.crm-block-head:hover {
+  filter: brightness(1.05);
 }
 .crm-block-head-teal {
   background: var(--teal-soft);
@@ -581,6 +568,12 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+}
+.crm-block-body.collapsed {
+  max-height: 0 !important;
+  padding: 0 8px;
 }
 .crm-empty {
   text-align: center;
@@ -594,6 +587,11 @@ html, body {
   padding: 8px 10px;
   border-left: 3px solid var(--primary);
   min-width: 0;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.crm-hint:hover {
+  background: var(--bg-hover);
 }
 .crm-hint-otabotka { border-left-color: var(--teal); }
 .crm-hint-shtraf { border-left-color: var(--danger); }
@@ -624,6 +622,22 @@ html, body {
   overflow-wrap: anywhere;
   line-height: 1.45;
   max-width: 100%;
+  display: none;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+.crm-hint-text.open {
+  display: block;
+}
+.crm-hint .expand-icon {
+  font-size: 0.7rem;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+.crm-hint .expand-icon.open {
+  transform: rotate(180deg);
 }
 
 .tree-node { min-width: 0; }
@@ -706,11 +720,6 @@ html, body {
   .content:has(.script-detail-full) {
     overflow-y: auto;
   }
-}
-
-.script-text, .item-card p, .item-card h4 {
-  word-break: break-word !important;
-  overflow-wrap: anywhere !important;
 }
 
 .item-list {
@@ -948,9 +957,6 @@ html, body {
   flex-wrap: wrap;
   margin-top: 4px;
 }
-.back-btn {
-  margin-bottom: 12px;
-}
 
 .sync-badge {
   font-size: 0.75rem;
@@ -1018,12 +1024,11 @@ code {
   .welcome-card {
     padding: 28px 24px;
   }
-  .global-search {
-    min-width: 140px;
-  }
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Анимация для сворачи
