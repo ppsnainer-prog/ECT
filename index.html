@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Скрипты ЕЦТ — Единый центр телефонии</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
 <body>
   <div id="app">
@@ -45,7 +45,7 @@
       <div class="sidebar-footer">
         <button class="btn btn-sm btn-outline" id="exportData">Экспорт</button>
         <button class="btn btn-sm btn-outline" id="importData">Импорт</button>
-        <input type="file" id="importFile" accept=".json" hidden>
+        <input type="file" id="importFile" accept=".json" hidden />
       </div>
     </aside>
 
@@ -56,6 +56,7 @@
           <h1 id="pageTitle">Главная</h1>
         </div>
         <div class="topbar-right">
+          <input type="search" class="global-search" id="globalSearch" placeholder="Поиск скриптов…" />
           <span class="sync-badge local" id="syncBadge" title="Статус синхронизации">Локально</span>
           <button class="btn btn-primary" id="addScriptBtn" style="display:none">+ Новый скрипт</button>
           <button class="btn-icon" id="themeToggle" title="Тема">🌙</button>
