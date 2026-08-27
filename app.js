@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.0 — улучшенный интерфейс для операторов
+ * ЕЦТ Скрипты v2.1 — сворачиваемые отработки в скриптах
  */
 
 const STORAGE_KEY = 'ect_scripts_data_v1';
@@ -21,12 +21,13 @@ let state = {
   },
   currentPage: 'home',
   currentScriptId: null,
-  currentTab: 'content',
   searchQuery: '',
   otabotkiQuery: '',
   otabotkiCat: '',
-  otabotkiScriptFilter: '', // фильтр по скрипту
-  expandedNodes: {}
+  otabotkiScriptFilter: '',
+  expandedNodes: {},
+  // Для сворачивания блоков отработок/штрафов в скрипте
+  collapsedBlocks: {}
 };
 
 let syncTimer = null;
@@ -46,6 +47,11 @@ function loadLocalSettings() {
     }
   } catch (e) {}
   state.cloud.enabled = !!(state.cloud.binId && state.cloud.apiKey);
+  // Загружаем состояние свёрнутых блоков
+  try {
+    const cb = localStorage.getItem('ect_collapsed_blocks');
+    if (cb) state.collapsedBlocks = JSON.parse(cb);
+  } catch (e) {}
 }
 
 function saveLocalSettings() {
@@ -54,6 +60,7 @@ function saveLocalSettings() {
     binId: state.cloud.binId,
     apiKey: state.cloud.apiKey
   }));
+  localStorage.setItem('ect_collapsed_blocks', JSON.stringify(state.collapsedBlocks));
 }
 
 function loadLocalScripts() {
@@ -337,9 +344,6 @@ function navigate(page, scriptId = null) {
   state.currentPage = page;
   state.currentScriptId = scriptId;
   if (page !== 'script') state.currentTab = 'content';
-  if (page !== 'scripts') {
-    // Не сбрасываем поиск глобально, он остаётся в шапке
-  }
 
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.page === page || (page === 'script' && el.dataset.page === 'scripts'));
@@ -353,19 +357,16 @@ function navigate(page, scriptId = null) {
     settings: 'Настройки',
     script: 'Скрипт'
   };
-  let title = titles[page] || page;
-  if (page === 'script') title = 'Скрипт';
-  document.getElementById('pageTitle').textContent = title;
+  document.getElementById('pageTitle').textContent = titles[page] || page;
 
   const addBtn = document.getElementById('addScriptBtn');
   if (addBtn) addBtn.style.display = (page === 'scripts') ? 'inline-flex' : 'none';
 
-  // Если открываем скрипт, увеличиваем счётчик
   if (page === 'script' && scriptId) {
     const scr = state.scripts.find(s => s.id === scriptId);
     if (scr) {
       scr.opens = (scr.opens || 0) + 1;
-      saveLocalScripts(); // не ждём облако
+      saveLocalScripts();
     }
   }
 
@@ -385,9 +386,6 @@ function render() {
     default: content.innerHTML = '<p>Страница не найдена</p>';
   }
   updateSyncBadge();
-  // обновить значение глобального поиска
-  const gs = document.getElementById('globalSearch');
-  if (gs) gs.value = state.searchQuery || '';
 }
 
 function renderHome() {
@@ -395,7 +393,6 @@ function renderHome() {
   const withO = state.scripts.filter(s => (s.otabotki || []).length).length;
   const withS = state.scripts.filter(s => (s.shtrafy || []).length).length;
   const recent = [...state.scripts].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 5);
-  // Топ-5 по открытиям
   const top = [...state.scripts].filter(s => (s.opens || 0) > 0).sort((a, b) => (b.opens || 0) - (a.opens || 0)).slice(0, 5);
 
   return `
@@ -506,9 +503,11 @@ function renderTreeItems(items, scriptId, type, depth = 0) {
     const hasChildren = item.children && item.children.length > 0;
     const expKey = type + ':' + item.id;
     const expanded = state.expandedNodes[expKey] !== false;
+    const isOpen = state.collapsedBlocks[item.id] !== true;
     return `
       <div class="tree-node" style="margin-left:${depth * 14}px">
-        <div class="crm-hint crm-hint-${type === 'otabotki' ? 'otabotka' : 'shtraf'}">
+        <div class="crm-hint crm-hint-${type === 'otabotki' ? 'otabotka' : 'shtraf'}" 
+             data-action="toggle-item-text" data-id="${item.id}">
           <div class="crm-hint-title">
             <span class="tree-title-row">
               ${hasChildren ? `<button class="tree-toggle" data-action="toggle-node" data-key="${expKey}">${expanded ? '▼' : '▶'}</button>` : '<span class="tree-dot">•</span>'}
@@ -518,9 +517,10 @@ function renderTreeItems(items, scriptId, type, depth = 0) {
               <button class="btn-icon" data-action="add-child-item" data-sid="${scriptId}" data-type="${type}" data-pid="${item.id}" title="Добавить вложенную">➕</button>
               <button class="btn-icon" data-action="edit-item" data-sid="${scriptId}" data-type="${type}" data-iid="${item.id}" title="Редактировать">✏️</button>
               <button class="btn-icon" data-action="delete-item" data-sid="${scriptId}" data-type="${type}" data-iid="${item.id}" title="Удалить">🗑</button>
+              <span class="expand-icon ${isOpen ? 'open' : ''}" data-action="toggle-item-text" data-id="${item.id}">${isOpen ? '▲' : '▼'}</span>
             </span>
           </div>
-          ${item.text ? `<div class="crm-hint-text">${escapeHtml(item.text)}</div>` : ''}
+          ${item.text ? `<div class="crm-hint-text ${isOpen ? 'open' : ''}">${escapeHtml(item.text)}</div>` : ''}
         </div>
         ${hasChildren && expanded ? renderTreeItems(item.children, scriptId, type, depth + 1) : ''}
       </div>
@@ -537,6 +537,9 @@ function renderScriptDetail() {
 
   const otabotki = script.otabotki || [];
   const shtrafy = script.shtrafy || [];
+  
+  const otabotkiCollapsed = state.collapsedBlocks['otabotki_' + script.id] === true;
+  const shtrafyCollapsed = state.collapsedBlocks['shtrafy_' + script.id] === true;
 
   return `
     <div class="script-detail-full">
@@ -566,11 +569,14 @@ function renderScriptDetail() {
           </section>
 
           <section class="crm-block">
-            <div class="crm-block-head crm-block-head-teal">
+            <div class="crm-block-head crm-block-head-teal" data-action="toggle-block" data-key="otabotki_${script.id}">
               <span>🔄 Отработки <span class="badge badge-teal">${countTree(otabotki)}</span></span>
-              <button class="btn btn-sm btn-ghost" data-action="add-item" data-id="${script.id}" data-type="otabotki" title="Добавить">+</button>
+              <span>
+                <button class="btn btn-sm btn-ghost" data-action="add-item" data-id="${script.id}" data-type="otabotki" title="Добавить">+</button>
+                <span class="expand-icon ${otabotkiCollapsed ? '' : 'open'}">${otabotkiCollapsed ? '▼' : '▲'}</span>
+              </span>
             </div>
-            <div class="crm-block-body">
+            <div class="crm-block-body ${otabotkiCollapsed ? 'collapsed' : ''}">
               ${otabotki.length === 0
                 ? '<div class="crm-empty">Пока нет отработок</div>'
                 : renderTreeItems(otabotki, script.id, 'otabotki')}
@@ -578,11 +584,14 @@ function renderScriptDetail() {
           </section>
 
           <section class="crm-block">
-            <div class="crm-block-head crm-block-head-danger">
+            <div class="crm-block-head crm-block-head-danger" data-action="toggle-block" data-key="shtrafy_${script.id}">
               <span>⚠ Штрафы <span class="badge badge-danger">${countTree(shtrafy)}</span></span>
-              <button class="btn btn-sm btn-ghost" data-action="add-item" data-id="${script.id}" data-type="shtrafy" title="Добавить">+</button>
+              <span>
+                <button class="btn btn-sm btn-ghost" data-action="add-item" data-id="${script.id}" data-type="shtrafy" title="Добавить">+</button>
+                <span class="expand-icon ${shtrafyCollapsed ? '' : 'open'}">${shtrafyCollapsed ? '▼' : '▲'}</span>
+              </span>
             </div>
-            <div class="crm-block-body">
+            <div class="crm-block-body ${shtrafyCollapsed ? 'collapsed' : ''}">
               ${shtrafy.length === 0
                 ? '<div class="crm-empty">Пока нет штрафов</div>'
                 : renderTreeItems(shtrafy, script.id, 'shtrafy')}
@@ -1021,6 +1030,18 @@ async function syncNow() {
   }
 }
 
+function toggleBlock(key) {
+  state.collapsedBlocks[key] = state.collapsedBlocks[key] === true ? false : true;
+  saveLocalSettings();
+  render();
+}
+
+function toggleItemText(id) {
+  state.collapsedBlocks[id] = state.collapsedBlocks[id] === true ? false : true;
+  saveLocalSettings();
+  render();
+}
+
 /* ========== Events ========== */
 function handleClick(e) {
   const el = e.target.closest('[data-action]');
@@ -1034,7 +1055,6 @@ function handleClick(e) {
     case 'edit-script': showEditScriptModal(el.dataset.id); break;
     case 'delete-script': confirmDeleteScript(el.dataset.id); break;
     case 'confirm-delete-script': deleteScript(el.dataset.id); break;
-    case 'tab': state.currentTab = el.dataset.tab; render(); break;
     case 'add-item': showAddItemModal(el.dataset.id, el.dataset.type); break;
     case 'edit-item': showEditItemModal(el.dataset.sid, el.dataset.type, el.dataset.iid); break;
     case 'delete-item': deleteItem(el.dataset.sid, el.dataset.type, el.dataset.iid); break;
@@ -1058,6 +1078,8 @@ function handleClick(e) {
     case 'save-cloud': saveCloudConfig(); break;
     case 'disconnect-cloud': disconnectCloud(); break;
     case 'sync-now': syncNow(); break;
+    case 'toggle-block': toggleBlock(el.dataset.key); break;
+    case 'toggle-item-text': toggleItemText(el.dataset.id); break;
   }
 }
 
@@ -1091,17 +1113,6 @@ function bindGlobalEvents() {
     const file = e.target.files?.[0];
     if (file) importData(file);
     e.target.value = '';
-  });
-
-  // Глобальный поиск
-  document.getElementById('globalSearch').addEventListener('input', (e) => {
-    const val = e.target.value;
-    state.searchQuery = val;
-    if (state.currentPage !== 'scripts') {
-      navigate('scripts');
-    } else {
-      render();
-    }
   });
 
   document.addEventListener('input', (e) => {
