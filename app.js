@@ -458,6 +458,7 @@ async function cloudFetch() {
       const json = await res.json();
       if (json && json.error) throw new Error(json.error);
       const record = json.record || json;
+      if (record && record.storage === 'rows') state.cloud.rowStorage = true;
       state.cloud.status = 'ok';
       state.cloud.lastSync = Date.now();
       updateSyncBadge();
@@ -492,6 +493,79 @@ async function cloudFetch() {
   }
 }
 
+async function postSheets(url, payload, timeoutMs) {
+  const res = await fetchWithTimeout(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload),
+    redirect: 'follow',
+    mode: 'cors',
+    credentials: 'omit'
+  }, timeoutMs || 60000);
+
+  let json = null;
+  let textBody = '';
+  try {
+    textBody = await res.text();
+    json = JSON.parse(textBody);
+  } catch (_) {}
+  return { res, json, textBody };
+}
+
+function splitTextChunks(text, size) {
+  const s = String(text == null ? '' : text);
+  const parts = [];
+  for (let i = 0; i < s.length; i += size) parts.push(s.substring(i, i + size));
+  return parts.length ? parts : [''];
+}
+
+async function cloudSaveChunked(url, scripts, updatedAt) {
+  const CHUNK = 35000;
+  await postSheets(url, { op: 'begin', count: scripts.length, updatedAt, version: 1 }, 30000);
+
+  for (const script of scripts) {
+    const copy = { ...script };
+    const pendingChunks = [];
+    const pack = (field, value, isJson) => {
+      const text = isJson ? JSON.stringify(value == null ? [] : value) : String(value == null ? '' : value);
+      if (text.length <= CHUNK) return;
+      if (isJson) copy[field] = [];
+      else copy[field] = '';
+      const parts = splitTextChunks(text, CHUNK);
+      parts.forEach((textPart, part) => {
+        pendingChunks.push({ op: 'chunk', id: copy.id, field, part, total: parts.length, text: textPart });
+      });
+    };
+    pack('content', copy.content, false);
+    pack('plainContent', copy.plainContent, false);
+    pack('otabotki', copy.otabotki, true);
+    pack('shtrafy', copy.shtrafy, true);
+
+    const up = await postSheets(url, { op: 'upsert', script: copy }, 60000);
+    if (up.json && up.json.ok === false) throw new Error(up.json.error || 'upsert failed');
+    for (const ch of pendingChunks) {
+      const cr = await postSheets(url, ch, 60000);
+      if (cr.json && cr.json.ok === false) throw new Error(cr.json.error || 'chunk failed');
+    }
+  }
+
+  const done = await postSheets(url, { op: 'commit', updatedAt, version: 1 }, 60000);
+  if (done.json && done.json.ok === false) throw new Error(done.json.error || 'commit failed');
+  return true;
+}
+
+async function verifyCloudScripts(url, localScripts) {
+  await new Promise(r => setTimeout(r, 500));
+  const check = await fetchWithTimeout(url, { method: 'GET', credentials: 'omit' }, 20000);
+  if (!check.ok) return false;
+  const remote = await check.json();
+  const remoteRecord = remote && (remote.record || remote);
+  if (!remoteRecord || !Array.isArray(remoteRecord.scripts)) return false;
+  const localIds = localScripts.map(s => s.id).sort().join(',');
+  const remoteIds = remoteRecord.scripts.map(s => s.id).sort().join(',');
+  return localIds === remoteIds && remoteRecord.scripts.length === localScripts.length;
+}
+
 async function cloudSave() {
   if (typeof isCommonAccount === 'function' && isCommonAccount()) return false;
   if (!state.cloud.enabled) return false;
@@ -499,6 +573,7 @@ async function cloudSave() {
   updateSyncBadge();
   try {
     const payload = {
+      op: 'replace',
       scripts: state.scripts,
       updatedAt: Date.now(),
       version: 1
@@ -507,65 +582,49 @@ async function cloudSave() {
     if (state.cloud.provider === 'sheets') {
       const url = (state.cloud.sheetsUrl || '').trim();
       if (!url) throw new Error('Нет URL Google Apps Script');
-      // text/plain — без CORS preflight к Apps Script
-      const res = await fetchWithTimeout(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload),
-        redirect: 'follow',
-        mode: 'cors',
-        credentials: 'omit'
-      }, 20000);
 
       let json = null;
+      let res = null;
       let textBody = '';
       try {
-        textBody = await res.text();
-        json = JSON.parse(textBody);
-      } catch (_) {}
-
-      if (json && json.ok === true) {
-        state.cloud.status = 'ok';
-        state.cloud.lastSync = Date.now();
-        updateSyncBadge();
-        return true;
+        const posted = await postSheets(url, payload, 60000);
+        res = posted.res;
+        json = posted.json;
+        textBody = posted.textBody;
+      } catch (netErr) {
+        if (state.cloud.rowStorage) {
+          await cloudSaveChunked(url, state.scripts, payload.updatedAt);
+        } else {
+          throw netErr;
+        }
       }
+
       if (json && json.ok === false) {
+        const err = String(json.error || '');
+        if (/50,?000|maximum of 50/i.test(err) || err.indexOf('characters') !== -1) {
+          throw new Error('Скрипт слишком большой для старого API. Вставьте новый Code.gs и сделайте НОВУЮ ВЕРСИЮ развёртывания.');
+        }
         throw new Error(json.error || 'save failed');
       }
 
-      // GAS часто отдаёт 302→HTML/405 после реальной записи.
-      // Проверяем GET: если в облаке уже наши данные — считаем успехом.
-      try {
-        await new Promise(r => setTimeout(r, 400));
-        const check = await fetchWithTimeout(url, { method: 'GET', credentials: 'omit' }, 12000);
-        if (check.ok) {
-          const remote = await check.json();
-          const remoteRecord = remote && (remote.record || remote);
-          if (remoteRecord && Array.isArray(remoteRecord.scripts)) {
-            const sameCount = remoteRecord.scripts.length === payload.scripts.length;
-            const localIds = payload.scripts.map(s => s.id).sort().join(',');
-            const remoteIds = remoteRecord.scripts.map(s => s.id).sort().join(',');
-            if (sameCount && localIds === remoteIds) {
-              state.cloud.status = 'ok';
-              state.cloud.lastSync = Date.now();
-              updateSyncBadge();
-              return true;
-            }
-          }
+      if (json && json.ok === true && json.op === 'replace') state.cloud.rowStorage = true;
+
+      if (json && !(json.ok === true) && res && !res.ok) {
+        const ok = await verifyCloudScripts(url, state.scripts);
+        if (!ok) {
+          throw new Error('HTTP ' + res.status + (textBody ? (': ' + textBody.slice(0, 100)) : ''));
         }
-      } catch (verifyErr) {
-        console.warn('cloud save verify failed', verifyErr);
       }
 
-      if (res.ok) {
-        state.cloud.status = 'ok';
-        state.cloud.lastSync = Date.now();
-        updateSyncBadge();
-        return true;
+      const verified = await verifyCloudScripts(url, state.scripts);
+      if (!verified) {
+        throw new Error('Таблица не приняла полный текст. Обновите Code.gs и нажмите «Новая версия» в развёртывании.');
       }
 
-      throw new Error('HTTP ' + res.status + (textBody ? (': ' + textBody.slice(0, 100)) : ''));
+      state.cloud.status = 'ok';
+      state.cloud.lastSync = Date.now();
+      updateSyncBadge();
+      return true;
     }
 
     const headers = getCloudHeaders();
@@ -639,7 +698,6 @@ async function saveData() {
 function startAutoSync() {
   stopAutoSync();
   if (!state.cloud.enabled) return;
-  // Каждые 12 сек подтягиваем изменения из таблицы
   syncTimer = setInterval(async () => {
     if (document.hidden) return;
     if (window.__ectCloudSyncing) return;
