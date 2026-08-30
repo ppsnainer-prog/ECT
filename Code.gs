@@ -496,6 +496,22 @@ var MEDIA_ROOT_ID = '13OvqOwJjjJT-ahT5spskqSA0kU3GSINF';
 var MEDIA_ROOT_NAME = 'ECT Media';
 var MEDIA_SUBFOLDERS = { image: 'images', audio: 'audio', video: 'video', other: 'images' };
 
+/**
+ * Запустите ОДИН раз из редактора Apps Script (Выполнить),
+ * чтобы выдать разрешение на Google Drive.
+ * После: Развернуть → Новая версия.
+ */
+function authorizeDriveAccess() {
+  var root = DriveApp.getFolderById(MEDIA_ROOT_ID);
+  var names = ['images', 'audio', 'video'];
+  var i;
+  for (i = 0; i < names.length; i++) {
+    getOrCreateFolderByName_(root, names[i]);
+  }
+  Logger.log('Drive OK: ' + root.getName() + ' / ' + root.getId());
+  return root.getUrl();
+}
+
 function getOrCreateFolderByName_(parent, name) {
   var it = parent.getFoldersByName(name);
   if (it.hasNext()) return it.next();
