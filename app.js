@@ -14334,14 +14334,8 @@ const VICTORY_CRM_BASE = 'https://victory-crm.ru/answers/';
 
 function victoryCrmBuildLink() {
   const id = String(document.getElementById('victoryCrmId')?.value || '').trim().replace(/\s+/g, '');
-  const linkEl = document.getElementById('victoryCrmLink');
-  if (!id) {
-    if (linkEl) linkEl.value = '';
-    return '';
-  }
-  const url = VICTORY_CRM_BASE + encodeURIComponent(id);
-  if (linkEl) linkEl.value = url;
-  return url;
+  if (!id) return '';
+  return VICTORY_CRM_BASE + encodeURIComponent(id);
 }
 
 function initVictoryCrmHelper() {
@@ -14375,26 +14369,24 @@ function initVictoryCrmHelper() {
       await navigator.clipboard.writeText(url);
       toast('Ссылка скопирована');
     } catch (_) {
-      const linkEl = document.getElementById('victoryCrmLink');
-      if (linkEl) {
-        linkEl.focus();
-        linkEl.select();
-        try { document.execCommand('copy'); toast('Ссылка скопирована'); }
-        catch (e2) { toast('Скопируйте вручную', 'error'); }
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        toast('Ссылка скопирована');
+      } catch (e2) {
+        toast('Скопируйте вручную: ' + url, 'error');
       }
     }
   });
 
-  document.getElementById('victoryCrmOpen')?.addEventListener('click', () => {
-    const url = victoryCrmBuildLink();
-    if (!url) { toast('Вставьте ID звонка', 'error'); return; }
-    window.open(url, '_blank', 'noopener');
-  });
-
   document.getElementById('victoryCrmClear')?.addEventListener('click', () => {
     if (idInput) idInput.value = '';
-    const linkEl = document.getElementById('victoryCrmLink');
-    if (linkEl) linkEl.value = '';
     idInput?.focus();
   });
 }
