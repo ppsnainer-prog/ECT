@@ -14076,6 +14076,7 @@ function bindGlobalEvents() {
     currentUserBadge.textContent = user ? `👤 ${user}` : '';
   }
   document.getElementById('logoutBtn')?.addEventListener('click', logout);
+  try { initVictoryCrmHelper(); } catch (e) { console.warn('victory crm', e); }
 
   document.addEventListener('click', handleClick);
 
@@ -14326,6 +14327,78 @@ function bindGlobalEvents() {
  */
 
 /* ========== Drive Media API ========== */
+
+
+/* ========== Victory CRM — ссылка на звонок ========== */
+const VICTORY_CRM_BASE = 'https://victory-crm.ru/answers/';
+
+function victoryCrmBuildLink() {
+  const id = String(document.getElementById('victoryCrmId')?.value || '').trim().replace(/\s+/g, '');
+  const linkEl = document.getElementById('victoryCrmLink');
+  if (!id) {
+    if (linkEl) linkEl.value = '';
+    return '';
+  }
+  const url = VICTORY_CRM_BASE + encodeURIComponent(id);
+  if (linkEl) linkEl.value = url;
+  return url;
+}
+
+function initVictoryCrmHelper() {
+  const toggle = document.getElementById('victoryCrmToggle');
+  const panel = document.getElementById('victoryCrmPanel');
+  const idInput = document.getElementById('victoryCrmId');
+  if (!toggle || !panel) return;
+
+  toggle.addEventListener('click', () => {
+    const open = panel.hasAttribute('hidden');
+    if (open) {
+      panel.removeAttribute('hidden');
+      setTimeout(() => idInput?.focus(), 30);
+    } else {
+      panel.setAttribute('hidden', '');
+    }
+  });
+
+  idInput?.addEventListener('input', victoryCrmBuildLink);
+  idInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('victoryCrmCopy')?.click();
+    }
+  });
+
+  document.getElementById('victoryCrmCopy')?.addEventListener('click', async () => {
+    const url = victoryCrmBuildLink();
+    if (!url) { toast('Вставьте ID звонка', 'error'); return; }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast('Ссылка скопирована');
+    } catch (_) {
+      const linkEl = document.getElementById('victoryCrmLink');
+      if (linkEl) {
+        linkEl.focus();
+        linkEl.select();
+        try { document.execCommand('copy'); toast('Ссылка скопирована'); }
+        catch (e2) { toast('Скопируйте вручную', 'error'); }
+      }
+    }
+  });
+
+  document.getElementById('victoryCrmOpen')?.addEventListener('click', () => {
+    const url = victoryCrmBuildLink();
+    if (!url) { toast('Вставьте ID звонка', 'error'); return; }
+    window.open(url, '_blank', 'noopener');
+  });
+
+  document.getElementById('victoryCrmClear')?.addEventListener('click', () => {
+    if (idInput) idInput.value = '';
+    const linkEl = document.getElementById('victoryCrmLink');
+    if (linkEl) linkEl.value = '';
+    idInput?.focus();
+  });
+}
+
 
 function getSheetsExecUrl() {
   const u = (state.cloud && state.cloud.sheetsUrl) || '';

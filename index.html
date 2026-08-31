@@ -116,6 +116,7 @@
           <h1 id="pageTitle">Главная</h1>
         </div>
         <div class="topbar-right">
+          <button type="button" class="btn btn-sm btn-primary" id="victoryCrmToggle" title="Ссылка на звонок Victory CRM">🔗 Victory</button>
           <span class="login-user-badge" id="currentUserBadge"></span>
           <button class="btn btn-sm btn-outline logout-btn" id="logoutBtn" title="Выйти из аккаунта">Выйти</button>
           <span class="sync-badge local" id="syncBadge" title="Статус синхронизации">Локально</span>
@@ -125,6 +126,24 @@
           <button class="btn-icon" id="themeToggle" title="Тема">🌙</button>
         </div>
       </header>
+
+      <div id="victoryCrmPanel" class="victory-crm-panel" hidden>
+        <div class="victory-crm-inner">
+          <div class="victory-crm-title">Victory CRM — ссылка на звонок</div>
+          <div class="victory-crm-row">
+            <span class="victory-crm-prefix">https://victory-crm.ru/answers/</span>
+            <input type="text" id="victoryCrmId" class="search-input victory-crm-id" placeholder="ID звонка" inputmode="numeric" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="victory-crm-preview-wrap">
+            <input type="text" id="victoryCrmLink" class="search-input victory-crm-link" readonly placeholder="Вставьте ID — появится ссылка" value="">
+          </div>
+          <div class="victory-crm-actions">
+            <button type="button" class="btn btn-primary btn-sm" id="victoryCrmCopy">📋 Копировать</button>
+            <button type="button" class="btn btn-outline btn-sm" id="victoryCrmOpen">↗ Открыть</button>
+            <button type="button" class="btn btn-outline btn-sm" id="victoryCrmClear">Очистить</button>
+          </div>
+        </div>
+      </div>
 
       <div class="content" id="content">
         <!-- Pages will be rendered here -->

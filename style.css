@@ -3091,3 +3091,54 @@ input[type="color"] {
 .goal-day-chip.goal-day-main { border-color: rgba(91,141,239,0.45); }
 .goal-day-chip.goal-day-off { opacity: 0.55; border-color: rgba(244,63,94,0.4); }
 .goal-day-chip.goal-day-extra-on { border-color: rgba(45,212,191,0.55); background: rgba(45,212,191,0.08); }
+
+
+/* Victory CRM helper */
+.victory-crm-panel {
+  padding: 10px 16px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  background: rgba(91, 141, 239, 0.08);
+}
+.victory-crm-panel[hidden] { display: none !important; }
+.victory-crm-inner { max-width: 720px; }
+.victory-crm-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  opacity: 0.9;
+}
+.victory-crm-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.victory-crm-prefix {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  white-space: nowrap;
+  font-family: ui-monospace, monospace;
+}
+.victory-crm-id {
+  flex: 1;
+  min-width: 140px;
+  max-width: 280px;
+  font-family: ui-monospace, monospace;
+}
+.victory-crm-preview-wrap { margin-bottom: 8px; }
+.victory-crm-link {
+  width: 100%;
+  font-size: 0.8rem;
+  font-family: ui-monospace, monospace;
+  opacity: 0.95;
+}
+.victory-crm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 640px) {
+  .victory-crm-prefix { font-size: 0.72rem; }
+  .victory-crm-id { max-width: none; width: 100%; }
+}
