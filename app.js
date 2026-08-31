@@ -4672,7 +4672,8 @@ let state = {
   leaderboardManual: [],
   leaderboardPeriod: 'month',
   goalsStore: {},
-  diaryPeriod: 'month',
+  diaryPeriod: 'day',
+  goalsTab: 'my-goal',
   diaryFrom: '',
   diaryTo: '',
   rulesQuery: '',
@@ -11715,31 +11716,45 @@ function periodRange(preset, customFrom, customTo) {
   const now = new Date();
   now.setHours(12, 0, 0, 0);
   let from, to;
-  if (preset === 'day') {
+  if (preset === 'day' || preset === 'today') {
     from = to = toISODate(now);
-  } else if (preset === 'week') {
-    from = toISODate(startOfAccrualWeek(now));
-    to = toISODate(endOfAccrualWeek(now));
-  } else if (preset === 'month') {
-    from = toISODate(startOfMonth(now));
-    to = toISODate(endOfMonth(now));
-  } else if (preset === 'prev_week') {
-    const s = startOfAccrualWeek(now);
-    s.setDate(s.getDate() - 7);
-    from = toISODate(s);
-    const e = new Date(s);
-    e.setDate(e.getDate() + 6);
-    to = toISODate(e);
-  } else if (preset === 'prev_month') {
-    const d = new Date(now.getFullYear(), now.getMonth() - 1, 1, 12, 0, 0, 0);
-    from = toISODate(d);
-    to = toISODate(endOfMonth(d));
+  } else if (preset === 'yesterday') {
+    const y = new Date(now);
+    y.setDate(y.getDate() - 1);
+    from = to = toISODate(y);
   } else {
+    // period / custom
     from = customFrom || toISODate(startOfMonth(now));
     to = customTo || toISODate(now);
   }
   if (from > to) { const tmp = from; from = to; to = tmp; }
   return { from, to };
+}
+
+/** "08:30" → минуты; пусто → 0 */
+function parseTimeToMinutes(str) {
+  const s = String(str || '').trim();
+  if (!s) return 0;
+  const m = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return 0;
+  const h = Math.min(23, Math.max(0, parseInt(m[1], 10)));
+  const mm = Math.min(59, Math.max(0, parseInt(m[2], 10)));
+  return h * 60 + mm;
+}
+
+/** минуты → "08:30" или "" если 0 */
+function minutesToTimeMask(minutes) {
+  const m = Math.max(0, Math.round(Number(minutes) || 0));
+  if (!m) return '';
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+  return String(h).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+}
+
+function emptyNum(v) {
+  if (v === 0 || v === '0') return '';
+  if (v == null || v === '') return '';
+  return String(v);
 }
 
 function aggregateDailyLogs(userName, from, to) {
@@ -11776,10 +11791,10 @@ function aggregateDailyLogs(userName, from, to) {
 
 function formatWorkHM(minutes) {
   const m = Math.max(0, Math.round(Number(minutes) || 0));
+  if (!m) return '—';
   const h = Math.floor(m / 60);
   const mm = m % 60;
-  if (h <= 0) return mm + ' мин';
-  return h + ' ч ' + (mm ? mm + ' мин' : '').trim();
+  return String(h).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
 }
 
 function showDailyLogModal(userName, date) {
@@ -11788,42 +11803,40 @@ function showDailyLogModal(userName, date) {
   const iso = date || toISODate(new Date());
   const logs = getDailyLogs(userName);
   const e = logs[iso] || {};
-  const workH = Math.floor((e.workMinutes || 0) / 60);
-  const workM = (e.workMinutes || 0) % 60;
-  const brH = Math.floor((e.breakMinutes || 0) / 60);
-  const brM = (e.breakMinutes || 0) % 60;
+  const has = Object.keys(e).length > 0;
   openModal(
     'День ' + iso + (userName !== state.currentUser ? ' · ' + userName : ''),
     `<div class="form-group"><label>Дата</label>
        <input type="date" id="fDlDate" value="${escapeAttr(iso)}" ${canEdit ? '' : 'disabled'}></div>
      <div class="form-row-2">
        <div class="form-group"><label>Успехи</label>
-         <input type="number" id="fDlSuccess" value="${e.successes || 0}" min="0" step="1" ${canEdit ? '' : 'disabled'}></div>
+         <input type="number" id="fDlSuccess" value="${escapeAttr(emptyNum(e.successes))}" min="0" step="1" placeholder="—" ${canEdit ? '' : 'disabled'}></div>
        <div class="form-group"><label>Штрафы (шт.)</label>
-         <input type="number" id="fDlPen" value="${e.penalties || 0}" min="0" step="1" ${canEdit ? '' : 'disabled'}></div>
-     </div>
-     <div class="form-row-2">
-       <div class="form-group"><label>Сумма штрафов, ₽</label>
-         <input type="number" id="fDlPenAmt" value="${e.penaltyAmount || 0}" min="0" step="50" ${canEdit ? '' : 'disabled'}></div>
-       <div class="form-group"><label>Заработано, ₽</label>
-         <input type="number" id="fDlEarn" value="${e.earnings || 0}" min="0" step="50" ${canEdit ? '' : 'disabled'}></div>
+         <input type="number" id="fDlPen" value="${escapeAttr(emptyNum(e.penalties))}" min="0" step="1" placeholder="—" ${canEdit ? '' : 'disabled'}>
+         <p class="field-hint">Штраф = успех в 0 ₽, в конву не идёт</p>
+       </div>
      </div>
      <div class="form-row-2">
        <div class="form-group"><label>Звонки</label>
-         <input type="number" id="fDlCalls" value="${e.calls || 0}" min="0" step="1" ${canEdit ? '' : 'disabled'}></div>
+         <input type="number" id="fDlCalls" value="${escapeAttr(emptyNum(e.calls))}" min="0" step="1" placeholder="—" ${canEdit ? '' : 'disabled'}></div>
        <div class="form-group"><label>Недозвоны</label>
-         <input type="number" id="fDlFail" value="${e.failedCalls || 0}" min="0" step="1" ${canEdit ? '' : 'disabled'}></div>
+         <input type="number" id="fDlFail" value="${escapeAttr(emptyNum(e.failedCalls))}" min="0" step="1" placeholder="—" ${canEdit ? '' : 'disabled'}></div>
      </div>
-     <div class="form-group"><label>Отработано</label>
-       <div class="form-row-2">
-         <div><input type="number" id="fDlWorkH" value="${workH}" min="0" step="1" ${canEdit ? '' : 'disabled'}><p class="field-hint">Часы</p></div>
-         <div><input type="number" id="fDlWorkM" value="${workM}" min="0" max="59" step="1" ${canEdit ? '' : 'disabled'}><p class="field-hint">Минуты</p></div>
+     <div class="form-row-2">
+       <div class="form-group"><label>Заработано, ₽</label>
+         <input type="number" id="fDlEarn" value="${escapeAttr(emptyNum(e.earnings))}" min="0" step="50" placeholder="—" ${canEdit ? '' : 'disabled'}></div>
+       <div class="form-group"><label>Конва (успехи / звонки)</label>
+         <input type="text" id="fDlConv" value="${(Number(e.calls)>0 ? ((Number(e.successes)||0)/(Number(e.calls))*100).toFixed(1)+'%' : '—')}" disabled>
        </div>
      </div>
-     <div class="form-group"><label>Перерывы (суммарно)</label>
-       <div class="form-row-2">
-         <div><input type="number" id="fDlBrH" value="${brH}" min="0" step="1" ${canEdit ? '' : 'disabled'}><p class="field-hint">Часы</p></div>
-         <div><input type="number" id="fDlBrM" value="${brM}" min="0" max="59" step="1" ${canEdit ? '' : 'disabled'}><p class="field-hint">Минуты</p></div>
+     <div class="form-row-2">
+       <div class="form-group"><label>Отработано</label>
+         <input type="text" id="fDlWork" value="${escapeAttr(minutesToTimeMask(e.workMinutes))}" placeholder="00:00" inputmode="numeric" maxlength="5" ${canEdit ? '' : 'disabled'}>
+         <p class="field-hint">Маска ЧЧ:ММ</p>
+       </div>
+       <div class="form-group"><label>Перерывы</label>
+         <input type="text" id="fDlBreak" value="${escapeAttr(minutesToTimeMask(e.breakMinutes))}" placeholder="00:00" inputmode="numeric" maxlength="5" ${canEdit ? '' : 'disabled'}>
+         <p class="field-hint">Маска ЧЧ:ММ</p>
        </div>
      </div>
      <div class="form-group"><label>Комментарий</label>
@@ -11831,33 +11844,44 @@ function showDailyLogModal(userName, date) {
      </div>`,
     canEdit
       ? `<button class="btn btn-outline" data-action="close-modal">Отмена</button>
-         ${logs[iso] ? `<button class="btn btn-danger" data-action="delete-daily-log" data-user="${escapeAttr(userName)}" data-date="${escapeAttr(iso)}">Удалить день</button>` : ''}
+         ${has ? `<button class="btn btn-danger" data-action="delete-daily-log" data-user="${escapeAttr(userName)}" data-date="${escapeAttr(iso)}">Удалить день</button>` : ''}
          <button class="btn btn-primary" data-action="save-daily-log" data-user="${escapeAttr(userName)}">Сохранить</button>`
       : `<button class="btn btn-outline" data-action="close-modal">Закрыть</button>`
   );
+  setTimeout(() => {
+    const mask = (el) => {
+      if (!el) return;
+      el.addEventListener('input', () => {
+        let v = el.value.replace(/[^\d]/g, '').slice(0, 4);
+        if (v.length >= 3) v = v.slice(0, 2) + ':' + v.slice(2);
+        el.value = v;
+      });
+    };
+    mask(document.getElementById('fDlWork'));
+    mask(document.getElementById('fDlBreak'));
+  }, 30);
 }
 
 function saveDailyLogFromForm(userName) {
   const who = userName || state.currentUser;
   const date = document.getElementById('fDlDate')?.value;
   if (!date) { toast('Укажите дату', 'error'); return; }
-  const workMinutes = Math.max(0, Math.round(
-    (Number(document.getElementById('fDlWorkH')?.value) || 0) * 60 +
-    (Number(document.getElementById('fDlWorkM')?.value) || 0)
-  ));
-  const breakMinutes = Math.max(0, Math.round(
-    (Number(document.getElementById('fDlBrH')?.value) || 0) * 60 +
-    (Number(document.getElementById('fDlBrM')?.value) || 0)
-  ));
+  const workMinutes = parseTimeToMinutes(document.getElementById('fDlWork')?.value);
+  const breakMinutes = parseTimeToMinutes(document.getElementById('fDlBreak')?.value);
+  const num = (id) => {
+    const v = document.getElementById(id)?.value;
+    if (v === '' || v == null) return 0;
+    return Number(v) || 0;
+  };
   const ok = saveDailyLog(who, date, {
-    successes: document.getElementById('fDlSuccess')?.value,
-    penalties: document.getElementById('fDlPen')?.value,
-    penaltyAmount: document.getElementById('fDlPenAmt')?.value,
-    calls: document.getElementById('fDlCalls')?.value,
-    failedCalls: document.getElementById('fDlFail')?.value,
+    successes: num('fDlSuccess'),
+    penalties: num('fDlPen'),
+    penaltyAmount: 0,
+    calls: num('fDlCalls'),
+    failedCalls: num('fDlFail'),
     workMinutes,
     breakMinutes,
-    earnings: document.getElementById('fDlEarn')?.value,
+    earnings: num('fDlEarn'),
     comment: document.getElementById('fDlComment')?.value,
     worked: true
   });
@@ -11867,29 +11891,29 @@ function saveDailyLogFromForm(userName) {
   render();
 }
 
-function renderDiarySection(userName) {
+function renderDiarySection(userName, standalone) {
   if (!canViewUserDiary(userName)) return '';
   const canEdit = isAdminUser() || userName === state.currentUser;
-  const preset = state.diaryPeriod || 'month';
+  const preset = state.diaryPeriod || 'day';
   const customFrom = state.diaryFrom || '';
   const customTo = state.diaryTo || '';
   const { from, to } = periodRange(preset, customFrom, customTo);
   const agg = aggregateDailyLogs(userName, from, to);
   const presets = [
     { id: 'day', label: 'Сегодня' },
-    { id: 'week', label: 'Эта неделя' },
-    { id: 'prev_week', label: 'Прошлая неделя' },
-    { id: 'month', label: 'Этот месяц' },
-    { id: 'prev_month', label: 'Прошлый месяц' },
+    { id: 'yesterday', label: 'Вчера' },
     { id: 'custom', label: 'Период' }
   ];
+  const convLabel = agg.calls > 0
+    ? `${agg.successes} / ${agg.calls} · ${agg.successRate.toFixed(1)}%`
+    : (agg.successes ? `${agg.successes} / —` : '—');
 
   return `
-    <div class="card diary-section" style="margin-top:16px">
+    <div class="card diary-section" style="${standalone ? '' : 'margin-top:16px'}">
       <div class="catalog-toolbar-row" style="margin-bottom:12px">
         <div>
-          <strong>📋 Дневник смены</strong>
-          <p class="catalog-hint">Успехи, штрафы, звонки, часы, перерывы и комментарии по дням. ${isAdminUser() && userName !== state.currentUser ? 'Просмотр: ' + escapeHtml(userName) : 'Видно только вам (админ — всем).'}</p>
+          <strong>📋 Дневник смены${userName !== state.currentUser ? ' · ' + escapeHtml(userName) : ''}</strong>
+          <p class="catalog-hint">Успехи, звонки, часы, перерывы. Штраф обнуляет успех (0 ₽, не в конве).</p>
         </div>
         ${canEdit ? `<button class="btn btn-primary btn-sm" data-action="add-daily-log" data-user="${escapeAttr(userName)}">+ День</button>` : ''}
       </div>
@@ -11910,20 +11934,20 @@ function renderDiarySection(userName) {
 
       <div class="goal-summary-grid" style="margin-bottom:14px">
         <div class="card goal-stat"><div class="goal-stat-label">Заработано</div><div class="goal-stat-value goal-stat-ok">${formatMoney(agg.earnings)}</div></div>
+        <div class="card goal-stat"><div class="goal-stat-label">Конва (успехи / звонки)</div><div class="goal-stat-value">${convLabel}</div></div>
         <div class="card goal-stat"><div class="goal-stat-label">Успехи</div><div class="goal-stat-value">${agg.successes}</div></div>
         <div class="card goal-stat"><div class="goal-stat-label">Звонки / недозвоны</div><div class="goal-stat-value">${agg.calls} / ${agg.failedCalls}</div></div>
         <div class="card goal-stat"><div class="goal-stat-label">Часы</div><div class="goal-stat-value">${formatWorkHM(agg.workMinutes)}</div></div>
         <div class="card goal-stat"><div class="goal-stat-label">Перерывы</div><div class="goal-stat-value">${formatWorkHM(agg.breakMinutes)}</div></div>
         <div class="card goal-stat"><div class="goal-stat-label">Смен</div><div class="goal-stat-value">${agg.workedDays}</div></div>
-        <div class="card goal-stat"><div class="goal-stat-label">Ср. успехов / день</div><div class="goal-stat-value">${agg.avgSuccess.toFixed(1)}</div></div>
-        <div class="card goal-stat"><div class="goal-stat-label">Ср. звонков / день</div><div class="goal-stat-value">${agg.avgCalls.toFixed(1)}</div></div>
-        <div class="card goal-stat"><div class="goal-stat-label">% успехов</div><div class="goal-stat-value">${agg.successRate.toFixed(1)}%</div></div>
-        <div class="card goal-stat"><div class="goal-stat-label">Штрафы</div><div class="goal-stat-value">${agg.penalties} (${formatMoney(agg.penaltyAmount)})</div></div>
+        <div class="card goal-stat"><div class="goal-stat-label">Штрафы (шт.)</div><div class="goal-stat-value">${agg.penalties}</div></div>
+        <div class="card goal-stat"><div class="goal-stat-label">Ср. успехов / день</div><div class="goal-stat-value">${agg.workedDays ? agg.avgSuccess.toFixed(1) : '—'}</div></div>
+        <div class="card goal-stat"><div class="goal-stat-label">Ср. звонков / день</div><div class="goal-stat-value">${agg.workedDays ? agg.avgCalls.toFixed(1) : '—'}</div></div>
       </div>
-      <p class="field-hint" style="margin-bottom:8px">Период: <b>${escapeHtml(from)}</b> — <b>${escapeHtml(to)}</b></p>
+      <p class="field-hint" style="margin-bottom:8px">${preset === 'custom' || from !== to ? `Период: <b>${escapeHtml(from)}</b> — <b>${escapeHtml(to)}</b>` : `Дата: <b>${escapeHtml(from)}</b>`}</p>
 
       ${agg.days.length === 0
-        ? `<div class="empty-state" style="padding:24px"><p>Нет записей за период. Нажмите «+ День».</p></div>`
+        ? `<div class="empty-state" style="padding:24px"><p>Нет записей. Нажмите «+ День».</p></div>`
         : `<div class="lb-table-wrap">
             <table class="lb-table diary-table">
               <thead>
@@ -11931,6 +11955,7 @@ function renderDiarySection(userName) {
                   <th>Дата</th>
                   <th>Успехи</th>
                   <th>Звонки</th>
+                  <th>Конва</th>
                   <th>Недозв.</th>
                   <th>Часы</th>
                   <th>Перерыв</th>
@@ -11940,21 +11965,24 @@ function renderDiarySection(userName) {
                 </tr>
               </thead>
               <tbody>
-                ${agg.days.slice().reverse().map(d => `
+                ${agg.days.slice().reverse().map(d => {
+                  const conv = (d.calls > 0) ? (((d.successes || 0) / d.calls) * 100).toFixed(0) + '%' : '—';
+                  return `
                   <tr>
                     <td>${escapeHtml(d.date)}${d.comment ? ' <span title="' + escapeAttr(d.comment) + '">💬</span>' : ''}</td>
                     <td>${d.successes || 0}</td>
                     <td>${d.calls || 0}</td>
+                    <td>${conv}</td>
                     <td>${d.failedCalls || 0}</td>
                     <td>${formatWorkHM(d.workMinutes)}</td>
                     <td>${formatWorkHM(d.breakMinutes)}</td>
-                    <td>${d.penalties || 0}${d.penaltyAmount ? ' / ' + formatMoney(d.penaltyAmount) : ''}</td>
+                    <td>${d.penalties || 0}</td>
                     <td>${formatMoney(d.earnings || 0)}</td>
                     <td>
                       <button class="btn btn-outline btn-sm" data-action="edit-daily-log" data-user="${escapeAttr(userName)}" data-date="${escapeAttr(d.date)}">Открыть</button>
                     </td>
-                  </tr>
-                `).join('')}
+                  </tr>`;
+                }).join('')}
               </tbody>
             </table>
           </div>`
@@ -11963,58 +11991,120 @@ function renderDiarySection(userName) {
   `;
 }
 
+function renderTeamDiaries() {
+  loadGoalsStore();
+  const names = Object.keys(state.goalsStore || {}).sort((a, b) => a.localeCompare(b, 'ru'));
+  const view = state.diaryViewUser || '';
+  let html = `
+    <div class="card catalog-toolbar">
+      <div class="catalog-toolbar-row">
+        <div>
+          <strong>📋 Дневники команды</strong>
+          <p class="catalog-hint">Откройте дневник любого оператора.</p>
+        </div>
+      </div>
+    </div>`;
+  if (!names.length) {
+    return html + `<div class="empty-state"><div class="empty-icon">📋</div><p>Пока нет данных.</p></div>`;
+  }
+  html += `<div class="goals-admin-list" style="margin-bottom:16px">`;
+  for (const name of names) {
+    const logs = getDailyLogs(name);
+    const n = Object.keys(logs).length;
+    html += `
+      <article class="card goal-admin-card">
+        <div class="goal-admin-head">
+          <div>
+            <h3 class="call-title">${escapeHtml(name)}</h3>
+            <div class="call-meta"><span class="badge">${n} дн.</span></div>
+          </div>
+          <button class="btn btn-outline btn-sm" data-action="view-diary-user" data-user="${escapeAttr(name)}">Открыть дневник</button>
+        </div>
+      </article>`;
+  }
+  html += `</div>`;
+  if (view && canViewUserDiary(view)) {
+    html += renderDiarySection(view, true);
+  }
+  return html;
+}
 
 function renderGoals() {
   loadGoalsStore();
   const me = state.currentUser || '';
   const admin = isAdminUser();
+  let tab = state.goalsTab || 'my-goal';
 
+  const tabs = [
+    { id: 'my-goal', label: 'Мои цели', icon: '🎯' },
+    { id: 'my-diary', label: 'Дневник смен', icon: '📋' }
+  ];
   if (admin) {
-    return renderGoalsAdmin();
+    tabs.push({ id: 'team-goals', label: 'Цели команды', icon: '👥' });
+    tabs.push({ id: 'team-diaries', label: 'Дневники команды', icon: '📊' });
   }
+  if (!tabs.some(x => x.id === tab)) tab = 'my-goal';
 
-  const goal = getUserGoal(me);
-  if (!goal) {
-    return `
-      <div class="card catalog-toolbar">
-        <div class="catalog-toolbar-row">
-          <div>
-            <strong>🎯 Моя цель</strong>
-            <p class="catalog-hint">Личная цель и <b>свой график смен</b>. Другие операторы не видят вашу цель и расписание.</p>
+  let main = '';
+  if (tab === 'my-diary') {
+    main = renderDiarySection(me, true);
+  } else if (tab === 'team-goals' && admin) {
+    main = renderGoalsAdminList();
+  } else if (tab === 'team-diaries' && admin) {
+    main = renderTeamDiaries();
+  } else {
+    // my-goal
+    const goal = getUserGoal(me);
+    if (!goal) {
+      main = `
+        <div class="card catalog-toolbar">
+          <div class="catalog-toolbar-row">
+            <div>
+              <strong>🎯 Моя цель</strong>
+              <p class="catalog-hint">Личная цель и график смен. Другие не видят вашу цель.</p>
+            </div>
+            <button class="btn btn-primary btn-sm" data-action="edit-goal">+ Создать цель</button>
           </div>
-          <button class="btn btn-primary btn-sm" data-action="edit-goal">+ Создать цель</button>
         </div>
-      </div>
-      <div class="empty-state"><div class="empty-icon">🎯</div><p>Цели пока нет. Создайте цель и отметьте рабочие смены.</p></div>
-    `;
+        <div class="empty-state"><div class="empty-icon">🎯</div><p>Цели пока нет. Создайте цель и отметьте рабочие смены.</p></div>`;
+    } else {
+      const plan = buildGoalPlan(goal);
+      main = renderGoalDetail(me, goal, plan, true, false);
+    }
   }
 
-  const plan = buildGoalPlan(goal);
-  return renderGoalDetail(me, goal, plan, true);
+  return `
+  <div class="catalog-layout rules-catalog-layout">
+    <aside class="catalog-country-panel rules-side-panel" aria-label="Разделы целей">
+      <div class="catalog-country-title">🎯 Цель</div>
+      ${tabs.map(s => {
+        const active = tab === s.id;
+        return `<button type="button" class="country-tile ${active ? 'active' : ''}" data-action="set-goals-tab" data-tab="${s.id}">
+          <span class="country-tile-flag">${s.icon}</span>
+          <span class="country-tile-name">${s.label}</span>
+        </button>`;
+      }).join('')}
+    </aside>
+    <div class="catalog-main">${main}</div>
+  </div>`;
 }
 
-function renderGoalsAdmin() {
+function renderGoalsAdminList() {
   loadGoalsStore();
   const names = Object.keys(state.goalsStore || {}).sort((a, b) => a.localeCompare(b, 'ru'));
   const me = state.currentUser;
-
   let html = `
     <div class="card catalog-toolbar">
       <div class="catalog-toolbar-row">
         <div>
-          <strong>🎯 Цели команды</strong>
-          <p class="catalog-hint">Администратор видит цели всех. У каждого оператора цель видна только себе.</p>
+          <strong>👥 Цели команды</strong>
+          <p class="catalog-hint">Администратор видит цели всех операторов.</p>
         </div>
-        <button class="btn btn-primary btn-sm" data-action="edit-goal" data-user="${escapeAttr(me)}">Моя цель</button>
       </div>
-    </div>
-  `;
-
+    </div>`;
   if (!names.length) {
-    html += `<div class="empty-state"><div class="empty-icon">🎯</div><p>Пока никто не создал цель.</p></div>`;
-    return html;
+    return html + `<div class="empty-state"><div class="empty-icon">🎯</div><p>Пока никто не создал цель.</p></div>`;
   }
-
   html += `<div class="goals-admin-list">`;
   for (const name of names) {
     const goal = state.goalsStore[name];
@@ -12037,24 +12127,20 @@ function renderGoalsAdmin() {
           </div>
         </div>
         <div class="goal-progress-bar"><div class="goal-progress-fill" style="width:${Math.min(100, plan.progress || 0)}%"></div></div>
-        <p class="catalog-hint" style="margin-top:8px">Заработано ${formatMoney(plan.earnedTotal)} · осталось ${formatMoney(plan.remainingMoney)} · ${plan.remainingDays} раб. дн.</p>
-      </article>
-    `;
+        <p class="catalog-hint" style="margin-top:8px">Заработано ${formatMoney(plan.earnedTotal)} · осталось ${formatMoney(plan.remainingMoney)}</p>
+      </article>`;
   }
   html += `</div>`;
-
-  // If admin viewing specific user via state
   if (state.goalsViewUser && state.goalsStore[state.goalsViewUser]) {
     const u = state.goalsViewUser;
     const g = state.goalsStore[u];
     const plan = buildGoalPlan(g);
-    html += `<div style="margin-top:18px">${renderGoalDetail(u, g, plan, u === me)}</div>`;
+    html += `<div style="margin-top:18px">${renderGoalDetail(u, g, plan, u === me, false)}</div>`;
   }
-
   return html;
 }
 
-function renderGoalDetail(userName, goal, plan, canEditEarnings) {
+function renderGoalDetail(userName, goal, plan, canEditEarnings, showDiary) {
   const periodLabel = goal.period === 'month' ? 'Месяц' : 'Неделя';
   const shifts = (goal.mainShifts || []).slice().sort((a, b) => a - b)
     .map(d => WEEKDAY_LABELS[d]).join(', ') || '—';
@@ -12153,7 +12239,7 @@ function renderGoalDetail(userName, goal, plan, canEditEarnings) {
       </div>
     </div>
   
-    ${renderDiarySection(userName)}
+    ${showDiary ? renderDiarySection(userName) : ''}
   `;
 }
 
@@ -13391,7 +13477,18 @@ function handleClick(e) {
       break;
     }
     case 'set-diary-period':
-      state.diaryPeriod = el.dataset.period || 'month';
+      state.diaryPeriod = el.dataset.period || 'day';
+      if (state.currentPage === 'goals') render();
+      break;
+    case 'set-goals-tab':
+      state.goalsTab = el.dataset.tab || 'my-goal';
+      if (el.dataset.tab === 'team-goals') state.goalsViewUser = '';
+      if (el.dataset.tab === 'team-diaries') state.diaryViewUser = '';
+      if (state.currentPage === 'goals') render();
+      break;
+    case 'view-diary-user':
+      state.goalsTab = 'team-diaries';
+      state.diaryViewUser = el.dataset.user || '';
       if (state.currentPage === 'goals') render();
       break;
     case 'apply-diary-range':
@@ -13405,6 +13502,7 @@ function handleClick(e) {
     case 'delete-goal': confirmDeleteGoal(el.dataset.user); break;
     case 'confirm-delete-goal': doDeleteGoal(el.dataset.user); break;
     case 'view-goal-user':
+      state.goalsTab = 'team-goals';
       state.goalsViewUser = el.dataset.user || '';
       if (state.currentPage === 'goals') render();
       break;
