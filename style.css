@@ -3069,3 +3069,25 @@ input[type="color"] {
 .diary-table th, .diary-table td { white-space: nowrap; }
 .rules-item { display: flex; align-items: flex-start; gap: 8px; }
 .rules-item-body { flex: 1; min-width: 0; }
+
+
+/* Календарь смен в цели */
+.goal-day-grid { gap: 6px; }
+.goal-day-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  cursor: pointer;
+  font-size: 0.8rem;
+  min-width: 88px;
+}
+.goal-day-chip input { margin-right: 4px; }
+.goal-day-chip em { font-style: normal; opacity: 0.6; font-size: 0.72rem; }
+.goal-day-chip.goal-day-main { border-color: rgba(91,141,239,0.45); }
+.goal-day-chip.goal-day-off { opacity: 0.55; border-color: rgba(244,63,94,0.4); }
+.goal-day-chip.goal-day-extra-on { border-color: rgba(45,212,191,0.55); background: rgba(45,212,191,0.08); }

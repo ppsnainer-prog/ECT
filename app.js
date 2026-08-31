@@ -10658,20 +10658,21 @@ function enumerateDates(start, end) {
   return out;
 }
 
-/** Рабочие дни цели: основные смены (дни недели) + доп. смены (конкретные даты) */
+/** Рабочие дни: основные дни недели + доп. даты − перенесённые/выходные (skipped) */
 function getGoalWorkDates(goal) {
   if (!goal) return [];
   const start = parseISODate(goal.startDate);
   const end = parseISODate(goal.endDate);
   const main = new Set((goal.mainShifts || []).map(Number));
   const extra = new Set(goal.extraShifts || []);
+  const skipped = new Set(goal.skippedShifts || []);
   const dates = [];
   for (const iso of enumerateDates(start, end)) {
+    if (skipped.has(iso)) continue; // этот день снят (перенос)
     const d = parseISODate(iso);
     const wd = d.getDay();
     if (main.has(wd) || extra.has(iso)) dates.push(iso);
   }
-  // extra outside? already only within range if we only enumerate range
   return dates;
 }
 
@@ -10703,6 +10704,7 @@ function buildGoalPlan(goal) {
       isToday: iso === today,
       isFuture: iso > today,
       isExtra: (goal.extraShifts || []).includes(iso),
+      isSkipped: (goal.skippedShifts || []).includes(iso),
       earned: amount,
       hasEntry: has,
       planned: 0
@@ -11832,11 +11834,11 @@ function showDailyLogModal(userName, date) {
      <div class="form-row-2">
        <div class="form-group"><label>Отработано</label>
          <input type="text" id="fDlWork" value="${escapeAttr(minutesToTimeMask(e.workMinutes))}" placeholder="00:00" inputmode="numeric" maxlength="5" ${canEdit ? '' : 'disabled'}>
-         <p class="field-hint">Маска ЧЧ:ММ</p>
+         <p class="field-hint">ЧЧ:ММ</p>
        </div>
        <div class="form-group"><label>Перерывы</label>
          <input type="text" id="fDlBreak" value="${escapeAttr(minutesToTimeMask(e.breakMinutes))}" placeholder="00:00" inputmode="numeric" maxlength="5" ${canEdit ? '' : 'disabled'}>
-         <p class="field-hint">Маска ЧЧ:ММ</p>
+         <p class="field-hint">ЧЧ:ММ</p>
        </div>
      </div>
      <div class="form-group"><label>Комментарий</label>
@@ -11913,8 +11915,7 @@ function renderDiarySection(userName, standalone) {
       <div class="catalog-toolbar-row" style="margin-bottom:12px">
         <div>
           <strong>📋 Дневник смены${userName !== state.currentUser ? ' · ' + escapeHtml(userName) : ''}</strong>
-          <p class="catalog-hint">Успехи, звонки, часы, перерывы. Штраф обнуляет успех (0 ₽, не в конве).</p>
-        </div>
+                  </div>
         ${canEdit ? `<button class="btn btn-primary btn-sm" data-action="add-daily-log" data-user="${escapeAttr(userName)}">+ День</button>` : ''}
       </div>
 
@@ -11939,10 +11940,11 @@ function renderDiarySection(userName, standalone) {
         <div class="card goal-stat"><div class="goal-stat-label">Звонки / недозвоны</div><div class="goal-stat-value">${agg.calls} / ${agg.failedCalls}</div></div>
         <div class="card goal-stat"><div class="goal-stat-label">Часы</div><div class="goal-stat-value">${formatWorkHM(agg.workMinutes)}</div></div>
         <div class="card goal-stat"><div class="goal-stat-label">Перерывы</div><div class="goal-stat-value">${formatWorkHM(agg.breakMinutes)}</div></div>
+        ${(preset === 'day' || preset === 'yesterday' || from === to) ? '' : `
         <div class="card goal-stat"><div class="goal-stat-label">Смен</div><div class="goal-stat-value">${agg.workedDays}</div></div>
-        <div class="card goal-stat"><div class="goal-stat-label">Штрафы (шт.)</div><div class="goal-stat-value">${agg.penalties}</div></div>
         <div class="card goal-stat"><div class="goal-stat-label">Ср. успехов / день</div><div class="goal-stat-value">${agg.workedDays ? agg.avgSuccess.toFixed(1) : '—'}</div></div>
-        <div class="card goal-stat"><div class="goal-stat-label">Ср. звонков / день</div><div class="goal-stat-value">${agg.workedDays ? agg.avgCalls.toFixed(1) : '—'}</div></div>
+        <div class="card goal-stat"><div class="goal-stat-label">Ср. звонков / день</div><div class="goal-stat-value">${agg.workedDays ? agg.avgCalls.toFixed(1) : '—'}</div></div>`}
+        <div class="card goal-stat"><div class="goal-stat-label">Штрафы (шт.)</div><div class="goal-stat-value">${agg.penalties}</div></div>
       </div>
       <p class="field-hint" style="margin-bottom:8px">${preset === 'custom' || from !== to ? `Период: <b>${escapeHtml(from)}</b> — <b>${escapeHtml(to)}</b>` : `Дата: <b>${escapeHtml(from)}</b>`}</p>
 
@@ -12148,6 +12150,10 @@ function renderGoalDetail(userName, goal, plan, canEditEarnings, showDiary) {
     const dt = parseISODate(d);
     return WEEKDAY_LABELS[dt.getDay()] + ' ' + d.slice(5).replace('-', '.');
   }).join(', ') || 'нет';
+  const skipped = (goal.skippedShifts || []).slice().sort().map(d => {
+    const dt = parseISODate(d);
+    return WEEKDAY_LABELS[dt.getDay()] + ' ' + d.slice(5).replace('-', '.');
+  }).join(', ') || 'нет';
   const payday = nextPaydayWednesday();
   const paydayIso = toISODate(payday);
   const untilPay = daysUntilPayday();
@@ -12157,7 +12163,7 @@ function renderGoalDetail(userName, goal, plan, canEditEarnings, showDiary) {
       <div class="catalog-toolbar-row">
         <div>
           <strong>🎯 ${userName === state.currentUser ? 'Моя цель' : 'Цель: ' + escapeHtml(userName)}</strong>
-          <p class="catalog-hint">${periodLabel}: ${escapeHtml(goal.startDate)} — ${escapeHtml(goal.endDate)} · смены: ${shifts} · доп: ${extras}</p>
+          <p class="catalog-hint">${periodLabel}: ${escapeHtml(goal.startDate)} — ${escapeHtml(goal.endDate)} · смены: ${shifts} · доп: ${extras} · снято: ${skipped}</p>
           <p class="catalog-hint">📅 Начисление: <b>вторник → понедельник</b> · выплата: <b>среда вечером</b></p>
           <p class="catalog-hint">💸 Текущий цикл: <b>${(plan.accrualStart || '').slice(5).replace('-', '.')} – ${(plan.accrualEnd || '').slice(5).replace('-', '.')}</b> · к выплате в ср ${(plan.paydayIso || paydayIso).slice(5).replace('-', '.')} вечером: <b>${formatMoney(plan.earnedThisAccrual != null ? plan.earnedThisAccrual : plan.earnedTotal)}</b>${untilPay === 0 ? ' (сегодня среда)' : ' · через ' + untilPay + ' ' + pluralRu(untilPay, 'день', 'дня', 'дней')}</p>
         </div>
@@ -12254,8 +12260,59 @@ function showGoalEditor(userName) {
   const existing = getUserGoal(who);
   const period = existing?.period || 'week';
   const dates = existing ? { startDate: existing.startDate, endDate: existing.endDate } : defaultGoalDates(period);
-  const main = new Set((existing?.mainShifts || [2, 3, 4, 5, 6, 0, 1]).map(Number)); // вт–пн по умолчанию
-  const extras = (existing?.extraShifts || []).join(', ');
+  const main = new Set((existing?.mainShifts || [2, 4, 5, 6, 0]).map(Number));
+  let seedExtra = new Set(existing?.extraShifts || []);
+  let seedSkip = new Set(existing?.skippedShifts || []);
+
+  const buildDayGrid = () => {
+    const startEl = document.getElementById('fGoalStart');
+    const endEl = document.getElementById('fGoalEnd');
+    const grid = document.getElementById('fGoalDayGrid');
+    if (!grid || !startEl || !endEl) return;
+    const start = startEl.value;
+    const end = endEl.value;
+    if (!start || !end || start > end) {
+      grid.innerHTML = '<p class="field-hint">Укажите начало и конец периода</p>';
+      return;
+    }
+    const mainNow = new Set();
+    document.querySelectorAll('.goal-wd-cb:checked').forEach(cb => mainNow.add(Number(cb.value)));
+    const checkedExtra = new Set(seedExtra);
+    const checkedSkip = new Set(seedSkip);
+    grid.querySelectorAll('.goal-day-extra:checked').forEach(cb => checkedExtra.add(cb.value));
+    grid.querySelectorAll('.goal-day-skip:checked').forEach(cb => checkedSkip.add(cb.value));
+    // снять то, что пользователь снял в текущей сетке
+    grid.querySelectorAll('.goal-day-extra:not(:checked)').forEach(cb => checkedExtra.delete(cb.value));
+    grid.querySelectorAll('.goal-day-skip:not(:checked)').forEach(cb => checkedSkip.delete(cb.value));
+
+    const rows = [];
+    for (const iso of enumerateDates(parseISODate(start), parseISODate(end))) {
+      const d = parseISODate(iso);
+      const wd = d.getDay();
+      const isMain = mainNow.has(wd);
+      const label = WEEKDAY_LABELS[wd] + ' ' + iso.slice(5).replace('-', '.');
+      if (isMain) {
+        // основной день — можно снять (перенос / выходной)
+        const on = checkedSkip.has(iso);
+        rows.push(`<label class="goal-day-chip ${on ? 'goal-day-off' : 'goal-day-main'}">
+          <input type="checkbox" class="goal-day-skip" value="${iso}" ${on ? 'checked' : ''}>
+          <span>${label}</span>
+          <em>${on ? 'выходной' : 'смена'}</em>
+        </label>`);
+      } else {
+        // не основной — можно добавить как доп. смену
+        const on = checkedExtra.has(iso);
+        rows.push(`<label class="goal-day-chip ${on ? 'goal-day-extra-on' : ''}">
+          <input type="checkbox" class="goal-day-extra" value="${iso}" ${on ? 'checked' : ''}>
+          <span>${label}</span>
+          <em>${on ? 'доп. смена' : 'выходной'}</em>
+        </label>`);
+      }
+    }
+    seedExtra = checkedExtra;
+    seedSkip = checkedSkip;
+    grid.innerHTML = rows.join('') || '<p class="field-hint">Нет дней в периоде</p>';
+  };
 
   openModal(
     existing ? 'Цель и график' : 'Новая цель и график',
@@ -12265,7 +12322,7 @@ function showGoalEditor(userName) {
          <option value="week" ${period === 'week' ? 'selected' : ''}>Неделя (вт → пн)</option>
          <option value="month" ${period === 'month' ? 'selected' : ''}>Месяц</option>
        </select>
-       <p class="field-hint">Неделя = цикл начисления вторник–понедельник. Выплата за цикл — в следующую среду вечером.</p>
+       <p class="field-hint">Неделя = цикл начисления вт–пн. Выплата — в следующую среду вечером.</p>
      </div>
      <div class="form-group"><label>Сумма цели, ₽</label>
        <input type="number" id="fGoalAmount" value="${escapeAttr(String(existing?.targetAmount || 20000))}" min="1" step="100">
@@ -12278,7 +12335,7 @@ function showGoalEditor(userName) {
          <input type="date" id="fGoalEnd" value="${escapeAttr(dates.endDate)}">
        </div>
      </div>
-     <div class="form-group"><label>Мой график — основные смены (дни недели)</label>
+     <div class="form-group"><label>Основные смены (дни недели)</label>
        <div class="goal-weekdays">
          ${[1, 2, 3, 4, 5, 6, 0].map(d => `
            <label class="goal-wd-chip">
@@ -12288,13 +12345,10 @@ function showGoalEditor(userName) {
          `).join('')}
        </div>
      </div>
-     <div class="form-group"><label>Доп. смены (даты через запятую)</label>
-       <input type="text" id="fGoalExtra" value="${escapeAttr(extras)}" placeholder="2026-08-27, 2026-08-28">
-       <p class="field-hint">Или добавьте ниже одну дату</p>
-       <div class="catalog-filters" style="margin-top:8px">
-         <input type="date" id="fGoalExtraOne" class="search-input" style="flex:1">
-         <button type="button" class="btn btn-outline btn-sm" id="fGoalExtraAdd">+ Дата</button>
-       </div>
+     <div class="form-group">
+       <label>Календарь смен в периоде</label>
+       <p class="field-hint">Галочка на <b>основном</b> дне = сделать выходным (перенос). Галочка на <b>выходном</b> = доп. смена.</p>
+       <div id="fGoalDayGrid" class="goal-day-grid" style="display:flex;flex-wrap:wrap;gap:6px;max-height:240px;overflow:auto;margin-top:8px"></div>
      </div>`,
     `<button class="btn btn-outline" data-action="close-modal">Отмена</button>
      <button class="btn btn-primary" data-action="save-goal" data-user="${escapeAttr(who)}">Сохранить</button>`
@@ -12308,15 +12362,12 @@ function showGoalEditor(userName) {
       const d = defaultGoalDates(periodEl.value);
       if (startEl) startEl.value = d.startDate;
       if (endEl) endEl.value = d.endDate;
+      buildDayGrid();
     });
-    document.getElementById('fGoalExtraAdd')?.addEventListener('click', () => {
-      const one = document.getElementById('fGoalExtraOne')?.value;
-      const extra = document.getElementById('fGoalExtra');
-      if (!one || !extra) return;
-      const parts = extra.value.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
-      if (!parts.includes(one)) parts.push(one);
-      extra.value = parts.join(', ');
-    });
+    startEl?.addEventListener('change', buildDayGrid);
+    endEl?.addEventListener('change', buildDayGrid);
+    document.querySelectorAll('.goal-wd-cb').forEach(cb => cb.addEventListener('change', buildDayGrid));
+    buildDayGrid();
   }, 50);
 }
 
@@ -12333,14 +12384,29 @@ function saveGoal(userName) {
   const endDate = document.getElementById('fGoalEnd')?.value;
   const mainShifts = [];
   document.querySelectorAll('.goal-wd-cb:checked').forEach(cb => mainShifts.push(Number(cb.value)));
-  const extraShifts = (document.getElementById('fGoalExtra')?.value || '')
-    .split(/[,;\s]+/).map(s => s.trim()).filter(s => /^\d{4}-\d{2}-\d{2}$/.test(s));
+  const extraShifts = [];
+  document.querySelectorAll('.goal-day-extra:checked').forEach(cb => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(cb.value)) extraShifts.push(cb.value);
+  });
+  const skippedShifts = [];
+  document.querySelectorAll('.goal-day-skip:checked').forEach(cb => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(cb.value)) skippedShifts.push(cb.value);
+  });
+  // доп. смены не должны совпадать с основными днями недели
+  const mainSet = new Set(mainShifts);
+  const extraClean = extraShifts.filter(iso => {
+    const wd = parseISODate(iso).getDay();
+    return !mainSet.has(wd);
+  });
 
   if (!amount || amount <= 0) { toast('Укажите сумму цели', 'error'); return; }
   if (!startDate || !endDate) { toast('Укажите даты', 'error'); return; }
   if (startDate > endDate) { toast('Начало позже конца', 'error'); return; }
-  if (!mainShifts.length && !extraShifts.length) {
-    toast('Выберите хотя бы одну смену', 'error');
+
+  // рабочие дни после учёта переносов
+  const probe = { mainShifts, extraShifts: extraClean, skippedShifts, startDate, endDate };
+  if (!getGoalWorkDates(probe).length) {
+    toast('Нет ни одного рабочего дня — отметьте смены или доп. дни', 'error');
     return;
   }
 
@@ -12352,7 +12418,8 @@ function saveGoal(userName) {
     startDate,
     endDate,
     mainShifts,
-    extraShifts,
+    extraShifts: extraClean,
+    skippedShifts,
     earnings: prev.earnings || {},
     dailyLogs: prev.dailyLogs || {},
     updatedAt: Date.now(),
