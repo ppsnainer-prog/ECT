@@ -4854,8 +4854,11 @@ function isCommonAccount() {
 function applyAccountPermissions() {
   const common = isCommonAccount();
 
-  // Общая: только просмотр. Скрываем настройки и операции изменения/импорта.
+  // Общая: только просмотр. Скрываем настройки, цели и операции изменения.
   document.querySelectorAll('.nav-item[data-page="settings"]').forEach(el => {
+    el.hidden = common;
+  });
+  document.querySelectorAll('.nav-item[data-page="goals"]').forEach(el => {
     el.hidden = common;
   });
   document.querySelectorAll('.nav-item[data-page="leaderboard"]').forEach(el => {
@@ -4898,25 +4901,51 @@ function showAppAfterLogin(user) {
   state.currentUser = user;
   const login = document.getElementById('loginScreen');
   const appRoot = document.getElementById('app');
-  if (login) login.hidden = true;
-  if (appRoot) appRoot.hidden = false;
+  if (login) {
+    login.hidden = true;
+    login.setAttribute('hidden', '');
+    login.style.display = 'none';
+  }
+  if (appRoot) {
+    appRoot.hidden = false;
+    appRoot.removeAttribute('hidden');
+    appRoot.style.display = 'flex';
+  }
   applyAccountPermissions();
+  if (isCommonAccount() && (state.currentPage === 'goals' || state.currentPage === 'settings')) {
+    state.currentPage = 'home';
+  }
 }
 
 function logout() {
-  stopAutoSync();
+  try { stopAutoSync(); } catch (_) {}
   safeSessionRemove(LOGIN_SESSION_KEY);
   state.currentUser = '';
+  state.currentPage = 'home';
   const appRoot = document.getElementById('app');
   const login = document.getElementById('loginScreen');
-  if (appRoot) appRoot.hidden = true;
+  if (appRoot) {
+    appRoot.hidden = true;
+    appRoot.setAttribute('hidden', '');
+    appRoot.style.display = 'none';
+  }
   if (login) {
     login.hidden = false;
+    login.removeAttribute('hidden');
+    login.style.display = 'flex';
     const password = document.getElementById('loginPassword');
     const error = document.getElementById('loginError');
+    const userSel = document.getElementById('loginUser');
     if (password) password.value = '';
     if (error) error.textContent = '';
+    if (userSel) userSel.selectedIndex = 0;
+    setTimeout(() => {
+      try { (password || userSel)?.focus(); } catch (_) {}
+    }, 50);
   }
+  // сброс кнопки входа если зависла
+  const btn = document.getElementById('loginButton');
+  if (btn) { btn.disabled = false; btn.textContent = 'Войти'; }
 }
 
 async function login() {
@@ -5942,6 +5971,10 @@ function navigate(page, scriptId = null) {
   }
   if (page === 'settings' && isCommonAccount()) {
     toast('Для аккаунта «Общая» настройки недоступны.', 'error');
+    page = 'home';
+  }
+  if (page === 'goals' && isCommonAccount()) {
+    toast('Для аккаунта «Общая» раздел «Цель» недоступен.', 'error');
     page = 'home';
   }
   state.currentPage = page;
@@ -11654,6 +11687,10 @@ function getDailyLogs(userName) {
 }
 
 function saveDailyLog(userName, date, entry) {
+  if (isCommonAccount()) {
+    toast('Аккаунт «Общая» не может вести дневник', 'error');
+    return false;
+  }
   if (!canViewUserDiary(userName)) { toast('Нет доступа', 'error'); return false; }
   if (!isAdminUser() && userName !== state.currentUser) {
     toast('Нельзя редактировать чужой дневник', 'error');
@@ -11704,6 +11741,7 @@ function saveDailyLog(userName, date, entry) {
 }
 
 function deleteDailyLog(userName, date) {
+  if (isCommonAccount() && !isAdminUser()) return;
   if (!canViewUserDiary(userName)) return;
   if (!isAdminUser() && userName !== state.currentUser) return;
   loadGoalsStore();
@@ -11800,6 +11838,7 @@ function formatWorkHM(minutes) {
 }
 
 function showDailyLogModal(userName, date) {
+  if (isCommonAccount()) { toast('Аккаунт «Общая» не может вести дневник', 'error'); return; }
   if (!canViewUserDiary(userName)) { toast('Нет доступа', 'error'); return; }
   const canEdit = isAdminUser() || userName === state.currentUser;
   const iso = date || toISODate(new Date());
@@ -12002,7 +12041,7 @@ function renderTeamDiaries() {
       <div class="catalog-toolbar-row">
         <div>
           <strong>📋 Дневники команды</strong>
-          <p class="catalog-hint">Откройте дневник любого оператора.</p>
+          <p class="catalog-hint">Откройте дневник любого оператора. Записи аккаунта «Общая» (если были) тоже здесь — можно удалить.</p>
         </div>
       </div>
     </div>`;
@@ -12020,7 +12059,10 @@ function renderTeamDiaries() {
             <h3 class="call-title">${escapeHtml(name)}</h3>
             <div class="call-meta"><span class="badge">${n} дн.</span></div>
           </div>
-          <button class="btn btn-outline btn-sm" data-action="view-diary-user" data-user="${escapeAttr(name)}">Открыть дневник</button>
+          <div class="call-actions">
+            <button class="btn btn-outline btn-sm" data-action="view-diary-user" data-user="${escapeAttr(name)}">Открыть дневник</button>
+            ${isAdminUser() ? `<button class="btn btn-danger btn-sm" data-action="delete-goal" data-user="${escapeAttr(name)}" title="Удалить цель и дневник">🗑</button>` : ''}
+          </div>
         </div>
       </article>`;
   }
@@ -12250,6 +12292,10 @@ function renderGoalDetail(userName, goal, plan, canEditEarnings, showDiary) {
 }
 
 function showGoalEditor(userName) {
+  if (isCommonAccount()) {
+    toast('Аккаунт «Общая» не может создавать цели', 'error');
+    return;
+  }
   const who = userName || state.currentUser;
   if (!who) return;
   if (!isAdminUser() && who !== state.currentUser) {
@@ -12372,6 +12418,10 @@ function showGoalEditor(userName) {
 }
 
 function saveGoal(userName) {
+  if (isCommonAccount()) {
+    toast('Аккаунт «Общая» не может создавать цели', 'error');
+    return;
+  }
   const who = userName || state.currentUser;
   if (!who) return;
   if (!isAdminUser() && who !== state.currentUser) {
