@@ -3055,3 +3055,17 @@ input[type="color"] {
   text-overflow: ellipsis;
 }
 
+
+
+/* Правила — теги */
+.rules-tags-row .badge { opacity: 0.85; }
+.rules-tags-row .badge.badge-primary { opacity: 1; }
+.rules-block-tags .badge { opacity: 0.75; }
+
+
+/* Дневник смены */
+.diary-section { padding: 14px 16px; }
+.diary-table { font-size: 0.9rem; }
+.diary-table th, .diary-table td { white-space: nowrap; }
+.rules-item { display: flex; align-items: flex-start; gap: 8px; }
+.rules-item-body { flex: 1; min-width: 0; }
