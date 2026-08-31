@@ -554,9 +554,11 @@ function sanitizeFileName_(name) {
 
 function buildPublicUrl_(fileId, kind) {
   if (kind === 'image') {
-    return 'https://drive.google.com/uc?export=view&id=' + fileId;
+    // thumbnail стабильнее для <img>, чем uc?export=view
+    return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w2000';
   }
-  return 'https://drive.google.com/uc?export=download&id=' + fileId;
+  // для audio/video прямая ссылка в <audio src> обычно не работает — клиент тянет base64
+  return 'https://drive.google.com/file/d/' + fileId + '/view';
 }
 
 /**
@@ -620,6 +622,32 @@ function handleDeleteMedia_(parsed) {
   return { ok: true, op: 'deleteMedia', driveId: driveId, trashed: true };
 }
 
+/**
+ * Вернуть файл как base64 для встраивания в <img>/<audio> на сайте.
+ * (Прямые ссылки Drive в src часто блокируются браузером.)
+ * parsed: { driveId }  лимит ~ разумный размер файла
+ */
+function handleGetMediaBase64_(parsed) {
+  var driveId = String((parsed && parsed.driveId) || '');
+  if (!driveId) throw new Error('getMediaBase64: нет driveId');
+  var file = DriveApp.getFileById(driveId);
+  var blob = file.getBlob();
+  var bytes = blob.getBytes();
+  // ~8MB raw ≈ безопасный лимит ответа Apps Script
+  if (bytes.length > 8 * 1024 * 1024) {
+    throw new Error('Файл слишком большой для встраивания (>8 МБ). Откройте на Drive.');
+  }
+  return {
+    ok: true,
+    op: 'getMediaBase64',
+    driveId: driveId,
+    name: file.getName(),
+    mimeType: blob.getContentType() || file.getMimeType() || 'application/octet-stream',
+    size: bytes.length,
+    data: Utilities.base64Encode(bytes)
+  };
+}
+
 /** Инфо о медиа-папке */
 function handleMediaInfo_() {
   var root = getMediaRootFolder_();
@@ -642,6 +670,22 @@ function doGet(e) {
     if (e && e.parameter && e.parameter.op === 'mediaInfo') {
       return jsonOut_(handleMediaInfo_());
     }
+    // Лёгкая проверка «есть ли изменения» без чтения всех скриптов
+    if (e && e.parameter && e.parameter.op === 'meta') {
+      var meta = {};
+      try {
+        meta = JSON.parse(String(dataSheet_().getRange('A1').getValue() || '{}'));
+      } catch (e1) {}
+      var stamp = '';
+      try { stamp = String(dataSheet_().getRange('C1').getValue() || ''); } catch (e2) {}
+      return jsonOut_({
+        ok: true,
+        op: 'meta',
+        updatedAt: meta.updatedAt || 0,
+        count: meta.count || 0,
+        extrasStamp: stamp
+      });
+    }
     return jsonOut_(readAll_());
   } catch (err) {
     return jsonOut_({ error: String(err) });
@@ -649,33 +693,48 @@ function doGet(e) {
 }
 
 function doPost(e) {
-  var lock = LockService.getScriptLock();
-  try {
-    lock.waitLock(30000);
-  } catch (lockErr) {
-    return jsonOut_({ ok: false, error: 'busy: ' + String(lockErr) });
+  var body = '';
+  if (e && e.postData && e.postData.contents) body = e.postData.contents;
+  else if (e && e.parameter && e.parameter.data) body = e.parameter.data;
+  if (!body) {
+    return jsonOut_({ ok: false, error: 'empty body' });
   }
+  var parsed;
   try {
-    var body = '';
-    if (e && e.postData && e.postData.contents) body = e.postData.contents;
-    else if (e && e.parameter && e.parameter.data) body = e.parameter.data;
-    if (!body) {
-      return jsonOut_({ ok: false, error: 'empty body' });
-    }
-    var parsed = JSON.parse(body);
-    if (!parsed || typeof parsed !== 'object') throw new Error('invalid json');
+    parsed = JSON.parse(body);
+  } catch (pe) {
+    return jsonOut_({ ok: false, error: 'invalid json' });
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    return jsonOut_({ ok: false, error: 'invalid json' });
+  }
+  var op = parsed.op || 'replace';
 
-    var op = parsed.op || 'replace';
-
+  // Медиа не блокирует запись скриптов/extras
+  try {
     if (op === 'uploadMedia') {
       return jsonOut_(handleUploadMedia_(parsed));
     }
     if (op === 'deleteMedia') {
       return jsonOut_(handleDeleteMedia_(parsed));
     }
+    if (op === 'getMediaBase64') {
+      return jsonOut_(handleGetMediaBase64_(parsed));
+    }
     if (op === 'mediaInfo') {
       return jsonOut_(handleMediaInfo_());
     }
+  } catch (mediaErr) {
+    return jsonOut_({ ok: false, error: String(mediaErr) });
+  }
+
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(15000);
+  } catch (lockErr) {
+    return jsonOut_({ ok: false, error: 'busy: ' + String(lockErr) });
+  }
+  try {
     // Только extras (цели, авто, справка, звонки-мета, лидерборд) — без перезаписи скриптов
     if (op === 'saveExtras') {
       var ex = parsed.extras || {
@@ -692,8 +751,17 @@ function doPost(e) {
         writeShared_(parsed.sharedOtabotki || []);
       }
       var sheet = dataSheet_();
+      var nowAt = parsed.updatedAt || Date.now();
       sheet.getRange('C1').setValue(new Date().toISOString());
-      return jsonOut_({ ok: true, op: 'saveExtras' });
+      // Обновляем meta.updatedAt, чтобы клиентский ?op=meta видел изменения extras
+      try {
+        var metaRaw = String(sheet.getRange('A1').getValue() || '{}');
+        var metaObj = {};
+        try { metaObj = JSON.parse(metaRaw); } catch (e3) { metaObj = {}; }
+        metaObj.updatedAt = nowAt;
+        sheet.getRange('A1').setValue(JSON.stringify(metaObj));
+      } catch (e4) {}
+      return jsonOut_({ ok: true, op: 'saveExtras', updatedAt: nowAt });
     }
 
     if (op === 'replace') {

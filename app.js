@@ -5315,20 +5315,45 @@ async function fetchWithTimeout(url, options = {}, ms = 10000) {
   }
 }
 
-async function cloudFetch() {
+async function cloudFetch(opts) {
   if (!state.cloud.enabled) return null;
-  state.cloud.status = 'syncing';
-  updateSyncBadge();
+  const quiet = opts && opts.quiet;
+  // Не перетираем локальные правки, которые только что ушли в облако
+  if (state.cloud.lastLocalWrite && Date.now() - state.cloud.lastLocalWrite < 8000) {
+    return null;
+  }
+  if (!quiet) {
+    state.cloud.status = 'syncing';
+    updateSyncBadge();
+  }
   try {
     if (state.cloud.provider === 'sheets') {
       const url = (state.cloud.sheetsUrl || '').trim();
       if (!url) throw new Error('Нет URL Google Apps Script');
-      const res = await fetchWithTimeout(url, { method: 'GET' }, 12000);
+      // Сначала лёгкий meta (updatedAt) — не качаем весь JSON зря
+      try {
+        const metaRes = await fetchWithTimeout(url + (url.includes('?') ? '&' : '?') + 'op=meta', { method: 'GET' }, 8000);
+        if (metaRes.ok) {
+          const meta = await metaRes.json();
+          const remoteAt = Number(meta && meta.updatedAt) || 0;
+          const localAt = Number(state.cloud.lastRemoteUpdatedAt) || 0;
+          if (remoteAt && localAt && remoteAt <= localAt && !opts?.force) {
+            if (!quiet) {
+              state.cloud.status = 'ok';
+              updateSyncBadge();
+            }
+            return null; // нет изменений на сервере
+          }
+        }
+      } catch (_) { /* meta опционален */ }
+
+      const res = await fetchWithTimeout(url, { method: 'GET' }, 25000);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const json = await res.json();
       if (json && json.error) throw new Error(json.error);
       const record = json.record || json;
       if (record && record.storage === 'rows') state.cloud.rowStorage = true;
+      if (record && record.updatedAt) state.cloud.lastRemoteUpdatedAt = record.updatedAt;
       state.cloud.status = 'ok';
       state.cloud.lastSync = Date.now();
       updateSyncBadge();
@@ -5562,6 +5587,12 @@ async function cloudSaveExtrasOnly() {
     if (posted.json && posted.json.ok === false) {
       throw new Error(posted.json.error || 'saveExtras failed');
     }
+    state.cloud.lastLocalWrite = Date.now();
+    if (posted.json && posted.json.updatedAt) {
+      state.cloud.lastRemoteUpdatedAt = posted.json.updatedAt;
+    } else {
+      state.cloud.lastRemoteUpdatedAt = state.cloud.lastLocalWrite;
+    }
     return true;
   } catch (e) {
     console.warn('cloudSaveExtrasOnly', e);
@@ -5571,31 +5602,71 @@ async function cloudSaveExtrasOnly() {
 
 let __cloudDebounce = null;
 let __cloudExtrasDebounce = null;
+let __cloudQueue = Promise.resolve();
+let __cloudBusy = false;
+let __cloudFailStreak = 0;
+let __pendingFullSave = false;
+let __pendingExtrasSave = false;
+
+/** Очередь: не гоняем параллельные save/fetch (главная причина сбоев) */
+function enqueueCloud(fn) {
+  __cloudQueue = __cloudQueue.then(async () => {
+    __cloudBusy = true;
+    try {
+      return await fn();
+    } finally {
+      __cloudBusy = false;
+    }
+  }).catch(e => {
+    console.warn('cloud queue', e);
+  });
+  return __cloudQueue;
+}
+
 function scheduleCloudSave() {
   if (typeof isCommonAccount === 'function' && isCommonAccount()) return;
   if (!state.cloud || !state.cloud.enabled) return;
+  __pendingFullSave = true;
   clearTimeout(__cloudDebounce);
   __cloudDebounce = setTimeout(() => {
-    cloudSave().catch(e => console.warn('cloud save', e));
-  }, 1200);
+    if (!__pendingFullSave) return;
+    __pendingFullSave = false;
+    __pendingExtrasSave = false; // full save включает extras
+    enqueueCloud(() => cloudSave());
+  }, 2000);
 }
-/** Только extras (цели/авто/справка) — легче, чем полная запись всех скриптов */
+
+/** Только extras — без перезаписи всех скриптов */
 function scheduleCloudExtrasSave() {
   if (typeof isCommonAccount === 'function' && isCommonAccount()) return;
   if (!state.cloud || !state.cloud.enabled) return;
+  // если уже ждём полный save — extras уедут с ним
+  if (__pendingFullSave) return;
+  __pendingExtrasSave = true;
   clearTimeout(__cloudExtrasDebounce);
   __cloudExtrasDebounce = setTimeout(() => {
-    cloudSaveExtrasOnly().then(ok => {
-      if (!ok) {
-        // fallback: полная синхронизация
-        cloudSave().catch(e => console.warn('cloud save fallback', e));
-      } else {
+    if (!__pendingExtrasSave || __pendingFullSave) return;
+    __pendingExtrasSave = false;
+    enqueueCloud(async () => {
+      const ok = await cloudSaveExtrasOnly();
+      if (ok) {
+        __cloudFailStreak = 0;
         state.cloud.status = 'ok';
         state.cloud.lastSync = Date.now();
         try { updateSyncBadge(); } catch (_) {}
+      } else {
+        __cloudFailStreak++;
+        // не долбим full save сразу — только после 2 неудач extras
+        if (__cloudFailStreak >= 2) {
+          __cloudFailStreak = 0;
+          await cloudSave();
+        } else {
+          state.cloud.status = 'error';
+          try { updateSyncBadge(); } catch (_) {}
+        }
       }
     });
-  }, 800);
+  }, 1500);
 }
 async function cloudSave() {
   if (typeof isCommonAccount === 'function' && isCommonAccount()) return false;
@@ -5661,20 +5732,20 @@ async function cloudSave() {
 
       if (json && json.ok === true && json.op === 'replace') state.cloud.rowStorage = true;
 
-      if (json && !(json.ok === true) && res && !res.ok) {
-        const ok = await verifyCloudScripts(url, state.scripts);
-        if (!ok) {
-          throw new Error('HTTP ' + res.status + (textBody ? (': ' + textBody.slice(0, 100)) : ''));
-        }
+      // Успех: явный ok, либо HTTP 200 с телом без error
+      const explicitFail = json && json.ok === false;
+      const httpFail = res && !res.ok;
+      if (explicitFail || (httpFail && !(json && json.ok === true))) {
+        throw new Error(
+          (json && json.error) ||
+          ('HTTP ' + (res && res.status) + (textBody ? (': ' + textBody.slice(0, 120)) : ''))
+        );
       }
 
-      const verified = await verifyCloudScripts(url, state.scripts);
-      if (!verified) {
-        throw new Error('Таблица не приняла полный текст. Обновите Code.gs и нажмите «Новая версия» в развёртывании.');
-      }
-
+      __cloudFailStreak = 0;
       state.cloud.status = 'ok';
       state.cloud.lastSync = Date.now();
+      state.cloud.lastLocalWrite = Date.now();
       updateSyncBadge();
       return true;
     }
@@ -5736,10 +5807,11 @@ async function loadData() {
 
 async function saveData() {
   if (isCommonAccount()) return false;
-  saveLocalScripts();
+  // Сначала локально — UI не ждёт сеть
+  try { saveLocalScripts(); } catch (_) {}
   if (state.cloud.enabled) {
-    const ok = await cloudSave();
-    return ok;
+    scheduleCloudSave(); // debounce + очередь, без блокировки интерфейса
+    return true;
   }
   return true;
 }
@@ -5747,27 +5819,51 @@ async function saveData() {
 function startAutoSync() {
   stopAutoSync();
   if (!state.cloud.enabled) return;
-  syncTimer = setInterval(async () => {
+  // 45 с — реже бьём Apps Script (квоты + меньше гонок с сохранением)
+  syncTimer = setInterval(() => {
     if (document.hidden) return;
-    if (window.__ectCloudSyncing) return;
-    const remote = await cloudFetch();
-    if (remote && Array.isArray(remote.scripts)) {
-      const remoteStr = JSON.stringify(remote.scripts.map(s => String(s.id) + ':' + String(s.updatedAt || 0)).sort());
-      const localStr = JSON.stringify(state.scripts.map(s => String(s.id) + ':' + String(s.updatedAt || 0)).sort());
+    if (__cloudBusy || __pendingFullSave || __pendingExtrasSave) return;
+    enqueueCloud(async () => {
+      const remote = await cloudFetch({ quiet: true });
+      if (!remote) return;
+      const remoteAt = Number(remote.updatedAt) || 0;
+      const localWrite = Number(state.cloud.lastLocalWrite) || 0;
+      // чужие изменения только если сервер новее нашей последней записи
+      if (remoteAt && localWrite && remoteAt <= localWrite + 1000) return;
+
+      let changed = false;
+      if (Array.isArray(remote.scripts)) {
+        const remoteStr = remote.scripts.map(s => String(s.id) + ':' + String(s.updatedAt || 0)).sort().join('|');
+        const localStr = (state.scripts || []).map(s => String(s.id) + ':' + String(s.updatedAt || 0)).sort().join('|');
+        if (remoteStr !== localStr) changed = true;
+      }
       const remoteShared = JSON.stringify(remote.sharedOtabotki || []);
       const localShared = JSON.stringify(state.sharedOtabotki || []);
-      if (remoteStr !== localStr || remoteShared !== localShared) {
-        state.scripts = remote.scripts;
-        applyCloudRecord(remote);
-        ensureOtabotkiModel();
-        saveLocalScripts();
-        if (state.currentPage === 'scripts' || state.currentPage === 'home' || state.currentPage === 'script' || state.currentPage === 'otabotki') {
-          render();
-        }
-        toast('Данные обновлены из облака');
+      if (remoteShared !== localShared) changed = true;
+
+      if (!changed && remote.extras) {
+        // extras могли обновиться без scripts
+        const rGoals = JSON.stringify(remote.goalsStore || (remote.extras && remote.extras.goalsStore) || {});
+        const lGoals = JSON.stringify(state.goalsStore || {});
+        if (rGoals !== lGoals) changed = true;
       }
-    }
-  }, 12000);
+
+      if (!changed) {
+        if (remoteAt) state.cloud.lastRemoteUpdatedAt = remoteAt;
+        return;
+      }
+
+      applyCloudRecord(remote);
+      try { ensureOtabotkiModel(); } catch (_) {}
+      try { saveLocalScripts(); } catch (_) {}
+      if (remoteAt) state.cloud.lastRemoteUpdatedAt = remoteAt;
+      const p = state.currentPage;
+      if (p === 'scripts' || p === 'home' || p === 'script' || p === 'otabotki' || p === 'goals' || p === 'catalog' || p === 'calls') {
+        render();
+      }
+      // без тоста при каждом автообновлении — меньше шума
+    });
+  }, 45000);
 }
 
 function stopAutoSync() {
