@@ -4714,6 +4714,7 @@ let state = {
   searchQuery: '',
   otabotkiQuery: '',
   otabotkiCat: '',
+  otabotkiSource: 'own', // own | metodichka
   otabotkiScriptFilter: '',
   expandedNodes: {},
   collapsedBlocks: {}
@@ -9814,6 +9815,9 @@ function buildOtabotkiIndex() {
     const scriptTitles = used.map(s => s.title);
     const scriptCats = [...new Set(used.map(s => s.category || 'Без категории').filter(Boolean))];
     const cats = [...new Set([...(o.categories || []), ...scriptCats])];
+    const isMetod = o.source === 'metodichka' ||
+      String(o.id || '').startsWith('metod_') ||
+      (o.categories || []).includes('Методичка');
     return {
       id: o.id,
       title: o.title || '',
@@ -9821,7 +9825,8 @@ function buildOtabotkiIndex() {
       categories: cats,
       scripts: used.map(s => ({ id: s.id, title: s.title, category: s.category || '' })),
       scriptTitles,
-      childrenCount: countTree(o.children || [])
+      childrenCount: countTree(o.children || []),
+      isMetodichka: !!isMetod
     };
   });
 }
@@ -9830,13 +9835,18 @@ function renderOtabotkiCatalog() {
   const q = (state.otabotkiQuery || '').toLowerCase().trim();
   const catFilter = state.otabotkiCat || '';
   const scriptFilter = state.otabotkiScriptFilter || '';
+  const src = state.otabotkiSource || 'own';
   const canChange = canEdit();
 
-  let list = buildOtabotkiIndex();
+  let allList = buildOtabotkiIndex();
+  const ownCount = allList.filter(x => !x.isMetodichka).length;
+  const metodCount = allList.filter(x => x.isMetodichka).length;
+
+  let list = allList.filter(x => src === 'metodichka' ? x.isMetodichka : !x.isMetodichka);
 
   const categories = [...new Set([
-    ...list.flatMap(x => x.categories),
-    ...allCategoriesFromScripts()
+    ...list.flatMap(x => x.categories).filter(c => c !== 'Методичка'),
+    ...(src === 'own' ? allCategoriesFromScripts() : [])
   ])].filter(Boolean).sort((a, b) => a.localeCompare(b, 'ru'));
 
   const scriptOptions = state.scripts
@@ -9846,7 +9856,7 @@ function renderOtabotkiCatalog() {
   if (catFilter) {
     list = list.filter(x => x.categories.some(c => c === catFilter));
   }
-  if (scriptFilter) {
+  if (scriptFilter && src === 'own') {
     list = list.filter(x => x.scripts.some(s => s.id === scriptFilter));
   }
   if (q) {
@@ -9858,24 +9868,28 @@ function renderOtabotkiCatalog() {
         x.scriptTitles.join(' '),
         x.scripts.map(s => s.category).join(' ')
       ].join(' ').toLowerCase();
-      // Поддержка нескольких слов: все должны встретиться
       return q.split(/\s+/).filter(Boolean).every(word => hay.includes(word));
     });
   }
 
   list = list.sort((a, b) => a.title.localeCompare(b.title, 'ru'));
 
+  const srcHint = src === 'metodichka'
+    ? 'Готовые ответы из методички по вопросам и возражениям клиентов.'
+    : 'Ваши отработки: созданные здесь или в скриптах.';
+
   return `
     <div class="card" style="margin-bottom:16px;padding:14px 16px">
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
         <div>
-          <strong>Список отработок</strong>
-          <p style="margin:4px 0 0;font-size:0.85rem;color:var(--text-muted)">
-            Все отработки в одном месте. Создайте здесь или в скрипте — они появятся в списке.
-            В скрипт можно добавить из списка (📋) или написать новую (+).
-          </p>
+          <strong>Каталог отработок</strong>
+          <p style="margin:4px 0 0;font-size:0.85rem;color:var(--text-muted)">${srcHint}</p>
         </div>
-        ${canChange ? `<button class="btn btn-primary btn-sm" data-action="add-shared-otabotka">+ Новая отработка</button>` : ''}
+        ${canChange && src === 'own' ? `<button class="btn btn-primary btn-sm" data-action="add-shared-otabotka">+ Новая отработка</button>` : ''}
+      </div>
+      <div class="ot-source-tabs" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
+        <button type="button" class="btn btn-sm ${src === 'own' ? 'btn-primary' : 'btn-outline'}" data-action="set-otabotki-source" data-source="own">✏️ Свои <span class="badge" style="margin-left:4px">${ownCount}</span></button>
+        <button type="button" class="btn btn-sm ${src === 'metodichka' ? 'btn-primary' : 'btn-outline'}" data-action="set-otabotki-source" data-source="metodichka">📘 Методичка <span class="badge" style="margin-left:4px">${metodCount}</span></button>
       </div>
     </div>
 
@@ -14145,6 +14159,11 @@ function handleClick(e) {
     case 'editor-cmd': applyEditorCommand(el.dataset.cmd); break;
     case 'editor-clear-format': removeEditorColor(); break;
     case 'hotkeys-help': showHotkeysHelp(); break;
+    case 'set-otabotki-source':
+      state.otabotkiSource = el.dataset.source === 'metodichka' ? 'metodichka' : 'own';
+      state.otabotkiCat = '';
+      render();
+      break;
     case 'add-shared-otabotka': showSharedOtabotkaModal(); break;
     case 'edit-shared-otabotka': showSharedOtabotkaModal(el.dataset.id); break;
     case 'save-shared-otabotka': saveSharedOtabotka(el.dataset.id || null); break;
