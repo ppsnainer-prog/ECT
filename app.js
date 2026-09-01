@@ -11151,7 +11151,8 @@ const RULES_SOURCE_INFO = {
   questions: { title: 'Корректность вопроса', desc: 'Закрытые и полуоткрытые вопросы: корректная, расплывчатая и некорректная формулировка.' },
   brands: { title: 'Марки и модели вне списка', desc: 'Марки/модели, которых нет в стандартных списках — ориентир, когда заявка может уйти в неактуально.' },
   mistakes: { title: 'Частые ошибки', desc: 'Типовые ошибки операторов, критерий оценки и как исправить.' },
-  custom: { title: 'Свои штрафы', desc: 'Правила, которые вы добавили сами, с привязкой к группам и скриптам.' }
+  custom: { title: 'Свои штрафы', desc: 'Правила, которые вы добавили сами, с привязкой к группам и скриптам.' },
+  fines: { title: 'Штрафы оператора', desc: 'Денежные и дисциплинарные санкции за нарушения смены, графика и общения с клиентом.' }
 };
 
 
@@ -11526,6 +11527,16 @@ async function showRefView(id) {
 
 function getAllRuleBlocks() {
   const base = DEFAULT_RULES.map(b => ({ ...b, items: (b.items || []).slice() }));
+  const finesBlock = {
+    id: 'operator_fines',
+    source: 'fines',
+    sourceLabel: 'Штрафы',
+    category: 'Дисциплина',
+    subtitle: 'Штрафы оператора',
+    tone: 'danger',
+    tags: ['штрафы', 'дисциплина', 'смена', 'прогул', 'опоздание', 'перерыв', 'увольнение'],
+    items: (typeof OPERATOR_FINES !== 'undefined' ? OPERATOR_FINES : []).map(f => f.text + ' — ' + f.amount)
+  };
   const custom = (state.sharedPenalties || []).map(p => ({
     id: 'custom_' + p.id,
     source: 'custom',
@@ -11537,7 +11548,54 @@ function getAllRuleBlocks() {
     items: [p.text || p.title || ''],
     meta: p
   }));
-  return base.concat(custom);
+  return base.concat([finesBlock], custom);
+}
+
+
+/** Денежные / дисциплинарные штрафы оператора (смена, график, клиент) */
+const OPERATOR_FINES = [
+  { id: 'f1', text: 'Прогул смены без предупреждения СВ', amount: '1 000 ₽', severe: false },
+  { id: 'f2', text: 'Опоздание на смену более чем на 5 минут', amount: '300 ₽', severe: false },
+  { id: 'f3', text: 'Превышение времени перерыва более чем на 30 мин без предупреждения', amount: '300 ₽', severe: false },
+  { id: 'f4', text: 'Заполнение в графе «Инфо» своего мнения, комментариев по типу: «просил не звонить», оскорбления и т.п.', amount: '300 ₽', severe: false },
+  { id: 'f5', text: 'Неправильная постановка статуса в заявке / роде «первичный»', amount: '300 ₽', severe: false },
+  { id: 'f6', text: 'Самостоятельный уход со смены раньше времени по графику', amount: '500 ₽', severe: false },
+  { id: 'f7', text: 'Самостоятельный выход в смену без предупреждения СВ', amount: '400 ₽', severe: false },
+  { id: 'f8', text: 'Хамство клиенту, использование матерных слов в диалоге', amount: 'Увольнение, без выплаты', severe: true }
+];
+
+function renderOperatorFines(query) {
+  const q = (query || '').toLowerCase().trim();
+  let rows = OPERATOR_FINES.slice();
+  if (q) {
+    rows = rows.filter(r =>
+      r.text.toLowerCase().includes(q) ||
+      r.amount.toLowerCase().includes(q)
+    );
+  }
+  const list = rows.map((r, i) => `
+    <div class="fine-row${r.severe ? ' fine-row-severe' : ''}">
+      <div class="fine-num">${i + 1}</div>
+      <div class="fine-text">${escapeHtml(r.text)}</div>
+      <div class="fine-amount${r.severe ? ' fine-amount-severe' : ''}">${escapeHtml(r.amount)}</div>
+    </div>`).join('');
+
+  return `
+  <div class="card rules-desc-card fines-hero">
+    <h3 class="rules-section-title">💸 Штрафы оператора</h3>
+    <p class="catalog-hint">Санкции за нарушения смены, графика и работы с заявкой. Критичные пункты выделены отдельно.</p>
+  </div>
+  <div class="card fines-table">
+    <div class="fines-table-head">
+      <span class="fines-col-num">№</span>
+      <span class="fines-col-text">Нарушение</span>
+      <span class="fines-col-amount">Санкция</span>
+    </div>
+    <div class="fines-table-body">
+      ${list || '<p class="catalog-hint" style="padding:12px">Ничего не найдено по запросу.</p>'}
+    </div>
+  </div>
+  <p class="field-hint" style="margin-top:10px">СВ — супервайзер. При спорных ситуациях уточняйте у руководства.</p>`;
 }
 
 function renderRules() {
@@ -11559,6 +11617,7 @@ function renderRules() {
     { id: 'questions', label: 'Вопросы', icon: '❓' },
     { id: 'brands', label: 'Марки', icon: '🚗' },
     { id: 'mistakes', label: 'Ошибки', icon: '⚠️' },
+    { id: 'fines', label: 'Штрафы', icon: '💸' },
     { id: 'custom', label: 'Свои', icon: '✏️' }
   ];
 
@@ -11710,7 +11769,7 @@ function renderRules() {
         </div>` : ''}
       </div>
 
-      ${src === 'calc' && !q ? renderCalcTable() : `
+      ${src === 'fines' ? renderOperatorFines(q) : src === 'calc' && !q ? renderCalcTable() : `
       <div class="card rules-desc-card">
         <h3 class="rules-section-title">${escapeHtml((RULES_SOURCE_INFO[src] || {}).title || srcMeta.label)}</h3>
         <p class="catalog-hint">${escapeHtml((RULES_SOURCE_INFO[src] || {}).desc || '')}</p>
