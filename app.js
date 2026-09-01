@@ -5619,9 +5619,11 @@ async function cloudFetchOnce(url, opts) {
 async function cloudFetch(opts) {
   if (!state.cloud.enabled) return null;
   const quiet = opts && opts.quiet;
+  const force = opts && opts.force;
   // Не перетираем локальные правки, которые только что ушли в облако
-  if (state.cloud.lastLocalWrite && Date.now() - state.cloud.lastLocalWrite < 8000) {
-    return null;
+  // (ручной «Синхронизировать» с force — всегда читаем)
+  if (!force && state.cloud.lastLocalWrite && Date.now() - state.cloud.lastLocalWrite < 8000) {
+    return { _skipped: 'local_write' };
   }
   if (!quiet) {
     state.cloud.status = 'syncing';
@@ -5634,13 +5636,13 @@ async function cloudFetch(opts) {
 
       let result;
       try {
-        result = await cloudFetchOnce(url, opts);
+        result = await cloudFetchOnce(url, Object.assign({}, opts, { force: !!force }));
       } catch (firstErr) {
         // Один тихий повтор при таймауте/abort (cold start Apps Script)
         if (isAbortError(firstErr)) {
           console.warn('Cloud fetch timeout, retry…', firstErr);
           await new Promise(r => setTimeout(r, 1500));
-          result = await cloudFetchOnce(url, opts);
+          result = await cloudFetchOnce(url, Object.assign({}, opts, { force: true }));
         } else {
           throw firstErr;
         }
@@ -5651,7 +5653,7 @@ async function cloudFetch(opts) {
           state.cloud.status = 'ok';
           updateSyncBadge();
         }
-        return null;
+        return { _skipped: 'uptodate', remoteAt: result.remoteAt };
       }
 
       const record = result && result.record;
@@ -13812,8 +13814,11 @@ async function saveCloudConfig() {
 
   if (state.cloud.enabled) {
     toast('Подключаем Google Таблицу…');
-    const remote = await cloudFetch();
-    if (remote && Array.isArray(remote.scripts) && remote.scripts.length > 0) {
+    const remote = await cloudFetch({ force: true });
+    if (remote && remote._skipped) {
+      toast('Облако отвечает, но данных пока нет или уже актуальны');
+      startAutoSync();
+    } else if (remote && Array.isArray(remote.scripts) && remote.scripts.length > 0) {
       state.scripts = remote.scripts;
       saveLocalScripts();
       toast('Загружено из таблицы: ' + state.scripts.length + ' скриптов');
@@ -13849,17 +13854,45 @@ function disconnectCloud() {
 
 async function syncNow() {
   if (!state.cloud.enabled) {
-    toast('Сначала подключите облако', 'error');
+    toast('Сначала подключите облако в админ-панели', 'error');
     return;
   }
-  const remote = await cloudFetch();
-  if (remote && Array.isArray(remote.scripts)) {
-    state.scripts = remote.scripts;
-    saveLocalScripts();
-    toast('Синхронизировано: ' + state.scripts.length + ' скриптов');
-    render();
+  toast('Синхронизация…');
+  let remote = null;
+  try {
+    remote = await cloudFetch({ force: true });
+  } catch (e) {
+    console.warn('syncNow', e);
+    toast('Ошибка сети: ' + (e && e.message ? e.message : e), 'error');
+    return;
+  }
+  if (remote && remote._skipped === 'uptodate') {
+    state.cloud.status = 'ok';
+    state.cloud.lastSync = Date.now();
+    updateSyncBadge();
+    toast('Уже актуально — новых данных в облаке нет');
+    return;
+  }
+  if (remote && remote._skipped === 'local_write') {
+    toast('Подождите пару секунд после сохранения и нажмите снова');
+    return;
+  }
+  if (remote && (Array.isArray(remote.scripts) || remote.extras || remote.sharedOtabotki)) {
+    try {
+      if (typeof applyCloudRecord === 'function') applyCloudRecord(remote);
+      else if (Array.isArray(remote.scripts)) {
+        state.scripts = remote.scripts;
+        saveLocalScripts();
+      }
+      try { ensureOtabotkiModel(); } catch (_) {}
+      toast('Синхронизировано' + (Array.isArray(remote.scripts) ? (': ' + remote.scripts.length + ' скриптов') : ''));
+      render();
+    } catch (e2) {
+      console.warn(e2);
+      toast('Данные получены, но разбор не удался: ' + (e2.message || e2), 'error');
+    }
   } else {
-    toast('Не удалось загрузить из облака', 'error');
+    toast('Не удалось загрузить из облака. Проверьте URL в админ-панели и развёртывание Apps Script.', 'error');
   }
 }
 
