@@ -4715,6 +4715,7 @@ let state = {
   otabotkiQuery: '',
   otabotkiCat: '',
   otabotkiSource: 'own', // own | metodichka
+  presence: {},
   otabotkiScriptFilter: '',
   expandedNodes: {},
   collapsedBlocks: {}
@@ -4897,7 +4898,8 @@ const PAGE_PERM_DEFS = [
   { key: 'goals', label: 'Цель / дневник' },
   { key: 'leaderboard', label: 'Лидерборд' },
   { key: 'settings', label: 'Настройки' },
-  { key: 'games', label: 'Игры (Flappy)' }
+  { key: 'games', label: 'Игры (Flappy)' },
+  { key: 'admin', label: 'Админ-панель' }
 ];
 
 const ACTION_PERM_DEFS = [
@@ -5015,9 +5017,9 @@ function setUserPerms(name, perms) {
 
 function canViewPage(page) {
   if (!state.currentUser) return false;
-  if (state.currentUser === 'Александр') return true;
-  // script page = scripts
   const key = page === 'script' ? 'scripts' : page;
+  if (key === 'admin') return isAdminUser();
+  if (state.currentUser === 'Александр') return true;
   const perms = getUserPerms(state.currentUser);
   if (key === 'games') return !!perms.pages.games;
   return !!perms.pages[key];
@@ -5095,6 +5097,7 @@ function getCurrentUser() {
 function showAppAfterLogin(user) {
   safeSessionSet(LOGIN_SESSION_KEY, user);
   state.currentUser = user;
+  try { startPresenceHeartbeat(); } catch (_) {}
   const login = document.getElementById('loginScreen');
   const appRoot = document.getElementById('app');
   if (login) {
@@ -5817,6 +5820,19 @@ function buildCloudExtras() {
     userPerms: (function() {
       try { loadUserPermsStore(); } catch (_) {}
       return (state.userPerms && typeof state.userPerms === 'object') ? state.userPerms : {};
+    })(),
+    presence: (function() {
+      try {
+        if (state.currentUser) {
+          if (!state.presence || typeof state.presence !== 'object') state.presence = {};
+          state.presence[state.currentUser] = {
+            lastSeen: Date.now(),
+            page: state.currentPage || '',
+            name: state.currentUser
+          };
+        }
+      } catch (_) {}
+      return (state.presence && typeof state.presence === 'object') ? state.presence : {};
     })()
   };
 }
@@ -5923,6 +5939,18 @@ function applyCloudRecord(remote) {
       localStorage.setItem(USER_PERMS_KEY, JSON.stringify(state.userPerms));
       try { applyAccountPermissions(); } catch (_) {}
     } catch (e) { console.warn('apply userPerms', e); }
+  }
+  if (ex.presence && typeof ex.presence === 'object') {
+    try {
+      if (!state.presence || typeof state.presence !== 'object') state.presence = {};
+      Object.keys(ex.presence).forEach(name => {
+        const remote = ex.presence[name];
+        const local = state.presence[name];
+        if (!local || (remote && (remote.lastSeen || 0) >= (local.lastSeen || 0))) {
+          state.presence[name] = remote;
+        }
+      });
+    } catch (e) { console.warn('apply presence', e); }
   }
 
   if (applied) {
@@ -6179,6 +6207,74 @@ async function saveData() {
     return true;
   }
   return true;
+}
+
+
+/* ========== Онлайн-присутствие ========== */
+let presenceTimer = null;
+const PRESENCE_ONLINE_MS = 3 * 60 * 1000;
+
+function isUserOnline(entry) {
+  if (!entry || !entry.lastSeen) return false;
+  return (Date.now() - Number(entry.lastSeen)) < PRESENCE_ONLINE_MS;
+}
+
+function getPresenceList() {
+  const map = (state.presence && typeof state.presence === 'object') ? state.presence : {};
+  return Object.keys(map).map(name => ({
+    name,
+    lastSeen: map[name].lastSeen || 0,
+    page: map[name].page || '',
+    online: isUserOnline(map[name])
+  })).sort((a, b) => {
+    if (a.online !== b.online) return a.online ? -1 : 1;
+    return a.name.localeCompare(b.name, 'ru');
+  });
+}
+
+async function sendPresenceHeartbeat() {
+  if (!state.currentUser) return;
+  if (!state.presence || typeof state.presence !== 'object') state.presence = {};
+  state.presence[state.currentUser] = {
+    lastSeen: Date.now(),
+    page: state.currentPage || '',
+    name: state.currentUser
+  };
+  try {
+    const url = (state.cloud.sheetsUrl || '').trim();
+    if (!url || !url.includes('script.google.com')) return;
+    const res = await fetchWithTimeout(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        op: 'heartbeat',
+        user: state.currentUser,
+        page: state.currentPage || '',
+        lastSeen: Date.now()
+      })
+    }, 15000);
+    if (res && res.ok) {
+      try {
+        const json = await res.json();
+        if (json && json.presence && typeof json.presence === 'object') {
+          state.presence = Object.assign({}, state.presence, json.presence);
+        }
+      } catch (_) {}
+    }
+  } catch (e) {}
+}
+
+function startPresenceHeartbeat() {
+  stopPresenceHeartbeat();
+  sendPresenceHeartbeat();
+  presenceTimer = setInterval(sendPresenceHeartbeat, 40000);
+}
+
+function stopPresenceHeartbeat() {
+  if (presenceTimer) {
+    clearInterval(presenceTimer);
+    presenceTimer = null;
+  }
 }
 
 function startAutoSync() {
@@ -6457,6 +6553,7 @@ function navigate(page, scriptId = null) {
     rules: 'Правила',
     refinfo: 'Справка',
     settings: 'Настройки',
+    admin: 'Админ-панель',
     script: 'Скрипт'
   };
   document.getElementById('pageTitle').textContent = titles[page] || page;
@@ -6518,6 +6615,7 @@ function render() {
     case 'rules': content.innerHTML = renderRules(); break;
     case 'refinfo': content.innerHTML = renderRefInfo(); break;
     case 'settings': content.innerHTML = renderSettings(); break;
+    case 'admin': content.innerHTML = isAdminUser() ? renderAdminPanel() : '<p>Нет доступа</p>'; break;
     default: content.innerHTML = '<p>Страница не найдена</p>';
   }
   updateSyncBadge();
@@ -13143,34 +13241,117 @@ function showViewOtabotkaModal(id) {
   );
 }
 
-function renderSettings() {
-  const s = state.settings;
+
+function renderOnlineUsersCard() {
+  const list = typeof getPresenceList === 'function' ? getPresenceList() : [];
+  if (!list.length) {
+    return `<div class="card settings-section"><h3>🟢 Сейчас на сайте</h3><p class="catalog-hint">Пока никого не видно. Статус появляется после входа (~40 сек).</p></div>`;
+  }
+  const rows = list.map(u => {
+    const when = u.lastSeen ? new Date(u.lastSeen).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '—';
+    const page = u.page ? escapeHtml(u.page) : '—';
+    return `<div class="team-row presence-row">
+      <div>
+        <span class="presence-dot ${u.online ? 'online' : 'offline'}"></span>
+        <strong>${escapeHtml(u.name)}</strong>
+        <span class="badge ${u.online ? 'badge-teal' : ''}">${u.online ? 'онлайн' : 'офлайн'}</span>
+      </div>
+      <div class="field-hint">${u.online ? 'раздел: ' + page : 'был(а): ' + when}</div>
+    </div>`;
+  }).join('');
+  return `<div class="card settings-section">
+    <h3>🟢 Сейчас на сайте</h3>
+    <p class="catalog-hint" style="margin-bottom:12px">Онлайн — активность за последние 3 минуты.</p>
+    <div class="team-list">${rows}</div>
+    <div class="actions-row" style="margin-top:12px">
+      <button class="btn btn-outline btn-sm" data-action="refresh-presence">Обновить список</button>
+    </div>
+  </div>`;
+}
+
+function renderAdminPanel() {
+  if (!isAdminUser()) {
+    return `<div class="empty-state"><p>Доступ только администратору</p></div>`;
+  }
   const c = state.cloud;
-  return `
-    <div class="settings-section card">
-      <h3>☁ Облачное хранилище (Google Таблица)</h3>
-      <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:14px;line-height:1.6">
-        Данные хранятся в <a href="https://docs.google.com/spreadsheets/d/10gitlvnBGl9i-wXtBZU3yfSCtu5SiIfitKAMeu0GweA/edit" target="_blank" rel="noopener" style="color:var(--primary)">Google Таблице</a>.<br>
-        1. Открой таблицу → <b>Расширения → Apps Script</b><br>
-        2. Вставь код из файла <code>Code.gs</code> → Сохрани<br>
-        3. <b>Развернуть → Веб-приложение</b> → доступ «Все» → скопируй URL<br>
-        4. Вставь URL ниже и нажми «Подключить»
-      </p>
+  try { loadExtraUsers(); } catch (_) {}
+  const teamBlock = `
+    <div class="card settings-section">
+      <h3>👥 Участники и права</h3>
+      <p class="catalog-hint" style="margin-bottom:12px">Пароли и детальные права: разделы, дневник, редактирование.</p>
+      <div class="team-list">
+        ${Object.keys(TEAM_USERS).map(name => `
+          <div class="team-row">
+            <div>
+              <strong>${escapeHtml(name)}</strong>
+              <span class="badge">системный</span>
+              <span class="badge ${name === 'Общая' ? '' : 'badge-teal'}">${name === 'Александр' ? 'админ' : (name === 'Общая' ? 'просмотр' : 'редактор')}</span>
+            </div>
+            <div class="team-row-actions">
+              ${name !== 'Александр' ? `<button class="btn btn-outline btn-sm" data-action="edit-user-perms" data-name="${escapeAttr(name)}">🔐 Права</button>` : '<span class="field-hint">полный доступ</span>'}
+            </div>
+          </div>`).join('')}
+        ${(extraUsers || []).map(u => `
+          <div class="team-row">
+            <div>
+              <strong>${escapeHtml(u.name)}</strong>
+              <span class="badge ${u.role === 'edit' ? 'badge-teal' : ''}">${u.role === 'edit' ? 'редактор' : 'просмотр'}</span>
+            </div>
+            <div class="team-row-actions">
+              <button class="btn btn-outline btn-sm" data-action="edit-user-perms" data-name="${escapeAttr(u.name)}">🔐 Права</button>
+              <button class="btn btn-outline btn-sm" data-action="edit-team-user" data-name="${escapeAttr(u.name)}">✏️</button>
+              <button class="btn btn-danger btn-sm" data-action="delete-team-user" data-name="${escapeAttr(u.name)}">🗑</button>
+            </div>
+          </div>`).join('')}
+      </div>
+      <div class="actions-row" style="margin-top:14px">
+        <button class="btn btn-primary btn-sm" data-action="add-team-user">+ Участник</button>
+      </div>
+    </div>`;
+
+  const cloudBlock = `
+    <div class="card settings-section">
+      <h3>☁ Облако (только админ)</h3>
+      <p class="catalog-hint" style="margin-bottom:12px">URL виден только вам. У остальных — только статус без ссылки.</p>
       <div class="form-group">
         <label>URL веб-приложения Apps Script</label>
         <input type="text" id="cfgSheetsUrl" value="${escapeAttr(c.sheetsUrl || '')}" placeholder="https://script.google.com/macros/s/..../exec">
       </div>
       <div class="actions-row">
-        <button class="btn btn-primary btn-sm" data-action="save-cloud">Подключить / Сохранить</button>
-        <button class="btn btn-outline btn-sm" data-action="sync-now">Обновить сейчас</button>
-        <button class="btn btn-outline btn-sm" data-action="disconnect-cloud">Отключить облако</button>
+        <button class="btn btn-primary btn-sm" data-action="save-cloud">Сохранить URL</button>
+        <button class="btn btn-outline btn-sm" data-action="sync-now">Синхронизировать</button>
+        <button class="btn btn-outline btn-sm" data-action="disconnect-cloud">Отключить</button>
       </div>
-      <p style="margin-top:12px;font-size:0.85rem;color:var(--text-muted)">
-        Статус: <strong>${c.enabled ? (c.status === 'ok' ? 'подключено (Google Sheets)' : c.status) : 'только локально'}</strong>
-        ${c.lastSync ? ' · последняя синхронизация: ' + new Date(c.lastSync).toLocaleTimeString('ru-RU') : ''}
-      </p>
-    </div>
+      <p class="field-hint" style="margin-top:10px">Статус: <b>${c.enabled ? (c.status === 'ok' ? 'ок' : c.status) : 'выкл'}</b>
+        ${c.lastSync ? ' · ' + new Date(c.lastSync).toLocaleString('ru-RU') : ''}</p>
+    </div>`;
 
+  const dataBlock = `
+    <div class="card settings-section">
+      <h3>📦 Данные</h3>
+      <div class="actions-row">
+        <button class="btn btn-primary btn-sm" data-action="export">📥 Экспорт JSON</button>
+        <button class="btn btn-outline btn-sm" data-action="import-click">📤 Импорт JSON</button>
+        <button class="btn btn-danger btn-sm" data-action="reset">🗑 Сбросить локально</button>
+        <button class="btn btn-outline btn-sm" data-action="clean-backgrounds">🧹 Убрать чёрные подложки</button>
+      </div>
+    </div>`;
+
+  return `
+    <div class="card rules-desc-card" style="margin-bottom:14px">
+      <h3 class="rules-section-title">🛡 Админ-панель</h3>
+      <p class="catalog-hint">Онлайн, участники, права, облако и служебные операции.</p>
+    </div>
+    ${renderOnlineUsersCard()}
+    ${teamBlock}
+    ${cloudBlock}
+    ${dataBlock}`;
+}
+
+function renderSettings() {
+  const s = state.settings;
+  const c = state.cloud;
+  return `
     <div class="settings-section card">
       <h3>Тема оформления</h3>
       <div class="layout-options">
@@ -13180,84 +13361,28 @@ function renderSettings() {
       <div class="actions-row" style="margin-top:14px">
         <button class="btn btn-primary btn-sm" data-action="show-profile-editor">🎨 Цвета профиля</button>
       </div>
-      <p class="field-hint" style="margin-top:8px">Каждый пользователь настраивает цвета кнопок и акцентов под себя.</p>
+      <p class="field-hint" style="margin-top:8px">Цвета кнопок и акцентов — для вас на этом устройстве.</p>
     </div>
 
-    ${isAdminUser() ? `
     <div class="settings-section card">
-      <h3>👥 Участники команды</h3>
-      <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:14px;line-height:1.55">
-        Только для <b>Александра</b>. Добавление сотрудников, пароли и <b>детальные права</b>:
-        какие разделы видеть, дневник, редактирование блоков.
+      <h3>☁ Облачное хранилище</h3>
+      <p style="color:var(--text-muted);font-size:0.9rem;line-height:1.55">
+        ${isAdminUser()
+          ? 'Ссылку на скрипт настраивайте в <b>Админ-панели</b>.'
+          : 'Подключение настраивает администратор. Ссылка скрыта.'}
       </p>
-      <div class="team-list">
-        ${Object.keys(TEAM_USERS).map(name => `
-          <div class="team-row">
-            <div>
-              <strong>${escapeHtml(name)}</strong>
-              <span class="badge ${name === 'Общая' ? '' : 'badge-teal'}">${name === 'Общая' ? 'просмотр' : 'редактирование'}</span>
-              <span class="badge">системный</span>
-            </div>
-            <div class="team-row-actions">
-              ${name !== 'Александр' ? `<button class="btn btn-outline btn-sm" data-action="edit-user-perms" data-name="${escapeAttr(name)}">🔐 Права</button>` : '<span class="field-hint">полный доступ</span>'}
-              <span class="field-hint">нельзя удалить</span>
-            </div>
-          </div>
-        `).join('')}
-        ${(function(){ loadExtraUsers(); return extraUsers; })().map(u => `
-          <div class="team-row">
-            <div>
-              <strong>${escapeHtml(u.name)}</strong>
-              <span class="badge ${u.role === 'edit' ? 'badge-teal' : ''}">${u.role === 'edit' ? 'редактирование' : 'просмотр'}</span>
-            </div>
-            <div class="team-row-actions">
-              <button class="btn btn-outline btn-sm" data-action="edit-user-perms" data-name="${escapeAttr(u.name)}">🔐 Права</button>
-              <button class="btn btn-outline btn-sm" data-action="edit-team-user" data-name="${escapeAttr(u.name)}">✏️</button>
-              <button class="btn btn-danger btn-sm" data-action="delete-team-user" data-name="${escapeAttr(u.name)}">🗑</button>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-      <div class="actions-row" style="margin-top:14px">
-        <button class="btn btn-primary btn-sm" data-action="add-team-user">+ Участник</button>
-      </div>
-      <p class="field-hint" style="margin-top:10px">Участники синхронизируются через Google Sheets — после сохранения доступны на всех ПК (обновите страницу входа).</p>
-    </div>` : `
-    <div class="settings-section card">
-      <h3>👥 Участники</h3>
-      <p style="color:var(--text-muted);font-size:0.9rem">Управление участниками доступно только Александру.</p>
-    </div>`}
-
-
-    <div class="settings-section card">
-      <h3>Локальные данные</h3>
-      <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:14px">
-        Экспорт/импорт JSON — запасной способ переноса.
+      <p style="margin-top:10px;font-size:0.9rem">
+        Статус: <strong>${c.enabled ? (c.status === 'ok' ? 'подключено ✓' : escapeHtml(String(c.status || '…'))) : 'только локально'}</strong>
+        ${c.lastSync ? ' · обновлено: ' + new Date(c.lastSync).toLocaleTimeString('ru-RU') : ''}
       </p>
-      <div class="actions-row">
-        <button class="btn btn-primary btn-sm" data-action="export">📥 Экспорт JSON</button>
-        <button class="btn btn-outline btn-sm" data-action="import-click">📤 Импорт JSON</button>
-        <button class="btn btn-danger btn-sm" data-action="reset">🗑 Сбросить локально</button>
-        <button class="btn btn-outline btn-sm" data-action="clean-backgrounds">🧹 Убрать чёрные подложки</button>
+      <div class="actions-row" style="margin-top:12px">
+        <button class="btn btn-outline btn-sm" data-action="sync-now">🔄 Обновить данные</button>
+        ${isAdminUser() ? `<button class="btn btn-primary btn-sm" data-action="nav" data-page="admin">Админ-панель</button>` : ''}
       </div>
     </div>
-  
-    ${isAdminUser() ? `
-    <div class="settings-section card">
-      <h3>🏆 Лидерборд</h3>
-      <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:12px;line-height:1.5">
-        По умолчанию пользователи с правом «только просмотр» <b>не видят</b> лидерборд.
-      </p>
-      <label class="team-row" style="cursor:pointer">
-        <span>Разрешить просмотр лидерборда аккаунтам «только просмотр»</span>
-        <input type="checkbox" id="lbViewCanSee" data-action="toggle-lb-view"
-          ${(state.leaderboardSettings && state.leaderboardSettings.viewCanSee) ? 'checked' : ''}>
-      </label>
-    </div>` : ''}
-`;
+  `;
 }
 
-/* ========== Actions ========== */
 function showAddScriptModal() {
   if (isCommonAccount()) { toast('Аккаунт «Общая» доступен только для просмотра.', 'error'); return; }
   openModal(
@@ -14217,6 +14342,12 @@ function handleClick(e) {
     case 'view-car': showViewCarModal(el.dataset.id); break;
     case 'view-otabotka': showViewOtabotkaModal(el.dataset.id); break;
     case 'add-team-user': showTeamUserModal(null); break;
+    case 'refresh-presence':
+      Promise.resolve(sendPresenceHeartbeat()).then(() => {
+        if (state.currentPage === 'admin') render();
+        toast('Список обновлён');
+      });
+      break;
     case 'edit-user-perms': showUserPermsModal(el.dataset.name); break;
     case 'save-user-perms': saveUserPermsFromForm(el.dataset.name); break;
     case 'perms-preset': applyPermsPreset(el.dataset.name, el.dataset.preset); break;

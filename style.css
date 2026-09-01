@@ -3335,3 +3335,16 @@ input[type="color"] {
 @media (max-width: 560px) {
   .perm-grid { grid-template-columns: 1fr; }
 }
+
+
+.presence-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+.presence-dot.online { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.25); }
+.presence-dot.offline { background: #6b7280; }
+.presence-row { align-items: center; }

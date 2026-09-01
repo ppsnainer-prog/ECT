@@ -360,6 +360,7 @@ function flattenExtrasOnto_(out, extras) {
   if (extras.ruleItemTags) out.ruleItemTags = extras.ruleItemTags;
   if (extras.extraUsers) out.extraUsers = extras.extraUsers;
   if (extras.flappyScores) out.flappyScores = extras.flappyScores;
+  if (extras.presence) out.presence = extras.presence;
   if (extras.userPerms) out.userPerms = extras.userPerms;
   return out;
 }
@@ -390,6 +391,7 @@ function readAll_() {
       if (extras.ruleItemTags) out.ruleItemTags = extras.ruleItemTags;
       if (extras.extraUsers) out.extraUsers = extras.extraUsers;
   if (extras.flappyScores) out.flappyScores = extras.flappyScores;
+  if (extras.presence) out.presence = extras.presence;
   if (extras.userPerms) out.userPerms = extras.userPerms;
     }
     return out;
@@ -762,6 +764,26 @@ function doPost(e) {
     return jsonOut_({ ok: false, error: 'busy: ' + String(lockErr) });
   }
   try {
+    // Онлайн-присутствие: обновляет только presence в extras
+    if (op === 'heartbeat') {
+      var uname = String(parsed.user || parsed.name || '');
+      if (!uname) return jsonOut_({ ok: false, error: 'no user' });
+      var extrasHb = readExtras_() || {};
+      if (!extrasHb.presence || typeof extrasHb.presence !== 'object') extrasHb.presence = {};
+      extrasHb.presence[uname] = {
+        lastSeen: Number(parsed.lastSeen) || Date.now(),
+        page: String(parsed.page || ''),
+        name: uname
+      };
+      var nowHb = Date.now();
+      Object.keys(extrasHb.presence).forEach(function(k) {
+        var ls = Number(extrasHb.presence[k] && extrasHb.presence[k].lastSeen);
+        if (!ls || nowHb - ls > 24 * 3600 * 1000) delete extrasHb.presence[k];
+      });
+      writeExtras_(extrasHb);
+      return jsonOut_({ ok: true, presence: extrasHb.presence });
+    }
+
     // Только extras (цели, авто, справка, звонки-мета, лидерборд) — без перезаписи скриптов
     if (op === 'saveExtras') {
       var ex = parsed.extras || {
