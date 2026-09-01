@@ -359,6 +359,7 @@ function flattenExtrasOnto_(out, extras) {
   if (extras.sharedPenalties) out.sharedPenalties = extras.sharedPenalties;
   if (extras.ruleItemTags) out.ruleItemTags = extras.ruleItemTags;
   if (extras.extraUsers) out.extraUsers = extras.extraUsers;
+  if (extras.flappyScores) out.flappyScores = extras.flappyScores;
   return out;
 }
 
@@ -387,6 +388,7 @@ function readAll_() {
       if (extras.sharedPenalties) out.sharedPenalties = extras.sharedPenalties;
       if (extras.ruleItemTags) out.ruleItemTags = extras.ruleItemTags;
       if (extras.extraUsers) out.extraUsers = extras.extraUsers;
+  if (extras.flappyScores) out.flappyScores = extras.flappyScores;
     }
     return out;
   }

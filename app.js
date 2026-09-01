@@ -4670,6 +4670,7 @@ let state = {
   catalogCountry: '',
   leaderboardSettings: { viewCanSee: false },
   leaderboardManual: [],
+  flappyScores: {},
   leaderboardPeriod: 'month',
   goalsStore: {},
   diaryPeriod: 'day',
@@ -5593,7 +5594,8 @@ function buildCloudExtras() {
         role: u.role === 'view' ? 'view' : 'edit',
         createdAt: u.createdAt || Date.now()
       })) : [];
-    })()
+    })(),
+    flappyScores: (state.flappyScores && typeof state.flappyScores === 'object') ? state.flappyScores : {}
   };
 }
 
@@ -5673,6 +5675,24 @@ function applyCloudRecord(remote) {
       localStorage.setItem(EXTRA_USERS_KEY, JSON.stringify(extraUsers));
       if (typeof window.__ECT_REFRESH_USERS === 'function') window.__ECT_REFRESH_USERS();
     } catch (e) { console.warn('apply extraUsers', e); }
+  }
+  if (ex.flappyScores && typeof ex.flappyScores === 'object') {
+    try {
+      const remote = ex.flappyScores;
+      const local = (state.flappyScores && typeof state.flappyScores === 'object') ? state.flappyScores : {};
+      const merged = { ...local };
+      Object.keys(remote).forEach(name => {
+        const r = remote[name];
+        const l = local[name];
+        const rBest = Number(r && r.best) || 0;
+        const lBest = Number(l && l.best) || 0;
+        if (rBest > lBest) merged[name] = { best: rBest, updatedAt: (r && r.updatedAt) || Date.now() };
+        else if (!merged[name] && r) merged[name] = { best: rBest, updatedAt: (r && r.updatedAt) || Date.now() };
+      });
+      state.flappyScores = merged;
+      localStorage.setItem('ect_flappy_scores_v1', JSON.stringify(state.flappyScores));
+      try { if (typeof renderFlappyLeaderboard === 'function') renderFlappyLeaderboard(); } catch (_) {}
+    } catch (e) { console.warn('apply flappyScores', e); }
   }
 
   if (applied) {
@@ -5897,6 +5917,7 @@ async function loadData() {
   } catch (e) {
     console.warn('settings load', e);
   }
+  try { loadFlappyScores(); } catch (_) {}
 
   // Всегда сначала поднимаем локальные данные, чтобы UI не ждал сеть.
   try {
@@ -14210,6 +14231,7 @@ function bindGlobalEvents() {
   }
   document.getElementById('logoutBtn')?.addEventListener('click', logout);
   try { initVictoryCrmHelper(); } catch (e) { console.warn('victory crm', e); }
+  try { loadFlappyScores(); FlappyGame.init(); } catch (e) { console.warn('flappy', e); }
 
   document.addEventListener('click', handleClick);
 
@@ -14458,6 +14480,271 @@ function bindGlobalEvents() {
  *   { id, driveId, name, kind, mimeType, size, url, webViewLink, createdAt }
  * ]
  */
+
+
+/* ========== Flappy Bird ========== */
+const FLAPPY_SCORES_KEY = 'ect_flappy_scores_v1';
+
+function loadFlappyScores() {
+  try {
+    const raw = localStorage.getItem(FLAPPY_SCORES_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (p && typeof p === 'object') state.flappyScores = p;
+    }
+  } catch (_) {}
+  if (!state.flappyScores || typeof state.flappyScores !== 'object') state.flappyScores = {};
+}
+
+function persistFlappyScores() {
+  try { localStorage.setItem(FLAPPY_SCORES_KEY, JSON.stringify(state.flappyScores || {})); } catch (_) {}
+  try { if (typeof scheduleCloudExtrasSave === 'function') scheduleCloudExtrasSave(); } catch (_) {}
+}
+
+function getMyFlappyBest() {
+  const u = state.currentUser || '';
+  if (!u || !state.flappyScores) return 0;
+  return Number(state.flappyScores[u] && state.flappyScores[u].best) || 0;
+}
+
+function submitFlappyScore(score) {
+  const u = state.currentUser || '';
+  if (!u || u === 'Общая') return;
+  const n = Math.max(0, Math.floor(Number(score) || 0));
+  if (!state.flappyScores) state.flappyScores = {};
+  const prev = Number(state.flappyScores[u] && state.flappyScores[u].best) || 0;
+  if (n > prev) {
+    state.flappyScores[u] = { best: n, updatedAt: Date.now() };
+    persistFlappyScores();
+    const bestEl = document.getElementById('flappyBest');
+    if (bestEl) bestEl.textContent = String(n);
+    renderFlappyLeaderboard();
+    toast('Новый рекорд: ' + n + '!');
+  }
+}
+
+function renderFlappyLeaderboard() {
+  const el = document.getElementById('flappyLeaderboard');
+  if (!el) return;
+  loadFlappyScores();
+  const rows = Object.keys(state.flappyScores || {})
+    .map(name => ({ name, best: Number(state.flappyScores[name].best) || 0, updatedAt: state.flappyScores[name].updatedAt || 0 }))
+    .filter(r => r.name && r.name !== 'Общая')
+    .sort((a, b) => b.best - a.best || a.name.localeCompare(b.name, 'ru'));
+  if (!rows.length) {
+    el.innerHTML = '<div class="catalog-hint">Пока нет рекордов — сыграйте первым!</div>';
+    return;
+  }
+  const me = state.currentUser || '';
+  el.innerHTML = rows.slice(0, 15).map((r, i) => `
+    <div class="flappy-lb-row${r.name === me ? ' me' : ''}">
+      <span class="flappy-lb-rank">${i + 1}</span>
+      <span class="flappy-lb-name">${escapeHtml(r.name)}</span>
+      <span class="flappy-lb-pts">${r.best}</span>
+    </div>`).join('');
+}
+
+const FlappyGame = (function () {
+  let canvas, ctx, raf = 0, running = false, dead = false, started = false;
+  let birdY, birdV, pipes, score, frame;
+  const W = 360, H = 520;
+  const GRAVITY = 0.32, FLAP = -6.2, PIPE_W = 52, GAP = 130, SPEED = 2.15;
+  const BIRD_X = 72, BIRD_R = 14;
+
+  function reset() {
+    birdY = H / 2;
+    birdV = 0;
+    pipes = [];
+    score = 0;
+    frame = 0;
+    dead = false;
+    started = false;
+    running = false;
+    const s = document.getElementById('flappyScore');
+    if (s) s.textContent = '0';
+    draw();
+  }
+
+  function spawnPipe() {
+    const top = 60 + Math.random() * (H - GAP - 140);
+    pipes.push({ x: W + 10, top, gap: GAP, passed: false });
+  }
+
+  function flap() {
+    if (dead) return;
+    if (!started) {
+      started = true;
+      running = true;
+      loop();
+    }
+    birdV = FLAP;
+  }
+
+  function hit() {
+    dead = true;
+    running = false;
+    submitFlappyScore(score);
+    draw();
+  }
+
+  function loop() {
+    if (!running) return;
+    frame++;
+    birdV += GRAVITY;
+    birdY += birdV;
+
+    if (frame % 90 === 0) spawnPipe();
+    for (const p of pipes) p.x -= SPEED;
+    pipes = pipes.filter(p => p.x > -PIPE_W - 5);
+
+    for (const p of pipes) {
+      if (!p.passed && p.x + PIPE_W < BIRD_X) {
+        p.passed = true;
+        score++;
+        const s = document.getElementById('flappyScore');
+        if (s) s.textContent = String(score);
+      }
+      const inX = BIRD_X + BIRD_R > p.x && BIRD_X - BIRD_R < p.x + PIPE_W;
+      if (inX) {
+        if (birdY - BIRD_R < p.top || birdY + BIRD_R > p.top + p.gap) {
+          hit();
+          return;
+        }
+      }
+    }
+    if (birdY + BIRD_R > H - 12 || birdY - BIRD_R < 0) {
+      hit();
+      return;
+    }
+    draw();
+    raf = requestAnimationFrame(loop);
+  }
+
+  function draw() {
+    if (!ctx) return;
+    // sky
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#4ec0ca');
+    g.addColorStop(1, '#70c5ce');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    // ground
+    ctx.fillStyle = '#ded895';
+    ctx.fillRect(0, H - 12, W, 12);
+    ctx.fillStyle = '#73bf2e';
+    ctx.fillRect(0, H - 16, W, 6);
+    // pipes
+    for (const p of pipes) {
+      ctx.fillStyle = '#5aa400';
+      ctx.fillRect(p.x, 0, PIPE_W, p.top);
+      ctx.fillRect(p.x, p.top + p.gap, PIPE_W, H - (p.top + p.gap) - 12);
+      ctx.fillStyle = '#73bf2e';
+      ctx.fillRect(p.x - 3, p.top - 18, PIPE_W + 6, 18);
+      ctx.fillRect(p.x - 3, p.top + p.gap, PIPE_W + 6, 18);
+    }
+    // bird
+    ctx.save();
+    ctx.translate(BIRD_X, birdY);
+    ctx.rotate(Math.min(0.7, Math.max(-0.5, birdV * 0.06)));
+    ctx.fillStyle = '#f7e26b';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, BIRD_R + 2, BIRD_R, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(6, -4, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#222';
+    ctx.beginPath();
+    ctx.arc(8, -4, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f4a261';
+    ctx.beginPath();
+    ctx.moveTo(10, 2);
+    ctx.lineTo(20, 5);
+    ctx.lineTo(10, 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    if (!started && !dead) {
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillRect(0, H / 2 - 28, W, 56);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 18px system-ui,sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Нажмите, чтобы лететь', W / 2, H / 2 + 6);
+    }
+    if (dead) {
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(0, H / 2 - 40, W, 80);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 22px system-ui,sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Игра окончена: ' + score, W / 2, H / 2 - 4);
+      ctx.font = '14px system-ui,sans-serif';
+      ctx.fillText('«Играть» — заново', W / 2, H / 2 + 22);
+    }
+  }
+
+  function onKey(e) {
+    if (e.code === 'Space' || e.key === ' ') {
+      e.preventDefault();
+      flap();
+    }
+  }
+
+  function open() {
+    const ov = document.getElementById('flappyOverlay');
+    if (!ov) return;
+    ov.hidden = false;
+    canvas = document.getElementById('flappyCanvas');
+    if (!canvas) return;
+    ctx = canvas.getContext('2d');
+    loadFlappyScores();
+    const bestEl = document.getElementById('flappyBest');
+    if (bestEl) bestEl.textContent = String(getMyFlappyBest());
+    renderFlappyLeaderboard();
+    reset();
+  }
+
+  function close() {
+    running = false;
+    if (raf) cancelAnimationFrame(raf);
+    const ov = document.getElementById('flappyOverlay');
+    if (ov) ov.hidden = true;
+  }
+
+  function start() {
+    if (raf) cancelAnimationFrame(raf);
+    reset();
+    started = true;
+    running = true;
+    loop();
+  }
+
+  function init() {
+    const btn = document.getElementById('flappyBirdBtn');
+    const closeBtn = document.getElementById('flappyClose');
+    const startBtn = document.getElementById('flappyStart');
+    const canvasEl = document.getElementById('flappyCanvas');
+    btn?.addEventListener('click', open);
+    closeBtn?.addEventListener('click', close);
+    startBtn?.addEventListener('click', start);
+    canvasEl?.addEventListener('mousedown', (e) => { e.preventDefault(); flap(); });
+    canvasEl?.addEventListener('touchstart', (e) => { e.preventDefault(); flap(); }, { passive: false });
+    document.addEventListener('keydown', (e) => {
+      const ov = document.getElementById('flappyOverlay');
+      if (!ov || ov.hidden) return;
+      onKey(e);
+    });
+    document.getElementById('flappyOverlay')?.addEventListener('click', (e) => {
+      if (e.target && e.target.id === 'flappyOverlay') close();
+    });
+  }
+
+  return { init, open, close };
+})();
 
 /* ========== Drive Media API ========== */
 

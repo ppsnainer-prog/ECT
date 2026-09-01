@@ -123,6 +123,7 @@
           <button class="btn btn-primary" id="addScriptBtn" style="display:none">+ Новый скрипт</button>
           <button class="btn btn-sm btn-outline" id="quickSearchBtn" title="Ctrl+B — быстрый поиск">🔍 Поиск</button>
           <button class="btn btn-sm btn-outline" id="hotkeysBtn" title="Ctrl+/ — справка">⌨</button>
+          <button class="btn-icon" id="flappyBirdBtn" title="Flappy Bird — мини-игра" aria-label="Игра">🐦</button>
           <button class="btn-icon" id="themeToggle" title="Тема">🌙</button>
         </div>
       </header>
@@ -145,6 +146,32 @@
         <!-- Pages will be rendered here -->
       </div>
     </main>
+  </div>
+
+  <!-- Flappy Bird -->
+  <div id="flappyOverlay" class="flappy-overlay" hidden>
+    <div class="flappy-modal">
+      <div class="flappy-header">
+        <strong>🐦 Flappy Bird</strong>
+        <button type="button" class="btn-icon" id="flappyClose" title="Закрыть">✕</button>
+      </div>
+      <div class="flappy-body">
+        <canvas id="flappyCanvas" width="360" height="520" aria-label="Игровое поле"></canvas>
+        <div class="flappy-side">
+          <div class="flappy-score-box">
+            <div class="flappy-score-label">Счёт</div>
+            <div class="flappy-score-value" id="flappyScore">0</div>
+            <div class="flappy-best-label">Ваш рекорд: <span id="flappyBest">0</span></div>
+          </div>
+          <p class="flappy-hint">Пробел / клик / тап — взмах</p>
+          <button type="button" class="btn btn-primary" id="flappyStart">Играть</button>
+          <div class="flappy-lb">
+            <div class="flappy-lb-title">🏆 Таблица рекордов</div>
+            <div id="flappyLeaderboard" class="flappy-lb-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Modal -->
