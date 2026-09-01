@@ -14683,7 +14683,7 @@ const FlappyGame = (function () {
       ctx.textAlign = 'center';
       ctx.fillText('Игра окончена: ' + score, W / 2, H / 2 - 4);
       ctx.font = '14px system-ui,sans-serif';
-      ctx.fillText('«Играть» — заново', W / 2, H / 2 + 22);
+      ctx.fillText('«Играть», затем тап по экрану', W / 2, H / 2 + 22);
     }
   }
 
@@ -14716,11 +14716,9 @@ const FlappyGame = (function () {
   }
 
   function start() {
+    // Только сброс: полёт начнётся после тапа/клика/пробела по полю
     if (raf) cancelAnimationFrame(raf);
     reset();
-    started = true;
-    running = true;
-    loop();
   }
 
   function init() {
