@@ -13692,10 +13692,24 @@ async function saveTeamUser(editName) {
   }
   persistExtraUsers();
   closeModal();
-  toast('Участник сохранён');
+  toast('Участник сохранён — синхронизация…');
   render();
-  // обновить select входа, если функция есть
   if (typeof window.__ECT_REFRESH_USERS === 'function') window.__ECT_REFRESH_USERS();
+  // Сразу в облако (не ждать debounce) — иначе на другом ПК не появится
+  try {
+    if (typeof enqueueCloud === 'function' && typeof cloudSaveExtrasOnly === 'function') {
+      enqueueCloud(async () => {
+        const ok = await cloudSaveExtrasOnly();
+        if (ok) toast('Участник в облаке — доступен на всех ПК');
+        else toast('Не удалось записать в облако. Проверьте синхронизацию.', 'error');
+      });
+    } else if (typeof cloudSaveExtrasOnly === 'function') {
+      cloudSaveExtrasOnly().then(ok => {
+        if (ok) toast('Участник в облаке — доступен на всех ПК');
+        else toast('Не удалось записать в облако', 'error');
+      });
+    }
+  } catch (e) { console.warn(e); }
 }
 
 function deleteTeamUser(name) {
@@ -13707,6 +13721,11 @@ function deleteTeamUser(name) {
   toast('Удалён');
   render();
   if (typeof window.__ECT_REFRESH_USERS === 'function') window.__ECT_REFRESH_USERS();
+  try {
+    if (typeof enqueueCloud === 'function' && typeof cloudSaveExtrasOnly === 'function') {
+      enqueueCloud(() => cloudSaveExtrasOnly());
+    }
+  } catch (_) {}
 }
 
 function handleClick(e) {

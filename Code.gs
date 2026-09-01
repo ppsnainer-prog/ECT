@@ -347,6 +347,21 @@ function readExtras_() {
   }
 }
 
+function flattenExtrasOnto_(out, extras) {
+  if (!out || !extras) return out;
+  out.extras = extras;
+  if (extras.cars) out.cars = extras.cars;
+  if (extras.calls) out.calls = extras.calls;
+  if (extras.goalsStore) out.goalsStore = extras.goalsStore;
+  if (extras.refInfo) out.refInfo = extras.refInfo;
+  if (extras.leaderboardManual) out.leaderboardManual = extras.leaderboardManual;
+  if (extras.leaderboardSettings) out.leaderboardSettings = extras.leaderboardSettings;
+  if (extras.sharedPenalties) out.sharedPenalties = extras.sharedPenalties;
+  if (extras.ruleItemTags) out.ruleItemTags = extras.ruleItemTags;
+  if (extras.extraUsers) out.extraUsers = extras.extraUsers;
+  return out;
+}
+
 function readAll_() {
   var scripts = readFromSheets_('scripts', 'chunks');
   var extras = readExtras_();
@@ -362,6 +377,7 @@ function readAll_() {
     };
     // flatten extras onto record for client
     if (extras) {
+      out.extras = extras;
       if (extras.cars) out.cars = extras.cars;
       if (extras.calls) out.calls = extras.calls;
       if (extras.goalsStore) out.goalsStore = extras.goalsStore;
@@ -369,12 +385,15 @@ function readAll_() {
       if (extras.leaderboardManual) out.leaderboardManual = extras.leaderboardManual;
       if (extras.leaderboardSettings) out.leaderboardSettings = extras.leaderboardSettings;
       if (extras.sharedPenalties) out.sharedPenalties = extras.sharedPenalties;
+      if (extras.ruleItemTags) out.ruleItemTags = extras.ruleItemTags;
+      if (extras.extraUsers) out.extraUsers = extras.extraUsers;
     }
     return out;
   }
   var legacy = readLegacyA1_();
   if (legacy && !legacy.sharedOtabotki) legacy.sharedOtabotki = readShared_();
   if (legacy && extras) {
+    legacy.extras = extras;
     if (extras.cars) legacy.cars = extras.cars;
     if (extras.calls) legacy.calls = extras.calls;
     if (extras.goalsStore) legacy.goalsStore = extras.goalsStore;
@@ -382,6 +401,8 @@ function readAll_() {
     if (extras.leaderboardManual) legacy.leaderboardManual = extras.leaderboardManual;
     if (extras.leaderboardSettings) legacy.leaderboardSettings = extras.leaderboardSettings;
     if (extras.sharedPenalties) legacy.sharedPenalties = extras.sharedPenalties;
+    if (extras.ruleItemTags) legacy.ruleItemTags = extras.ruleItemTags;
+    if (extras.extraUsers) legacy.extraUsers = extras.extraUsers;
   }
   return legacy;
 }
@@ -744,7 +765,9 @@ function doPost(e) {
         refInfo: parsed.refInfo,
         leaderboardManual: parsed.leaderboardManual,
         leaderboardSettings: parsed.leaderboardSettings,
-        sharedPenalties: parsed.sharedPenalties
+        sharedPenalties: parsed.sharedPenalties,
+        ruleItemTags: parsed.ruleItemTags,
+        extraUsers: parsed.extraUsers
       };
       writeExtras_(ex || {});
       if (parsed.sharedOtabotki !== undefined) {
