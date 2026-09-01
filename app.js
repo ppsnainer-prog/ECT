@@ -4748,7 +4748,52 @@ function loadExtraUsers() {
 
 function persistExtraUsers() {
   try { localStorage.setItem(EXTRA_USERS_KEY, JSON.stringify(extraUsers)); } catch (e) {}
+  try {
+    if (typeof scheduleCloudExtrasSave === 'function') scheduleCloudExtrasSave();
+  } catch (_) {}
 }
+
+/** Подтянуть extraUsers из облака (для списка входа на любом ПК) */
+async function pullExtraUsersFromCloud() {
+  try {
+    if (typeof loadLocalSettings === 'function') loadLocalSettings();
+  } catch (_) {}
+  const url = (state.cloud && state.cloud.sheetsUrl || '').trim();
+  if (!url || !url.includes('script.google.com')) return false;
+  try {
+    const res = await fetchWithTimeout(url, { method: 'GET' }, 25000);
+    if (!res.ok) return false;
+    const json = await res.json();
+    const record = (json && (json.record || json)) || {};
+    const ex = (record.extras && typeof record.extras === 'object') ? record.extras : record;
+    const list = ex.extraUsers || record.extraUsers;
+    if (!Array.isArray(list)) return false;
+    loadExtraUsers();
+    // мерж: облако — источник правды по именам; локальные только если в облаке пусто
+    const byName = new Map();
+    list.forEach(u => {
+      if (u && u.name) byName.set(u.name, {
+        name: u.name,
+        passwordHash: u.passwordHash || '',
+        role: u.role === 'view' ? 'view' : 'edit',
+        createdAt: u.createdAt || Date.now()
+      });
+    });
+    // не затираем локальных, которых ещё не успели залить (нет сети при сохранении)
+    extraUsers.forEach(u => {
+      if (u && u.name && !byName.has(u.name)) byName.set(u.name, u);
+    });
+    extraUsers = Array.from(byName.values());
+    try { localStorage.setItem(EXTRA_USERS_KEY, JSON.stringify(extraUsers)); } catch (_) {}
+    if (typeof window.__ECT_REFRESH_USERS === 'function') window.__ECT_REFRESH_USERS();
+    return true;
+  } catch (e) {
+    console.warn('pullExtraUsersFromCloud', e);
+    return false;
+  }
+}
+window.__ECT_PULL_EXTRA_USERS = pullExtraUsersFromCloud;
+
 
 function isAdminUser() {
   return state.currentUser === 'Александр';
@@ -5307,12 +5352,46 @@ function getCloudHeaders() {
 
 async function fetchWithTimeout(url, options = {}, ms = 10000) {
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), ms);
+  const timer = setTimeout(() => {
+    try { ctrl.abort(new DOMException('timeout ' + ms + 'ms', 'AbortError')); } catch (_) {
+      try { ctrl.abort(); } catch (__) {}
+    }
+  }, ms);
   try {
     return await fetch(url, { ...options, signal: ctrl.signal });
   } finally {
-    clearTimeout(t);
+    clearTimeout(timer);
   }
+}
+
+function isAbortError(e) {
+  if (!e) return false;
+  if (e.name === 'AbortError') return true;
+  const msg = String(e.message || e);
+  return /aborted|timeout|AbortError/i.test(msg);
+}
+
+async function cloudFetchOnce(url, opts) {
+  // Сначала лёгкий meta (updatedAt) — не качаем весь JSON зря
+  try {
+    const metaRes = await fetchWithTimeout(url + (url.includes('?') ? '&' : '?') + 'op=meta', { method: 'GET' }, 12000);
+    if (metaRes.ok) {
+      const meta = await metaRes.json();
+      const remoteAt = Number(meta && meta.updatedAt) || 0;
+      const localAt = Number(state.cloud.lastRemoteUpdatedAt) || 0;
+      if (remoteAt && localAt && remoteAt <= localAt && !(opts && opts.force)) {
+        return { skip: true, remoteAt };
+      }
+    }
+  } catch (_) { /* meta опционален */ }
+
+  // Полная выгрузка: Apps Script иногда отвечает 20–40 с при большой таблице
+  const res = await fetchWithTimeout(url, { method: 'GET' }, 55000);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const json = await res.json();
+  if (json && json.error) throw new Error(json.error);
+  const record = json.record || json;
+  return { record };
 }
 
 async function cloudFetch(opts) {
@@ -5330,30 +5409,33 @@ async function cloudFetch(opts) {
     if (state.cloud.provider === 'sheets') {
       const url = (state.cloud.sheetsUrl || '').trim();
       if (!url) throw new Error('Нет URL Google Apps Script');
-      // Сначала лёгкий meta (updatedAt) — не качаем весь JSON зря
-      try {
-        const metaRes = await fetchWithTimeout(url + (url.includes('?') ? '&' : '?') + 'op=meta', { method: 'GET' }, 8000);
-        if (metaRes.ok) {
-          const meta = await metaRes.json();
-          const remoteAt = Number(meta && meta.updatedAt) || 0;
-          const localAt = Number(state.cloud.lastRemoteUpdatedAt) || 0;
-          if (remoteAt && localAt && remoteAt <= localAt && !opts?.force) {
-            if (!quiet) {
-              state.cloud.status = 'ok';
-              updateSyncBadge();
-            }
-            return null; // нет изменений на сервере
-          }
-        }
-      } catch (_) { /* meta опционален */ }
 
-      const res = await fetchWithTimeout(url, { method: 'GET' }, 25000);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const json = await res.json();
-      if (json && json.error) throw new Error(json.error);
-      const record = json.record || json;
-      if (record && record.storage === 'rows') state.cloud.rowStorage = true;
-      if (record && record.updatedAt) state.cloud.lastRemoteUpdatedAt = record.updatedAt;
+      let result;
+      try {
+        result = await cloudFetchOnce(url, opts);
+      } catch (firstErr) {
+        // Один тихий повтор при таймауте/abort (cold start Apps Script)
+        if (isAbortError(firstErr)) {
+          console.warn('Cloud fetch timeout, retry…', firstErr);
+          await new Promise(r => setTimeout(r, 1500));
+          result = await cloudFetchOnce(url, opts);
+        } else {
+          throw firstErr;
+        }
+      }
+
+      if (result && result.skip) {
+        if (!quiet) {
+          state.cloud.status = 'ok';
+          updateSyncBadge();
+        }
+        return null;
+      }
+
+      const record = result && result.record;
+      if (!record) return null;
+      if (record.storage === 'rows') state.cloud.rowStorage = true;
+      if (record.updatedAt) state.cloud.lastRemoteUpdatedAt = record.updatedAt;
       state.cloud.status = 'ok';
       state.cloud.lastSync = Date.now();
       updateSyncBadge();
@@ -5365,7 +5447,7 @@ async function cloudFetch(opts) {
     const res = await fetchWithTimeout(
       `https://api.jsonbin.io/v3/b/${state.cloud.binId}/latest`,
       { headers },
-      4000
+      8000
     );
     if (!res.ok) {
       if (res.status === 401) toast('Ошибка 401 — неверный Master Key JSONBin.', 'error');
@@ -5382,6 +5464,12 @@ async function cloudFetch(opts) {
     return record;
   } catch (e) {
     console.warn('Cloud fetch error', e);
+    // Таймаут на фоне: не красим бейдж в «ошибка», если недавно был ok
+    if (quiet && isAbortError(e) && state.cloud.lastSync) {
+      state.cloud.status = 'ok';
+      updateSyncBadge();
+      return null;
+    }
     state.cloud.status = 'error';
     updateSyncBadge();
     return null;
@@ -5496,7 +5584,16 @@ function buildCloudExtras() {
       ? state.leaderboardSettings
       : { viewCanSee: false },
     sharedPenalties: Array.isArray(state.sharedPenalties) ? state.sharedPenalties : [],
-    ruleItemTags: (state.ruleItemTags && typeof state.ruleItemTags === 'object') ? state.ruleItemTags : {}
+    ruleItemTags: (state.ruleItemTags && typeof state.ruleItemTags === 'object') ? state.ruleItemTags : {},
+    extraUsers: (function() {
+      try { loadExtraUsers(); } catch (_) {}
+      return Array.isArray(extraUsers) ? extraUsers.map(u => ({
+        name: u.name,
+        passwordHash: u.passwordHash || '',
+        role: u.role === 'view' ? 'view' : 'edit',
+        createdAt: u.createdAt || Date.now()
+      })) : [];
+    })()
   };
 }
 
@@ -5559,6 +5656,23 @@ function applyCloudRecord(remote) {
   if (ex.ruleItemTags && typeof ex.ruleItemTags === 'object') {
     state.ruleItemTags = ex.ruleItemTags;
     try { localStorage.setItem(RULE_ITEM_TAGS_KEY, JSON.stringify(state.ruleItemTags)); } catch (_) {}
+  }
+  if (Array.isArray(ex.extraUsers)) {
+    try {
+      loadExtraUsers();
+      const byName = new Map();
+      ex.extraUsers.forEach(u => {
+        if (u && u.name) byName.set(u.name, {
+          name: u.name,
+          passwordHash: u.passwordHash || '',
+          role: u.role === 'view' ? 'view' : 'edit',
+          createdAt: u.createdAt || Date.now()
+        });
+      });
+      extraUsers = Array.from(byName.values());
+      localStorage.setItem(EXTRA_USERS_KEY, JSON.stringify(extraUsers));
+      if (typeof window.__ECT_REFRESH_USERS === 'function') window.__ECT_REFRESH_USERS();
+    } catch (e) { console.warn('apply extraUsers', e); }
   }
 
   if (applied) {
@@ -12782,7 +12896,7 @@ function renderSettings() {
       <div class="actions-row" style="margin-top:14px">
         <button class="btn btn-primary btn-sm" data-action="add-team-user">+ Участник</button>
       </div>
-      <p class="field-hint" style="margin-top:10px">Новые участники появляются в списке входа на этом устройстве (localStorage). Для общего доступа на всех ПК позже можно вынести в Google Sheets.</p>
+      <p class="field-hint" style="margin-top:10px">Участники синхронизируются через Google Sheets — после сохранения доступны на всех ПК (обновите страницу входа).</p>
     </div>` : `
     <div class="settings-section card">
       <h3>👥 Участники</h3>

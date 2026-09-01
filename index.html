@@ -339,6 +339,15 @@
 
   function installLogin() {
     refreshLoginUsers();
+    // Подтянуть доп. участников из Google Sheets (Элла и др. на любом браузере)
+    setTimeout(function () {
+      var pull = window.__ECT_PULL_EXTRA_USERS;
+      if (typeof pull === 'function') {
+        pull().then(function () { refreshLoginUsers(); }).catch(function () {});
+      } else if (typeof pullExtraUsersFromCloud === 'function') {
+        pullExtraUsersFromCloud().then(function () { refreshLoginUsers(); }).catch(function () {});
+      }
+    }, 400);
     const toggle = document.getElementById("toggleLoginPassword");
     const passForToggle = document.getElementById("loginPassword");
     if (toggle && passForToggle) {
