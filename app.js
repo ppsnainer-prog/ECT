@@ -4885,44 +4885,193 @@ async function sha256Hex(value) {
   return H.map(x => x.toString(16).padStart(8,'0')).join('');
 }
 
+/* ========== Гибкие права пользователей ========== */
+const PAGE_PERM_DEFS = [
+  { key: 'home', label: 'Главная' },
+  { key: 'scripts', label: 'Скрипты' },
+  { key: 'otabotki', label: 'Отработки' },
+  { key: 'catalog', label: 'Автокаталог' },
+  { key: 'calls', label: 'Звонки' },
+  { key: 'rules', label: 'Правила' },
+  { key: 'refinfo', label: 'Справка' },
+  { key: 'goals', label: 'Цель / дневник' },
+  { key: 'leaderboard', label: 'Лидерборд' },
+  { key: 'settings', label: 'Настройки' },
+  { key: 'games', label: 'Игры (Flappy)' }
+];
+
+const ACTION_PERM_DEFS = [
+  { key: 'editScripts', label: 'Редактировать скрипты' },
+  { key: 'editOtabotki', label: 'Редактировать отработки' },
+  { key: 'editCatalog', label: 'Редактировать автокаталог' },
+  { key: 'addCalls', label: 'Добавлять / менять звонки' },
+  { key: 'editRules', label: 'Редактировать правила (свои штрафы)' },
+  { key: 'editRefinfo', label: 'Редактировать справку' },
+  { key: 'useGoals', label: 'Свои цели' },
+  { key: 'useDiary', label: 'Свой дневник смен' },
+  { key: 'viewTeamGoals', label: 'Цели команды' },
+  { key: 'viewTeamDiaries', label: 'Дневники команды' },
+  { key: 'manageUsers', label: 'Управление участниками и правами' }
+];
+
+const USER_PERMS_KEY = 'ect_user_perms_v1';
+
+function allTruePerms() {
+  const pages = {};
+  PAGE_PERM_DEFS.forEach(p => { pages[p.key] = true; });
+  const actions = {};
+  ACTION_PERM_DEFS.forEach(a => { actions[a.key] = true; });
+  return { pages, actions };
+}
+
+function defaultPermsFor(name) {
+  if (name === 'Александр') return allTruePerms();
+
+  const pages = {};
+  PAGE_PERM_DEFS.forEach(p => {
+    // базовый просмотр контента
+    pages[p.key] = ['home','scripts','otabotki','catalog','calls','rules','refinfo','games'].includes(p.key);
+  });
+  pages.goals = false;
+  pages.leaderboard = false;
+  pages.settings = false;
+
+  const actions = {};
+  ACTION_PERM_DEFS.forEach(a => { actions[a.key] = false; });
+
+  if (name === 'Общая') {
+    return { pages, actions };
+  }
+
+  // системные редакторы / extra с role=edit
+  if (TEAM_USERS[name] || getUserRole(name) === 'edit') {
+    pages.goals = true;
+    pages.leaderboard = true;
+    actions.editScripts = true;
+    actions.editOtabotki = true;
+    actions.editCatalog = true;
+    actions.addCalls = true;
+    actions.editRules = true;
+    actions.editRefinfo = true;
+    actions.useGoals = true;
+    actions.useDiary = true;
+  }
+  return { pages, actions };
+}
+
+function loadUserPermsStore() {
+  if (!state.userPerms || typeof state.userPerms !== 'object') {
+    try {
+      const raw = localStorage.getItem(USER_PERMS_KEY);
+      if (raw) {
+        const p = JSON.parse(raw);
+        if (p && typeof p === 'object') state.userPerms = p;
+      }
+    } catch (_) {}
+  }
+  if (!state.userPerms || typeof state.userPerms !== 'object') state.userPerms = {};
+}
+
+function persistUserPermsStore() {
+  try { localStorage.setItem(USER_PERMS_KEY, JSON.stringify(state.userPerms || {})); } catch (_) {}
+  try { if (typeof scheduleCloudExtrasSave === 'function') scheduleCloudExtrasSave(); } catch (_) {}
+}
+
+function mergePerms(base, override) {
+  const out = {
+    pages: { ...(base.pages || {}) },
+    actions: { ...(base.actions || {}) }
+  };
+  if (override && typeof override === 'object') {
+    if (override.pages && typeof override.pages === 'object') {
+      Object.keys(override.pages).forEach(k => { out.pages[k] = !!override.pages[k]; });
+    }
+    if (override.actions && typeof override.actions === 'object') {
+      Object.keys(override.actions).forEach(k => { out.actions[k] = !!override.actions[k]; });
+    }
+  }
+  return out;
+}
+
+function getUserPerms(name) {
+  const who = name || state.currentUser || '';
+  if (!who) return defaultPermsFor('');
+  loadUserPermsStore();
+  const base = defaultPermsFor(who);
+  // Админ всегда полный доступ
+  if (who === 'Александр') return allTruePerms();
+  return mergePerms(base, state.userPerms[who]);
+}
+
+function setUserPerms(name, perms) {
+  if (!name || name === 'Александр') return;
+  loadUserPermsStore();
+  state.userPerms[name] = {
+    pages: { ...(perms.pages || {}) },
+    actions: { ...(perms.actions || {}) }
+  };
+  persistUserPermsStore();
+}
+
+function canViewPage(page) {
+  if (!state.currentUser) return false;
+  if (state.currentUser === 'Александр') return true;
+  // script page = scripts
+  const key = page === 'script' ? 'scripts' : page;
+  const perms = getUserPerms(state.currentUser);
+  if (key === 'games') return !!perms.pages.games;
+  return !!perms.pages[key];
+}
+
+function canDo(action) {
+  if (!state.currentUser) return false;
+  if (state.currentUser === 'Александр') return true;
+  const perms = getUserPerms(state.currentUser);
+  return !!(perms.actions && perms.actions[action]);
+}
+
 function canEdit() {
   if (!state.currentUser) return false;
-  if (state.currentUser === 'Общая') return false;
-  return getUserRole(state.currentUser) === 'edit';
+  if (state.currentUser === 'Александр') return true;
+  // legacy: любой edit-* даёт «редактор» для старых проверок
+  return canDo('editScripts') || canDo('editOtabotki') || canDo('editCatalog') ||
+    canDo('editRules') || canDo('editRefinfo') || canDo('addCalls');
 }
 
 function isCommonAccount() {
-  // «только просмотр» — Общая или участник с ролью view
-  if (state.currentUser === 'Общая') return true;
+  // «только просмотр контента» без права правок
   if (!state.currentUser) return true;
-  return getUserRole(state.currentUser) === 'view';
+  if (state.currentUser === 'Александр') return false;
+  return !canEdit();
+}
+
+function canSeeLeaderboard() {
+  return canViewPage('leaderboard') || canDo('viewTeamGoals');
 }
 
 function applyAccountPermissions() {
-  const common = isCommonAccount();
-
-  // Общая: только просмотр. Скрываем настройки, цели и операции изменения.
-  document.querySelectorAll('.nav-item[data-page="settings"]').forEach(el => {
-    el.hidden = common;
-  });
-  document.querySelectorAll('.nav-item[data-page="goals"]').forEach(el => {
-    el.hidden = common;
-  });
-  document.querySelectorAll('.nav-item[data-page="leaderboard"]').forEach(el => {
-    el.hidden = !canSeeLeaderboard();
+  const user = state.currentUser || '';
+  PAGE_PERM_DEFS.forEach(p => {
+    document.querySelectorAll('.nav-item[data-page="' + p.key + '"]').forEach(el => {
+      el.hidden = !canViewPage(p.key);
+    });
   });
 
   const exportBtn = document.getElementById('exportData');
   const importBtn = document.getElementById('importData');
-  if (exportBtn) exportBtn.hidden = common;
-  if (importBtn) importBtn.hidden = common;
+  if (exportBtn) exportBtn.hidden = !canDo('editScripts');
+  if (importBtn) importBtn.hidden = !canDo('editScripts');
 
   const addBtn = document.getElementById('addScriptBtn');
-  if (addBtn) addBtn.hidden = common;
+  if (addBtn) addBtn.hidden = !canDo('editScripts');
+
+  const flappyBtn = document.getElementById('flappyBirdBtn');
+  if (flappyBtn) flappyBtn.hidden = !canViewPage('games');
 
   const badge = document.getElementById('currentUserBadge');
-  if (badge) badge.textContent = state.currentUser ? `👤 ${state.currentUser}` : '';
+  if (badge) badge.textContent = user ? ('👤 ' + user) : '';
 }
+
 
 function safeSessionGet(key) {
   try { return window.sessionStorage ? window.sessionStorage.getItem(key) || '' : ''; }
@@ -5664,7 +5813,11 @@ function buildCloudExtras() {
         createdAt: u.createdAt || Date.now()
       })) : [];
     })(),
-    flappyScores: (state.flappyScores && typeof state.flappyScores === 'object') ? state.flappyScores : {}
+    flappyScores: (state.flappyScores && typeof state.flappyScores === 'object') ? state.flappyScores : {},
+    userPerms: (function() {
+      try { loadUserPermsStore(); } catch (_) {}
+      return (state.userPerms && typeof state.userPerms === 'object') ? state.userPerms : {};
+    })()
   };
 }
 
@@ -5763,6 +5916,13 @@ function applyCloudRecord(remote) {
       localStorage.setItem('ect_flappy_scores_v1', JSON.stringify(state.flappyScores));
       try { if (typeof renderFlappyLeaderboard === 'function') renderFlappyLeaderboard(); } catch (_) {}
     } catch (e) { console.warn('apply flappyScores', e); }
+  }
+  if (ex.userPerms && typeof ex.userPerms === 'object') {
+    try {
+      state.userPerms = ex.userPerms;
+      localStorage.setItem(USER_PERMS_KEY, JSON.stringify(state.userPerms));
+      try { applyAccountPermissions(); } catch (_) {}
+    } catch (e) { console.warn('apply userPerms', e); }
   }
 
   if (applied) {
@@ -6270,12 +6430,12 @@ function navigate(page, scriptId = null) {
     toast('Лидерборд недоступен для вашего аккаунта.', 'error');
     page = 'home';
   }
-  if (page === 'settings' && isCommonAccount()) {
-    toast('Для аккаунта «Общая» настройки недоступны.', 'error');
-    page = 'home';
+  if (!canViewPage(page === 'script' ? 'scripts' : page)) {
+    toast('Нет доступа к этому разделу', 'error');
+    page = canViewPage('home') ? 'home' : (PAGE_PERM_DEFS.find(p => canViewPage(p.key)) || { key: 'home' }).key;
   }
-  if (page === 'goals' && isCommonAccount()) {
-    toast('Для аккаунта «Общая» раздел «Цель» недоступен.', 'error');
+  if (page === 'goals' && !canDo('useGoals') && !canDo('useDiary') && !canDo('viewTeamGoals') && !canDo('viewTeamDiaries')) {
+    toast('Нет доступа к целям и дневнику', 'error');
     page = 'home';
   }
   state.currentPage = page;
@@ -9901,17 +10061,17 @@ function renderOtabotkiCatalog() {
         <option value="">Все категории</option>
         ${categories.map(c => `<option value="${escapeAttr(c)}" ${c === catFilter ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
       </select>
-      <select class="search-input" id="otabotkiScriptFilter" style="flex:0 0 220px;cursor:pointer">
+      ${src === 'own' ? `<select class="search-input" id="otabotkiScriptFilter" style="flex:0 0 220px;cursor:pointer">
         <option value="">Все скрипты</option>
         ${scriptOptions.map(s => `<option value="${s.id}" ${s.id === scriptFilter ? 'selected' : ''}>${escapeHtml(s.title)}${s.category ? ' · ' + escapeHtml(s.category) : ''}</option>`).join('')}
-      </select>
+      </select>` : ''}
     </div>
     <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:16px">
-      Найдено: <b>${list.length}</b> из ${(state.sharedOtabotki || []).length}
+      Найдено: <b>${list.length}</b> · раздел «${src === 'metodichka' ? 'Методичка' : 'Свои'}» · всего ${(state.sharedOtabotki || []).length}
     </p>
 
     ${list.length === 0
-      ? '<div class="empty-state"><div class="empty-icon">🔄</div><p>Отработок не найдено. Создайте первую.</p></div>'
+      ? `<div class="empty-state"><div class="empty-icon">🔄</div><p>${src === 'metodichka' ? 'В методичке отработок не найдено.' : 'Своих отработок не найдено. Создайте первую.'}</p></div>`
       : `<div class="ot-grid">${list.map(item => `
           <article class="ot-card">
             <div class="ot-card-body card-interactive" data-action="view-otabotka" data-id="${escapeAttr(item.id)}" title="Открыть полностью">
@@ -9928,9 +10088,14 @@ function renderOtabotkiCatalog() {
               ${item.text ? `<p class="ot-card-text">${escapeHtml(item.text.slice(0, 160))}${item.text.length > 160 ? '…' : ''}</p>` : ''}
             </div>
             ${canChange ? `<div class="ot-card-footer">
+              ${item.isMetodichka ? `
+              <button class="btn btn-outline btn-sm" data-action="view-otabotka" data-id="${item.id}">Открыть</button>
+              <button class="btn btn-outline btn-sm" data-action="attach-otabotka-prompt" data-id="${item.id}">➕ В скрипт</button>
+              ` : `
               <button class="btn btn-outline btn-sm" data-action="edit-shared-otabotka" data-id="${item.id}">✏️ Править</button>
               <button class="btn btn-outline btn-sm" data-action="attach-otabotka-prompt" data-id="${item.id}">➕ В скрипт</button>
               <button class="btn btn-danger btn-sm" data-action="delete-shared-otabotka" data-id="${item.id}">🗑</button>
+              `}
             </div>` : ''}
           </article>
         `).join('')}</div>`
@@ -10572,13 +10737,6 @@ function persistLeaderboardData() {
     localStorage.setItem(LB_MANUAL_KEY, JSON.stringify(state.leaderboardManual || []));
   } catch (e) { console.warn(e); }
   try { scheduleCloudExtrasSave(); } catch (_) {}
-}
-
-function canSeeLeaderboard() {
-  if (isAdminUser()) return true;
-  if (canEdit()) return true;
-  // view-only
-  return !!(state.leaderboardSettings && state.leaderboardSettings.viewCanSee);
 }
 
 function getLeaderboardPeriodStart(period) {
@@ -12060,8 +12218,8 @@ function getDailyLogs(userName) {
 }
 
 function saveDailyLog(userName, date, entry) {
-  if (isCommonAccount()) {
-    toast('Аккаунт «Общая» не может вести дневник', 'error');
+  if (!canDo('useDiary') && !isAdminUser()) {
+    toast('Нет права вести дневник', 'error');
     return false;
   }
   if (!canViewUserDiary(userName)) { toast('Нет доступа', 'error'); return false; }
@@ -12211,7 +12369,7 @@ function formatWorkHM(minutes) {
 }
 
 function showDailyLogModal(userName, date) {
-  if (isCommonAccount()) { toast('Аккаунт «Общая» не может вести дневник', 'error'); return; }
+  if (!canDo('useDiary') && !isAdminUser()) { toast('Нет права вести дневник', 'error'); return; }
   if (!canViewUserDiary(userName)) { toast('Нет доступа', 'error'); return; }
   const canEdit = isAdminUser() || userName === state.currentUser;
   const iso = date || toISODate(new Date());
@@ -12665,8 +12823,8 @@ function renderGoalDetail(userName, goal, plan, canEditEarnings, showDiary) {
 }
 
 function showGoalEditor(userName) {
-  if (isCommonAccount()) {
-    toast('Аккаунт «Общая» не может создавать цели', 'error');
+  if (!canDo('useGoals') && !isAdminUser()) {
+    toast('Нет права создавать цели', 'error');
     return;
   }
   const who = userName || state.currentUser;
@@ -12791,8 +12949,8 @@ function showGoalEditor(userName) {
 }
 
 function saveGoal(userName) {
-  if (isCommonAccount()) {
-    toast('Аккаунт «Общая» не может создавать цели', 'error');
+  if (!canDo('useGoals') && !isAdminUser()) {
+    toast('Нет права создавать цели', 'error');
     return;
   }
   const who = userName || state.currentUser;
@@ -13029,8 +13187,8 @@ function renderSettings() {
     <div class="settings-section card">
       <h3>👥 Участники команды</h3>
       <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:14px;line-height:1.55">
-        Только для <b>Александра</b>. Можно добавить сотрудника, задать пароль и права:
-        <b>редактирование</b> или <b>только просмотр</b>.
+        Только для <b>Александра</b>. Добавление сотрудников, пароли и <b>детальные права</b>:
+        какие разделы видеть, дневник, редактирование блоков.
       </p>
       <div class="team-list">
         ${Object.keys(TEAM_USERS).map(name => `
@@ -13040,7 +13198,10 @@ function renderSettings() {
               <span class="badge ${name === 'Общая' ? '' : 'badge-teal'}">${name === 'Общая' ? 'просмотр' : 'редактирование'}</span>
               <span class="badge">системный</span>
             </div>
-            <span style="color:var(--text-muted);font-size:0.85rem">нельзя удалить</span>
+            <div class="team-row-actions">
+              ${name !== 'Александр' ? `<button class="btn btn-outline btn-sm" data-action="edit-user-perms" data-name="${escapeAttr(name)}">🔐 Права</button>` : '<span class="field-hint">полный доступ</span>'}
+              <span class="field-hint">нельзя удалить</span>
+            </div>
           </div>
         `).join('')}
         ${(function(){ loadExtraUsers(); return extraUsers; })().map(u => `
@@ -13050,6 +13211,7 @@ function renderSettings() {
               <span class="badge ${u.role === 'edit' ? 'badge-teal' : ''}">${u.role === 'edit' ? 'редактирование' : 'просмотр'}</span>
             </div>
             <div class="team-row-actions">
+              <button class="btn btn-outline btn-sm" data-action="edit-user-perms" data-name="${escapeAttr(u.name)}">🔐 Права</button>
               <button class="btn btn-outline btn-sm" data-action="edit-team-user" data-name="${escapeAttr(u.name)}">✏️</button>
               <button class="btn btn-danger btn-sm" data-action="delete-team-user" data-name="${escapeAttr(u.name)}">🗑</button>
             </div>
@@ -13809,6 +13971,103 @@ function showHotkeysHelp() {
 
 /* ========== Events ========== */
 
+
+function showUserPermsModal(name) {
+  if (!isAdminUser()) { toast('Только администратор', 'error'); return; }
+  if (!name || name === 'Александр') { toast('Права админа нельзя ограничить', 'error'); return; }
+  loadUserPermsStore();
+  const perms = getUserPerms(name);
+  const pagesHtml = PAGE_PERM_DEFS.map(p => {
+    const checked = perms.pages && perms.pages[p.key] ? 'checked' : '';
+    return `<label class="perm-check"><input type="checkbox" data-perm-page="${p.key}" ${checked}> ${escapeHtml(p.label)}</label>`;
+  }).join('');
+  const actionsHtml = ACTION_PERM_DEFS.map(a => {
+    const checked = perms.actions && perms.actions[a.key] ? 'checked' : '';
+    return `<label class="perm-check"><input type="checkbox" data-perm-action="${a.key}" ${checked}> ${escapeHtml(a.label)}</label>`;
+  }).join('');
+  openModal(
+    'Права: ' + name,
+    `<p class="catalog-hint" style="margin-bottom:12px">Отметьте, что можно <b>смотреть</b> и что можно <b>делать</b>. Сохраняется в облако для всех устройств.</p>
+     <div class="perm-grid">
+       <div class="perm-col">
+         <h4 class="perm-col-title">Разделы (просмотр)</h4>
+         ${pagesHtml}
+       </div>
+       <div class="perm-col">
+         <h4 class="perm-col-title">Действия</h4>
+         ${actionsHtml}
+       </div>
+     </div>
+     <div class="actions-row" style="margin-top:12px">
+       <button type="button" class="btn btn-outline btn-sm" data-action="perms-preset" data-preset="view" data-name="${escapeAttr(name)}">Пресет: только просмотр</button>
+       <button type="button" class="btn btn-outline btn-sm" data-action="perms-preset" data-preset="diary" data-name="${escapeAttr(name)}">Пресет: просмотр + дневник</button>
+       <button type="button" class="btn btn-outline btn-sm" data-action="perms-preset" data-preset="editor" data-name="${escapeAttr(name)}">Пресет: редактор</button>
+     </div>`,
+    `<button class="btn btn-outline" data-action="close-modal">Отмена</button>
+     <button class="btn btn-primary" data-action="save-user-perms" data-name="${escapeAttr(name)}">Сохранить права</button>`
+  );
+}
+
+function applyPermsPreset(name, preset) {
+  if (!isAdminUser()) return;
+  const base = defaultPermsFor(name === 'Общая' ? 'Общая' : (preset === 'editor' ? name : 'Общая'));
+  // rebuild form checkboxes
+  if (preset === 'view') {
+    PAGE_PERM_DEFS.forEach(p => {
+      const el = document.querySelector(`[data-perm-page="${p.key}"]`);
+      if (el) el.checked = ['home','scripts','otabotki','catalog','calls','rules','refinfo','games'].includes(p.key);
+    });
+    ACTION_PERM_DEFS.forEach(a => {
+      const el = document.querySelector(`[data-perm-action="${a.key}"]`);
+      if (el) el.checked = false;
+    });
+  } else if (preset === 'diary') {
+    PAGE_PERM_DEFS.forEach(p => {
+      const el = document.querySelector(`[data-perm-page="${p.key}"]`);
+      if (el) el.checked = ['home','scripts','otabotki','catalog','calls','rules','refinfo','goals','games'].includes(p.key);
+    });
+    ACTION_PERM_DEFS.forEach(a => {
+      const el = document.querySelector(`[data-perm-action="${a.key}"]`);
+      if (el) el.checked = a.key === 'useDiary' || a.key === 'useGoals';
+    });
+  } else if (preset === 'editor') {
+    PAGE_PERM_DEFS.forEach(p => {
+      const el = document.querySelector(`[data-perm-page="${p.key}"]`);
+      if (el) el.checked = p.key !== 'settings';
+    });
+    ACTION_PERM_DEFS.forEach(a => {
+      const el = document.querySelector(`[data-perm-action="${a.key}"]`);
+      if (el) el.checked = !['manageUsers','viewTeamGoals','viewTeamDiaries'].includes(a.key);
+    });
+  }
+  toast('Пресет применён — нажмите «Сохранить права»');
+}
+
+function saveUserPermsFromForm(name) {
+  if (!isAdminUser()) return;
+  if (!name || name === 'Александр') return;
+  const pages = {};
+  PAGE_PERM_DEFS.forEach(p => {
+    const el = document.querySelector(`[data-perm-page="${p.key}"]`);
+    pages[p.key] = !!(el && el.checked);
+  });
+  const actions = {};
+  ACTION_PERM_DEFS.forEach(a => {
+    const el = document.querySelector(`[data-perm-action="${a.key}"]`);
+    actions[a.key] = !!(el && el.checked);
+  });
+  // goals page if diary or goals actions
+  if (actions.useGoals || actions.useDiary || actions.viewTeamGoals || actions.viewTeamDiaries) {
+    pages.goals = true;
+  }
+  setUserPerms(name, { pages, actions });
+  closeModal();
+  toast('Права сохранены и уйдут в облако');
+  try { applyAccountPermissions(); } catch (_) {}
+  render();
+}
+
+
 function showTeamUserModal(editName) {
   if (!isAdminUser()) { toast('Только Александр', 'error'); return; }
   loadExtraUsers();
@@ -13958,6 +14217,9 @@ function handleClick(e) {
     case 'view-car': showViewCarModal(el.dataset.id); break;
     case 'view-otabotka': showViewOtabotkaModal(el.dataset.id); break;
     case 'add-team-user': showTeamUserModal(null); break;
+    case 'edit-user-perms': showUserPermsModal(el.dataset.name); break;
+    case 'save-user-perms': saveUserPermsFromForm(el.dataset.name); break;
+    case 'perms-preset': applyPermsPreset(el.dataset.name, el.dataset.preset); break;
     case 'edit-team-user': showTeamUserModal(el.dataset.name); break;
     case 'delete-team-user': deleteTeamUser(el.dataset.name); break;
     case 'save-team-user': saveTeamUser(el.dataset.name || null); break;

@@ -360,6 +360,7 @@ function flattenExtrasOnto_(out, extras) {
   if (extras.ruleItemTags) out.ruleItemTags = extras.ruleItemTags;
   if (extras.extraUsers) out.extraUsers = extras.extraUsers;
   if (extras.flappyScores) out.flappyScores = extras.flappyScores;
+  if (extras.userPerms) out.userPerms = extras.userPerms;
   return out;
 }
 
@@ -389,6 +390,7 @@ function readAll_() {
       if (extras.ruleItemTags) out.ruleItemTags = extras.ruleItemTags;
       if (extras.extraUsers) out.extraUsers = extras.extraUsers;
   if (extras.flappyScores) out.flappyScores = extras.flappyScores;
+  if (extras.userPerms) out.userPerms = extras.userPerms;
     }
     return out;
   }
@@ -405,6 +407,8 @@ function readAll_() {
     if (extras.sharedPenalties) legacy.sharedPenalties = extras.sharedPenalties;
     if (extras.ruleItemTags) legacy.ruleItemTags = extras.ruleItemTags;
     if (extras.extraUsers) legacy.extraUsers = extras.extraUsers;
+    if (extras.flappyScores) legacy.flappyScores = extras.flappyScores;
+    if (extras.userPerms) legacy.userPerms = extras.userPerms;
   }
   return legacy;
 }
