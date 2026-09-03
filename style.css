@@ -3348,3 +3348,32 @@ input[type="color"] {
 .presence-dot.online { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.25); }
 .presence-dot.offline { background: #6b7280; }
 .presence-row { align-items: center; }
+
+
+/* Newbie guide */
+.newbie-list { display: flex; flex-direction: column; gap: 12px; }
+.newbie-card { padding: 14px 16px; }
+.newbie-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.newbie-card-title {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+.newbie-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.newbie-card-body {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  color: var(--text, inherit);
+}
+.newbie-links {
+  margin: 10px 0 0;
+  padding-left: 1.1em;
+}
+.newbie-links li { margin: 4px 0; }

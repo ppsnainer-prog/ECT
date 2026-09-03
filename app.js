@@ -4684,6 +4684,7 @@ let state = {
   rulesSource: 'general',
   rulesBlock: '',
   sharedPenalties: [],
+  newbieGuide: null, // null = ещё не загружено, сидим дефолт
   refInfo: [],
   refInfoQuery: '',
   refInfoTag: '',
@@ -4895,6 +4896,7 @@ const PAGE_PERM_DEFS = [
   { key: 'calls', label: 'Звонки' },
   { key: 'rules', label: 'Правила' },
   { key: 'refinfo', label: 'Справка' },
+  { key: 'newbie', label: 'Новичкам / Памятка' },
   { key: 'goals', label: 'Цель / дневник' },
   { key: 'leaderboard', label: 'Лидерборд' },
   { key: 'settings', label: 'Настройки' },
@@ -4909,6 +4911,7 @@ const ACTION_PERM_DEFS = [
   { key: 'addCalls', label: 'Добавлять / менять звонки' },
   { key: 'editRules', label: 'Редактировать правила (свои штрафы)' },
   { key: 'editRefinfo', label: 'Редактировать справку' },
+  { key: 'editNewbie', label: 'Редактировать памятку новичка' },
   { key: 'useGoals', label: 'Свои цели' },
   { key: 'useDiary', label: 'Свой дневник смен' },
   { key: 'viewTeamGoals', label: 'Цели команды' },
@@ -4937,11 +4940,14 @@ function defaultPermsFor(name) {
   pages.goals = false;
   pages.leaderboard = false;
   pages.settings = false;
+  // Памятка новичка: по умолчанию видна «Общей» и view; у опытных редакторов скрыта
+  pages.newbie = false;
 
   const actions = {};
   ACTION_PERM_DEFS.forEach(a => { actions[a.key] = false; });
 
-  if (name === 'Общая') {
+  if (name === 'Общая' || getUserRole(name) === 'view') {
+    pages.newbie = true;
     return { pages, actions };
   }
 
@@ -4949,6 +4955,7 @@ function defaultPermsFor(name) {
   if (TEAM_USERS[name] || getUserRole(name) === 'edit') {
     pages.goals = true;
     pages.leaderboard = true;
+    pages.newbie = false; // опытные могут включить себе в правах
     actions.editScripts = true;
     actions.editOtabotki = true;
     actions.editCatalog = true;
@@ -5022,6 +5029,10 @@ function canViewPage(page) {
   if (state.currentUser === 'Александр') return true;
   const perms = getUserPerms(state.currentUser);
   if (key === 'games') return !!perms.pages.games;
+  // Памятку видят по флагу страницы; редакторы с editNewbie тоже (чтобы править)
+  if (key === 'newbie') {
+    return !!(perms.pages && perms.pages.newbie) || !!(perms.actions && perms.actions.editNewbie);
+  }
   return !!perms.pages[key];
 }
 
@@ -5037,7 +5048,7 @@ function canEdit() {
   if (state.currentUser === 'Александр') return true;
   // legacy: любой edit-* даёт «редактор» для старых проверок
   return canDo('editScripts') || canDo('editOtabotki') || canDo('editCatalog') ||
-    canDo('editRules') || canDo('editRefinfo') || canDo('addCalls');
+    canDo('editRules') || canDo('editRefinfo') || canDo('editNewbie') || canDo('addCalls');
 }
 
 function isCommonAccount() {
@@ -5821,7 +5832,8 @@ function buildCloudExtras() {
     flappyScores: (state.flappyScores && typeof state.flappyScores === 'object') ? state.flappyScores : {},
     userPerms: (function() {
       try { loadUserPermsStore(); } catch (_) {}
-      return (state.userPerms && typeof state.userPerms === 'object') ? state.userPerms : {};
+      return (state.userPerms && typeof state.userPerms === 'object') ? state.userPerms : {    newbieGuide: Array.isArray(state.newbieGuide) ? state.newbieGuide : [],
+  };
     })(),
     presence: (function() {
       try {
@@ -5892,6 +5904,13 @@ function applyCloudRecord(remote) {
   if (Array.isArray(ex.sharedPenalties)) {
     state.sharedPenalties = ex.sharedPenalties;
     try { localStorage.setItem('ect_shared_penalties_v1', JSON.stringify(state.sharedPenalties)); } catch (_) {}
+  }
+  if (Array.isArray(ex.newbieGuide)) {
+    state.newbieGuide = ex.newbieGuide;
+    try { localStorage.setItem(NEWBIE_KEY, JSON.stringify(state.newbieGuide)); } catch (_) {}
+  } else if (Array.isArray(remote.newbieGuide)) {
+    state.newbieGuide = remote.newbieGuide;
+    try { localStorage.setItem(NEWBIE_KEY, JSON.stringify(state.newbieGuide)); } catch (_) {}
   } else if (Array.isArray(remote.sharedPenalties)) {
     state.sharedPenalties = remote.sharedPenalties;
     try { localStorage.setItem('ect_shared_penalties_v1', JSON.stringify(state.sharedPenalties)); } catch (_) {}
@@ -6555,6 +6574,7 @@ function navigate(page, scriptId = null) {
     rules: 'Правила',
     refinfo: 'Справка',
     settings: 'Настройки',
+    newbie: 'Новичкам',
     admin: 'Админ-панель',
     script: 'Скрипт'
   };
@@ -6616,6 +6636,7 @@ function render() {
     case 'goals': content.innerHTML = renderGoals(); break;
     case 'rules': content.innerHTML = renderRules(); break;
     case 'refinfo': content.innerHTML = renderRefInfo(); break;
+    case 'newbie': content.innerHTML = renderNewbieGuide(); break;
     case 'settings': content.innerHTML = renderSettings(); break;
     case 'admin': content.innerHTML = isAdminUser() ? renderAdminPanel() : '<p>Нет доступа</p>'; break;
     default: content.innerHTML = '<p>Страница не найдена</p>';
@@ -13350,6 +13371,257 @@ function renderAdminPanel() {
     ${dataBlock}`;
 }
 
+
+/* ========== Памятка новичка ========== */
+const NEWBIE_KEY = 'ect_newbie_guide_v1';
+
+const DEFAULT_NEWBIE_GUIDE = [
+  {
+    id: 'nb_01',
+    title: '1. Написать в группу о выходе на смену',
+    body: 'Перед началом работы напишите в рабочую группу, что вышли (вышла) на смену.',
+    links: [],
+    order: 1
+  },
+  {
+    id: 'nb_02',
+    title: '2. Открыть CRM и встать в очередь',
+    body: 'Войдите в CRM и встаньте в очередь на обзвон.',
+    links: [{ title: 'CRM ЕЦТ — вход', url: 'https://ect-russia.ru/login' }],
+    order: 2
+  },
+  {
+    id: 'nb_03',
+    title: '3. Запросить звонок или скрипт',
+    body: 'При необходимости запросите звонок или актуальный скрипт у супервайзера / по ссылке.',
+    links: [{ title: 'Victory — пример запроса', url: 'https://victory-crm.ru/answers/255217877' }],
+    order: 3
+  },
+  {
+    id: 'nb_04',
+    title: '4. Проставить статус',
+    body: 'После работы с заявкой обязательно проставьте корректный статус в системе.',
+    links: [],
+    order: 4
+  },
+  {
+    id: 'nb_05',
+    title: '5. Справочник КК',
+    body: 'Ориентируйтесь по актуальному справочнику контроля качества (таблица).',
+    links: [{ title: 'Справочник КК (Google Sheets)', url: 'https://docs.google.com/spreadsheets/d/1rDcSs-C3e3kDMsqOwgCItyrpArxD1WK5rRHr5G9aEwI/edit?gid=1727881349#gid=1727881349' }],
+    order: 5
+  },
+  {
+    id: 'nb_06',
+    title: '6. Штрафы',
+    body: 'При спорных ситуациях предоставьте справку или заранее согласуйте вопрос с руководством. Подробный список санкций — в разделе «Правила → Штрафы».',
+    links: [],
+    order: 6
+  },
+  {
+    id: 'nb_07',
+    title: '7. Информационная доска',
+    body: 'В каждой группе своя информационная доска по графику. Следите за объявлениями своей группы.',
+    links: [],
+    order: 7
+  },
+  {
+    id: 'nb_08',
+    title: '8. Статусы: штраф / успешная / успешная со штрафом',
+    body: 'Различайте итог заявки: штраф, успешная, успешная со штрафом. Неверная постановка статуса может привести к санкции.',
+    links: [],
+    order: 8
+  },
+  {
+    id: 'nb_09',
+    title: '9. Разбор ошибок',
+    body: 'Разбор ошибок проводится в каждой группе по своей ссылке. Уточните актуальную ссылку у СВ своей группы.',
+    links: [],
+    order: 9
+  },
+  {
+    id: 'nb_10',
+    title: '10. Группа проработки с СВ',
+    body: 'Участвуйте в группе проработки со супервайзером — там разбирают сложные кейсы и дают обратную связь.',
+    links: [],
+    order: 10
+  },
+  {
+    id: 'nb_12',
+    title: '12. Приведи друга / бонусы',
+    body: 'Акции «Приведи друга» и другие бонусы публикуются в группе. Следите за условиями в своей команде.',
+    links: [],
+    order: 12
+  },
+  {
+    id: 'nb_13',
+    title: '13. Повышение: НС, СВ, тренер, КК, входящая линия',
+    body: 'Возможны переходы: наставник смены (НС), супервайзер (СВ), тренер, контроль качества (КК), входящая линия. Интерес и готовность обсуждайте с руководством.',
+    links: [],
+    order: 13
+  },
+  {
+    id: 'nb_14',
+    title: '14. Еженеделька',
+    body: 'Общее собрание команды проходит каждую неделю. Присутствие обязательно, если вы в графике.',
+    links: [],
+    order: 14
+  },
+  {
+    id: 'nb_15',
+    title: '15. График и норма',
+    body: 'Графики: 2/2, 5/2, 4/3.\n• Доп. смена: от 4 часов и 300 заявок.\n• Полная смена: 8 часов (1 час обеда).\n• Смена 10 часов: 1,5 часа обеда, от 450 заявок.\n• Конверсия: от 3 %.',
+    links: [],
+    order: 15
+  },
+  {
+    id: 'nb_16',
+    title: '16. Выплата и оформление',
+    body: 'Выплата — каждую среду вечером по Москве.\nОформление: регистрация в консоли → открыть самозанятость в «Мой налог» → подписать договор, задание и акт.',
+    links: [],
+    order: 16
+  }
+];
+
+function loadNewbieGuide() {
+  if (Array.isArray(state.newbieGuide) && state.newbieGuide.length) return;
+  try {
+    const raw = localStorage.getItem(NEWBIE_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (Array.isArray(p) && p.length) {
+        state.newbieGuide = p;
+        return;
+      }
+    }
+  } catch (_) {}
+  state.newbieGuide = DEFAULT_NEWBIE_GUIDE.map(x => ({ ...x, links: (x.links || []).map(l => ({ ...l })) }));
+}
+
+function persistNewbieGuide() {
+  try { localStorage.setItem(NEWBIE_KEY, JSON.stringify(state.newbieGuide || [])); } catch (_) {}
+  try { if (typeof scheduleCloudExtrasSave === 'function') scheduleCloudExtrasSave(); } catch (_) {}
+}
+
+function canEditNewbie() {
+  if (typeof isAdminUser === 'function' && isAdminUser()) return true;
+  if (typeof canDo === 'function' && canDo('editNewbie')) return true;
+  return false;
+}
+
+function renderNewbieGuide() {
+  loadNewbieGuide();
+  const list = [...(state.newbieGuide || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
+  const canChange = canEditNewbie();
+
+  return `
+    <div class="card rules-desc-card" style="margin-bottom:14px">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;justify-content:space-between">
+        <div>
+          <h3 class="rules-section-title">🧭 Памятка новичка</h3>
+          <p class="catalog-hint">Чеклист смены, ссылки и орг. информация. Опытные операторы могут скрыть раздел у себя в правах (админ выдаёт доступ).</p>
+        </div>
+        ${canChange ? `<button class="btn btn-primary btn-sm" data-action="add-newbie-item">+ Пункт</button>` : ''}
+      </div>
+    </div>
+
+    ${list.length === 0
+      ? `<div class="empty-state"><div class="empty-icon">📋</div><p>Пока пусто.${canChange ? ' Добавьте первый пункт.' : ''}</p></div>`
+      : `<div class="newbie-list">${list.map((item, idx) => `
+        <article class="card newbie-card">
+          <header class="newbie-card-head">
+            <h3 class="newbie-card-title">${escapeHtml(item.title || 'Без названия')}</h3>
+            ${canChange ? `<div class="newbie-card-actions">
+              <button class="btn btn-outline btn-sm" data-action="edit-newbie-item" data-id="${escapeAttr(item.id)}">✏️</button>
+              <button class="btn btn-danger btn-sm" data-action="delete-newbie-item" data-id="${escapeAttr(item.id)}">🗑</button>
+            </div>` : ''}
+          </header>
+          ${item.body ? `<div class="newbie-card-body">${linkify(item.body)}</div>` : ''}
+          ${(item.links && item.links.length) ? `<ul class="newbie-links">${item.links.map(l => {
+            const url = l.url || '';
+            const label = l.title || url;
+            return `<li><a class="ref-link" href="${escapeAttr(url)}" target="_blank" rel="noopener">${escapeHtml(label)}</a></li>`;
+          }).join('')}</ul>` : ''}
+        </article>
+      `).join('')}</div>`}
+  `;
+}
+
+function showNewbieItemModal(id) {
+  if (!canEditNewbie()) { toast('Нет права редактировать памятку', 'error'); return; }
+  loadNewbieGuide();
+  const item = id ? (state.newbieGuide || []).find(x => x.id === id) : null;
+  const linksText = (item && item.links && item.links.length)
+    ? item.links.map(l => (l.title ? l.title + ' | ' : '') + (l.url || '')).join('\n')
+    : '';
+  openModal(
+    item ? 'Редактировать пункт' : 'Новый пункт памятки',
+    `<div class="form-group"><label>Заголовок</label>
+       <input type="text" id="fNbTitle" value="${escapeAttr(item ? item.title : '')}" placeholder="Например: 1. Написать в группу…"></div>
+     <div class="form-group"><label>Текст</label>
+       <textarea id="fNbBody" rows="6" placeholder="Подробности…">${escapeHtml(item ? (item.body || '') : '')}</textarea></div>
+     <div class="form-group"><label>Ссылки (каждая с новой строки: Название | https://…)</label>
+       <textarea id="fNbLinks" rows="3" placeholder="CRM | https://ect-russia.ru/login">${escapeHtml(linksText)}</textarea></div>
+     <div class="form-group"><label>Порядок (число)</label>
+       <input type="number" id="fNbOrder" value="${escapeAttr(String(item && item.order != null ? item.order : ((state.newbieGuide || []).length + 1)))}" min="0" step="1"></div>`,
+    `<button class="btn btn-outline" data-action="close-modal">Отмена</button>
+     <button class="btn btn-primary" data-action="save-newbie-item" ${item ? `data-id="${escapeAttr(item.id)}"` : ''}>Сохранить</button>`
+  );
+}
+
+function parseNewbieLinks(text) {
+  return String(text || '').split('\n').map(line => line.trim()).filter(Boolean).map(line => {
+    const parts = line.split('|').map(s => s.trim());
+    if (parts.length >= 2) return { title: parts[0], url: parts.slice(1).join('|').trim() };
+    if (/^https?:\/\//i.test(parts[0])) return { title: parts[0], url: parts[0] };
+    return { title: parts[0], url: parts[0] };
+  }).filter(l => l.url);
+}
+
+function saveNewbieItemFromForm(id) {
+  if (!canEditNewbie()) { toast('Нет права', 'error'); return; }
+  loadNewbieGuide();
+  const title = document.getElementById('fNbTitle')?.value.trim() || '';
+  const body = document.getElementById('fNbBody')?.value || '';
+  const links = parseNewbieLinks(document.getElementById('fNbLinks')?.value || '');
+  const order = Number(document.getElementById('fNbOrder')?.value);
+  if (!title) { toast('Укажите заголовок', 'error'); return; }
+  if (!Array.isArray(state.newbieGuide)) state.newbieGuide = [];
+  if (id) {
+    const item = state.newbieGuide.find(x => x.id === id);
+    if (!item) { toast('Пункт не найден', 'error'); return; }
+    item.title = title;
+    item.body = body;
+    item.links = links;
+    item.order = isFinite(order) ? order : item.order;
+    item.updatedAt = Date.now();
+  } else {
+    state.newbieGuide.push({
+      id: 'nb_' + Date.now().toString(36),
+      title,
+      body,
+      links,
+      order: isFinite(order) ? order : state.newbieGuide.length + 1,
+      updatedAt: Date.now()
+    });
+  }
+  persistNewbieGuide();
+  closeModal();
+  toast('Сохранено');
+  if (state.currentPage === 'newbie') render();
+}
+
+function deleteNewbieItem(id) {
+  if (!canEditNewbie()) return;
+  if (!confirm('Удалить этот пункт?')) return;
+  loadNewbieGuide();
+  state.newbieGuide = (state.newbieGuide || []).filter(x => x.id !== id);
+  persistNewbieGuide();
+  toast('Удалено');
+  if (state.currentPage === 'newbie') render();
+}
+
+
 function renderSettings() {
   const s = state.settings;
   const c = state.cloud;
@@ -14571,6 +14843,10 @@ function handleClick(e) {
     case 'save-cloud': saveCloudConfig(); break;
     case 'disconnect-cloud': disconnectCloud(); break;
     case 'sync-now': syncNow(); break;
+    case 'add-newbie-item': showNewbieItemModal(null); break;
+    case 'edit-newbie-item': showNewbieItemModal(el.dataset.id); break;
+    case 'save-newbie-item': saveNewbieItemFromForm(el.dataset.id || null); break;
+    case 'delete-newbie-item': deleteNewbieItem(el.dataset.id); break;
     case 'toggle-block': toggleBlock(el.dataset.key); break;
     case 'toggle-item-text': toggleItemText(el.dataset.id); break;
     case 'apply-color': applyColor(el.dataset.color); break;
