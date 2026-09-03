@@ -4686,6 +4686,8 @@ let state = {
   sharedPenalties: [],
   newbieGuide: null,
   newbieGroup: 'checklist',
+  newbieQuery: '',
+  newbieOpenId: '',
   refInfo: [],
   refInfoQuery: '',
   refInfoTag: '',
@@ -6608,7 +6610,7 @@ function navigate(page, scriptId = null) {
 }
 
 /* ========== Render (без изменений, кроме настроек) ========== */
-const SEARCH_FOCUS_IDS = ['homeSearch', 'searchInput', 'otabotkiSearch', 'catalogSearch', 'callsSearch', 'pickOtabotkaSearch', 'rulesSearch', 'refInfoSearch'];
+const SEARCH_FOCUS_IDS = ['homeSearch', 'searchInput', 'otabotkiSearch', 'catalogSearch', 'callsSearch', 'pickOtabotkaSearch', 'rulesSearch', 'refInfoSearch', 'newbieSearch'];
 
 function captureSearchFocus() {
   const active = document.activeElement;
@@ -13762,14 +13764,63 @@ function canEditNewbie() {
 function renderNewbieGuide() {
   loadNewbieGuide();
   const group = state.newbieGroup || 'checklist';
-  let list = [...(state.newbieGuide || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
-  const countCheck = list.filter(x => (x.group || 'checklist') === 'checklist').length;
-  const countPam = list.filter(x => x.group === 'pamyatka').length;
-  list = list.filter(x => (x.group || 'checklist') === group);
+  const q = (state.newbieQuery || '').toLowerCase().trim();
+  const openId = state.newbieOpenId || '';
+  let all = [...(state.newbieGuide || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
+  const countCheck = all.filter(x => (x.group || 'checklist') === 'checklist').length;
+  const countPam = all.filter(x => x.group === 'pamyatka').length;
+  let list = all.filter(x => (x.group || 'checklist') === group);
+  if (q) {
+    list = list.filter(x => {
+      const hay = [x.title, x.body, (x.links || []).map(l => (l.title || '') + ' ' + (l.url || '')).join(' ')].join(' ').toLowerCase();
+      return q.split(/\s+/).filter(Boolean).every(w => hay.includes(w));
+    });
+  }
   const canChange = canEditNewbie();
   const hint = group === 'checklist'
-    ? 'Чеклист старта смены и орг. моменты.'
-    : 'Полная памятка оператора ЕЦТ: компания, скрипт, CRM, статусы, критерии оценки.';
+    ? 'Короткий чеклист перед сменой. Нажмите пункт, чтобы раскрыть.'
+    : 'Памятка ЕЦТ. Слева — оглавление, справа — текст. Поиск по словам.';
+
+  const toc = list.map((item, idx) => {
+    const active = openId === item.id;
+    const short = (item.title || '').replace(/^БЛОК[:\s]*/i, '').trim();
+    return `<button type="button" class="newbie-toc-item ${active ? 'active' : ''}" data-action="toggle-newbie-item" data-id="${escapeAttr(item.id)}" title="${escapeAttr(item.title || '')}">
+      <span class="newbie-toc-num">${idx + 1}</span>
+      <span class="newbie-toc-label">${escapeHtml(short.length > 42 ? short.slice(0, 40) + '…' : short)}</span>
+    </button>`;
+  }).join('');
+
+  const cards = list.map((item, idx) => {
+    const open = openId === item.id || (q && list.length <= 5);
+    const preview = (item.body || '').replace(/\s+/g, ' ').trim().slice(0, 110);
+    const linksHtml = (item.links && item.links.length)
+      ? `<ul class="newbie-links">${item.links.map(l => {
+          const url = l.url || '';
+          const label = l.title || url;
+          return `<li><a class="ref-link" href="${escapeAttr(url)}" target="_blank" rel="noopener">${escapeHtml(label)}</a></li>`;
+        }).join('')}</ul>`
+      : '';
+    return `
+      <article class="card newbie-card ${open ? 'is-open' : ''}" id="newbie-card-${escapeAttr(item.id)}">
+        <button type="button" class="newbie-card-toggle" data-action="toggle-newbie-item" data-id="${escapeAttr(item.id)}" aria-expanded="${open ? 'true' : 'false'}">
+          <span class="newbie-card-num">${idx + 1}</span>
+          <span class="newbie-card-title-wrap">
+            <span class="newbie-card-title">${escapeHtml(item.title || 'Без названия')}</span>
+            ${!open && preview ? `<span class="newbie-card-preview">${escapeHtml(preview)}${(item.body || '').length > 110 ? '…' : ''}</span>` : ''}
+          </span>
+          <span class="newbie-card-chevron">${open ? '▾' : '▸'}</span>
+        </button>
+        ${open ? `
+        <div class="newbie-card-panel">
+          ${item.body ? `<div class="newbie-card-body">${linkify(item.body)}</div>` : ''}
+          ${linksHtml}
+          ${canChange ? `<div class="newbie-card-actions" style="margin-top:12px">
+            <button class="btn btn-outline btn-sm" data-action="edit-newbie-item" data-id="${escapeAttr(item.id)}">✏️ Править</button>
+            <button class="btn btn-danger btn-sm" data-action="delete-newbie-item" data-id="${escapeAttr(item.id)}">🗑</button>
+          </div>` : ''}
+        </div>` : ''}
+      </article>`;
+  }).join('');
 
   return `
     <div class="card rules-desc-card" style="margin-bottom:14px">
@@ -13781,30 +13832,24 @@ function renderNewbieGuide() {
         ${canChange ? `<button class="btn btn-primary btn-sm" data-action="add-newbie-item">+ Пункт</button>` : ''}
       </div>
       <div class="ot-source-tabs" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
-        <button type="button" class="btn btn-sm ${group === 'checklist' ? 'btn-primary' : 'btn-outline'}" data-action="set-newbie-group" data-group="checklist">✅ Чеклист смены <span class="badge" style="margin-left:4px">${countCheck}</span></button>
+        <button type="button" class="btn btn-sm ${group === 'checklist' ? 'btn-primary' : 'btn-outline'}" data-action="set-newbie-group" data-group="checklist">✅ Чеклист <span class="badge" style="margin-left:4px">${countCheck}</span></button>
         <button type="button" class="btn btn-sm ${group === 'pamyatka' ? 'btn-primary' : 'btn-outline'}" data-action="set-newbie-group" data-group="pamyatka">📘 Памятка ЕЦТ <span class="badge" style="margin-left:4px">${countPam}</span></button>
+      </div>
+      <div class="search-bar" style="margin-top:12px;flex-wrap:wrap">
+        <input type="search" class="search-input" id="newbieSearch" placeholder="Поиск по разделу…" value="${escapeAttr(state.newbieQuery || '')}" style="flex:1;min-width:200px">
+        ${openId ? `<button type="button" class="btn btn-outline btn-sm" data-action="collapse-all-newbie">Свернуть всё</button>` : ''}
       </div>
     </div>
 
     ${list.length === 0
-      ? `<div class="empty-state"><div class="empty-icon">📋</div><p>Пока пусто.${canChange ? ' Добавьте первый пункт.' : ''}</p></div>`
-      : `<div class="newbie-list">${list.map((item, idx) => `
-        <article class="card newbie-card">
-          <header class="newbie-card-head">
-            <h3 class="newbie-card-title">${escapeHtml(item.title || 'Без названия')}</h3>
-            ${canChange ? `<div class="newbie-card-actions">
-              <button class="btn btn-outline btn-sm" data-action="edit-newbie-item" data-id="${escapeAttr(item.id)}">✏️</button>
-              <button class="btn btn-danger btn-sm" data-action="delete-newbie-item" data-id="${escapeAttr(item.id)}">🗑</button>
-            </div>` : ''}
-          </header>
-          ${item.body ? `<div class="newbie-card-body">${linkify(item.body)}</div>` : ''}
-          ${(item.links && item.links.length) ? `<ul class="newbie-links">${item.links.map(l => {
-            const url = l.url || '';
-            const label = l.title || url;
-            return `<li><a class="ref-link" href="${escapeAttr(url)}" target="_blank" rel="noopener">${escapeHtml(label)}</a></li>`;
-          }).join('')}</ul>` : ''}
-        </article>
-      `).join('')}</div>`}
+      ? `<div class="empty-state"><div class="empty-icon">📋</div><p>${q ? 'Ничего не найдено по запросу.' : (canChange ? 'Пока пусто. Добавьте первый пункт.' : 'Пока пусто.')}</p></div>`
+      : `<div class="newbie-layout">
+          <aside class="newbie-toc card">
+            <div class="newbie-toc-title">Оглавление</div>
+            <div class="newbie-toc-list">${toc}</div>
+          </aside>
+          <div class="newbie-list">${cards}</div>
+        </div>`}
   `;
 }
 
@@ -15107,6 +15152,24 @@ function handleClick(e) {
     case 'sync-now': syncNow(); break;
     case 'set-newbie-group':
       state.newbieGroup = el.dataset.group === 'pamyatka' ? 'pamyatka' : 'checklist';
+      state.newbieOpenId = '';
+      state.newbieQuery = '';
+      if (state.currentPage === 'newbie') render();
+      break;
+    case 'toggle-newbie-item': {
+      const id = el.dataset.id || '';
+      state.newbieOpenId = state.newbieOpenId === id ? '' : id;
+      if (state.currentPage === 'newbie') {
+        render();
+        setTimeout(() => {
+          const card = document.getElementById('newbie-card-' + id);
+          if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 50);
+      }
+      break;
+    }
+    case 'collapse-all-newbie':
+      state.newbieOpenId = '';
       if (state.currentPage === 'newbie') render();
       break;
     case 'add-newbie-item': showNewbieItemModal(null); break;
@@ -15438,6 +15501,14 @@ function bindGlobalEvents() {
       clearTimeout(window._otTimer);
       window._otTimer = setTimeout(() => {
         if (state.currentPage === 'otabotki') render();
+      }, 220);
+      return;
+    }
+    if (id === 'newbieSearch') {
+      state.newbieQuery = e.target.value;
+      clearTimeout(window._nbTimer);
+      window._nbTimer = setTimeout(() => {
+        if (state.currentPage === 'newbie') render();
       }, 220);
       return;
     }
