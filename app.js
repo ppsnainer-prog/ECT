@@ -6537,6 +6537,15 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+/** Ссылки в тексте + переносы строк (глобально) */
+function linkify(text) {
+  const esc = escapeHtml(text || '');
+  return esc
+    .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener" class="ref-link">$1</a>')
+    .replace(/\n/g, '<br>');
+}
+
+
 function escapeAttr(str) {
   return escapeHtml(str).replace(/'/g, '&#39;');
 }
