@@ -42,11 +42,32 @@
       </div>
 
       <button class="btn btn-primary login-button" id="loginButton">Войти</button>
+      <div class="login-divider" id="guestLoginWrap">
+        <span>или</span>
+      </div>
+      <button type="button" class="btn btn-outline login-button" id="guestLoginBtn">Войти как гость</button>
       <p class="login-error" id="loginError" role="alert"></p>
       <p class="login-note">Доступ только для участников команды.</p>
       <p class="login-author">@Alekssandr991</p>
     </div>
   </section>
+
+  <!-- Guest name modal -->
+  <div class="guest-modal-overlay" id="guestModal" hidden>
+    <div class="guest-modal" role="dialog" aria-labelledby="guestModalTitle">
+      <h2 id="guestModalTitle">Вход как гость</h2>
+      <p class="guest-modal-hint">Укажите своё имя — так вас увидит администратор. Доступ только для просмотра.</p>
+      <div class="login-field">
+        <label for="guestNameInput">Ваше имя</label>
+        <input type="text" id="guestNameInput" placeholder="Например: Иван" maxlength="40" autocomplete="name" />
+      </div>
+      <p class="login-error" id="guestError" role="alert"></p>
+      <div class="guest-modal-actions">
+        <button type="button" class="btn btn-outline" id="guestCancelBtn">Отмена</button>
+        <button type="button" class="btn btn-primary" id="guestConfirmBtn">Войти</button>
+      </div>
+    </div>
+  </div>
 
   <button type="button" id="sidebarBackdrop" class="sidebar-backdrop" aria-label="Закрыть меню"></button>
   <div id="app" hidden>
@@ -345,6 +366,10 @@
       }
 
       // Успех
+      try {
+        sessionStorage.removeItem('ect_is_guest_v1');
+        sessionStorage.removeItem('ect_guest_name_v1');
+      } catch (_) {}
       openApp(user);
     } catch (e) {
       console.error("doLogin crash", e);
@@ -416,9 +441,101 @@
       user.onchange = function () { setMessage(""); };
     }
 
+    // Гостевой вход
+    function isGuestLoginEnabled() {
+      try {
+        if (typeof window.__ECT_GUEST_ENABLED === 'function') return !!window.__ECT_GUEST_ENABLED();
+      } catch (_) {}
+      try {
+        const v = localStorage.getItem('ect_guest_login_enabled');
+        if (v === '0' || v === 'false') return false;
+      } catch (_) {}
+      return true; // по умолчанию включено
+    }
+    function updateGuestBtnVisibility() {
+      const wrap = document.getElementById('guestLoginWrap');
+      const btn = document.getElementById('guestLoginBtn');
+      const on = isGuestLoginEnabled();
+      if (wrap) wrap.hidden = !on;
+      if (btn) btn.hidden = !on;
+    }
+    function openGuestModal() {
+      if (!isGuestLoginEnabled()) {
+        setMessage('Вход гостей временно отключён администратором');
+        return;
+      }
+      const modal = document.getElementById('guestModal');
+      const input = document.getElementById('guestNameInput');
+      const err = document.getElementById('guestError');
+      if (err) err.textContent = '';
+      if (input) input.value = '';
+      if (modal) {
+        modal.hidden = false;
+        modal.removeAttribute('hidden');
+      }
+      setTimeout(function () { if (input) input.focus(); }, 50);
+    }
+    function closeGuestModal() {
+      const modal = document.getElementById('guestModal');
+      if (modal) {
+        modal.hidden = true;
+        modal.setAttribute('hidden', '');
+      }
+    }
+    function confirmGuestLogin() {
+      if (!isGuestLoginEnabled()) {
+        setMessage('Вход гостей отключён');
+        closeGuestModal();
+        return;
+      }
+      const input = document.getElementById('guestNameInput');
+      const err = document.getElementById('guestError');
+      let name = (input && input.value || '').trim();
+      name = name.replace(/\s+/g, ' ').slice(0, 40);
+      if (!name || name.length < 2) {
+        if (err) err.textContent = 'Введите имя (минимум 2 символа)';
+        if (input) input.focus();
+        return;
+      }
+      // запрет системных имён
+      if (USERS[name] || name === 'Александр' || name === 'Общая') {
+        if (err) err.textContent = 'Это имя занято. Укажите другое, например: Иван (гость)';
+        return;
+      }
+      try {
+        sessionStorage.setItem('ect_is_guest_v1', '1');
+        sessionStorage.setItem('ect_guest_name_v1', name);
+      } catch (_) {}
+      const display = 'Гость: ' + name;
+      closeGuestModal();
+      openApp(display);
+    }
+    const guestBtn = document.getElementById('guestLoginBtn');
+    if (guestBtn) guestBtn.onclick = function (e) { e.preventDefault(); openGuestModal(); };
+    const guestCancel = document.getElementById('guestCancelBtn');
+    if (guestCancel) guestCancel.onclick = function (e) { e.preventDefault(); closeGuestModal(); };
+    const guestConfirm = document.getElementById('guestConfirmBtn');
+    if (guestConfirm) guestConfirm.onclick = function (e) { e.preventDefault(); confirmGuestLogin(); };
+    const guestInput = document.getElementById('guestNameInput');
+    if (guestInput) {
+      guestInput.onkeydown = function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); confirmGuestLogin(); }
+        if (e.key === 'Escape') { e.preventDefault(); closeGuestModal(); }
+      };
+    }
+    const guestModal = document.getElementById('guestModal');
+    if (guestModal) {
+      guestModal.onclick = function (e) {
+        if (e.target === guestModal) closeGuestModal();
+      };
+    }
+    updateGuestBtnVisibility();
+    window.__ECT_UPDATE_GUEST_BTN = updateGuestBtnVisibility;
+
     // Восстановление сессии — только если всё ок
     try {
       const saved = sessionStorage.getItem("ect_team_session_v1");
+      const isGuest = sessionStorage.getItem("ect_is_guest_v1") === '1';
       let known = !!USERS[saved];
       if (!known && saved) {
         try {
@@ -426,7 +543,14 @@
           known = Array.isArray(extra) && extra.some(u => u && u.name === saved);
         } catch (_) {}
       }
-      if (saved && known) {
+      if (isGuest && saved && String(saved).indexOf('Гость:') === 0) {
+        if (isGuestLoginEnabled()) openApp(saved);
+        else {
+          try { sessionStorage.removeItem('ect_team_session_v1'); sessionStorage.removeItem('ect_is_guest_v1'); } catch (_) {}
+          showLoginUI();
+        }
+      } else if (saved && known) {
+        try { sessionStorage.removeItem('ect_is_guest_v1'); } catch (_) {}
         openApp(saved);
       } else {
         showLoginUI();

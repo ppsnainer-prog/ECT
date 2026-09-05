@@ -4806,6 +4806,38 @@ function isAdminUser() {
   return state.currentUser === 'Александр';
 }
 
+const GUEST_ENABLED_KEY = 'ect_guest_login_enabled';
+
+function isGuestLoginEnabled() {
+  try {
+    const v = localStorage.getItem(GUEST_ENABLED_KEY);
+    if (v === '0' || v === 'false') return false;
+  } catch (_) {}
+  // из облака (state)
+  if (state && state.guestLoginEnabled === false) return false;
+  return true;
+}
+
+function setGuestLoginEnabled(on) {
+  state.guestLoginEnabled = !!on;
+  try { localStorage.setItem(GUEST_ENABLED_KEY, on ? '1' : '0'); } catch (_) {}
+  try { if (typeof scheduleCloudExtrasSave === 'function') scheduleCloudExtrasSave(); } catch (_) {}
+  try { if (typeof window.__ECT_UPDATE_GUEST_BTN === 'function') window.__ECT_UPDATE_GUEST_BTN(); } catch (_) {}
+}
+
+function isGuestUser(name) {
+  const who = name || state.currentUser || '';
+  if (!who) return false;
+  if (String(who).indexOf('Гость:') === 0) return true;
+  try {
+    if (sessionStorage.getItem('ect_is_guest_v1') === '1' && who === sessionStorage.getItem('ect_team_session_v1')) return true;
+  } catch (_) {}
+  return false;
+}
+
+window.__ECT_GUEST_ENABLED = isGuestLoginEnabled;
+
+
 function getAllLoginNames() {
   loadExtraUsers();
   const names = Object.keys(TEAM_USERS);
@@ -4934,6 +4966,19 @@ function allTruePerms() {
 
 function defaultPermsFor(name) {
   if (name === 'Александр') return allTruePerms();
+  if (name && String(name).indexOf('Гость:') === 0) {
+    const pages = {};
+    PAGE_PERM_DEFS.forEach(p => {
+      pages[p.key] = ['home','scripts','otabotki','catalog','calls','rules','refinfo','games','newbie'].includes(p.key);
+    });
+    pages.goals = false;
+    pages.leaderboard = false;
+    pages.settings = true; // тема
+    pages.admin = false;
+    const actions = {};
+    ACTION_PERM_DEFS.forEach(a => { actions[a.key] = false; });
+    return { pages, actions };
+  }
 
   const pages = {};
   PAGE_PERM_DEFS.forEach(p => {
@@ -5048,6 +5093,7 @@ function canDo(action) {
 
 function canEdit() {
   if (!state.currentUser) return false;
+  if (typeof isGuestUser === 'function' && isGuestUser()) return false;
   if (state.currentUser === 'Александр') return true;
   // legacy: любой edit-* даёт «редактор» для старых проверок
   return canDo('editScripts') || canDo('editOtabotki') || canDo('editCatalog') ||
@@ -5055,8 +5101,8 @@ function canEdit() {
 }
 
 function isCommonAccount() {
-  // «только просмотр контента» без права правок
   if (!state.currentUser) return true;
+  if (typeof isGuestUser === 'function' && isGuestUser()) return true;
   if (state.currentUser === 'Александр') return false;
   return !canEdit();
 }
@@ -5131,6 +5177,10 @@ function showAppAfterLogin(user) {
 }
 
 function logout() {
+  try {
+    sessionStorage.removeItem('ect_is_guest_v1');
+    sessionStorage.removeItem('ect_guest_name_v1');
+  } catch (_) {}
   try { stopAutoSync(); } catch (_) {}
   safeSessionRemove(LOGIN_SESSION_KEY);
   state.currentUser = '';
@@ -5836,6 +5886,7 @@ function buildCloudExtras() {
     userPerms: (function() {
       try { loadUserPermsStore(); } catch (_) {}
       return (state.userPerms && typeof state.userPerms === 'object') ? state.userPerms : {    newbieGuide: Array.isArray(state.newbieGuide) ? state.newbieGuide : [],
+    guestLoginEnabled: state.guestLoginEnabled !== false,
   };
     })(),
     presence: (function() {
@@ -5911,6 +5962,11 @@ function applyCloudRecord(remote) {
   if (Array.isArray(ex.newbieGuide)) {
     state.newbieGuide = ex.newbieGuide;
     try { localStorage.setItem(NEWBIE_KEY, JSON.stringify(state.newbieGuide)); } catch (_) {}
+  }
+  if (typeof ex.guestLoginEnabled === 'boolean') {
+    state.guestLoginEnabled = ex.guestLoginEnabled;
+    try { localStorage.setItem(GUEST_ENABLED_KEY, ex.guestLoginEnabled ? '1' : '0'); } catch (_) {}
+    try { if (typeof window.__ECT_UPDATE_GUEST_BTN === 'function') window.__ECT_UPDATE_GUEST_BTN(); } catch (_) {}
   } else if (Array.isArray(remote.newbieGuide)) {
     state.newbieGuide = remote.newbieGuide;
     try { localStorage.setItem(NEWBIE_KEY, JSON.stringify(state.newbieGuide)); } catch (_) {}
@@ -13372,11 +13428,26 @@ function renderAdminPanel() {
       </div>
     </div>`;
 
+  const guestOn = isGuestLoginEnabled();
+  const guestBlock = `
+    <div class="card settings-section">
+      <h3>👁 Вход для гостей</h3>
+      <p class="catalog-hint" style="margin-bottom:12px">Коллеги могут зайти без пароля, указав имя. Только просмотр. Можно отключить в любой момент.</p>
+      <label class="perm-check" style="font-size:0.95rem">
+        <input type="checkbox" id="cfgGuestLogin" ${guestOn ? 'checked' : ''}>
+        Разрешить «Войти как гость»
+      </label>
+      <div class="actions-row" style="margin-top:12px">
+        <button class="btn btn-primary btn-sm" data-action="save-guest-login-setting">Сохранить</button>
+      </div>
+    </div>`;
+
   return `
     <div class="card rules-desc-card" style="margin-bottom:14px">
       <h3 class="rules-section-title">🛡 Админ-панель</h3>
       <p class="catalog-hint">Онлайн, участники, права, облако и служебные операции.</p>
     </div>
+    ${guestBlock}
     ${renderOnlineUsersCard()}
     ${teamBlock}
     ${cloudBlock}
@@ -15150,6 +15221,14 @@ function handleClick(e) {
     case 'save-cloud': saveCloudConfig(); break;
     case 'disconnect-cloud': disconnectCloud(); break;
     case 'sync-now': syncNow(); break;
+    case 'save-guest-login-setting': {
+      const elCb = document.getElementById('cfgGuestLogin');
+      const on = !!(elCb && elCb.checked);
+      setGuestLoginEnabled(on);
+      toast(on ? 'Вход гостей включён' : 'Вход гостей отключён');
+      if (state.currentPage === 'admin') render();
+      break;
+    }
     case 'set-newbie-group':
       state.newbieGroup = el.dataset.group === 'pamyatka' ? 'pamyatka' : 'checklist';
       state.newbieOpenId = '';

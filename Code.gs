@@ -363,6 +363,7 @@ function flattenExtrasOnto_(out, extras) {
   if (extras.presence) out.presence = extras.presence;
   if (extras.userPerms) out.userPerms = extras.userPerms;
   if (extras.newbieGuide) out.newbieGuide = extras.newbieGuide;
+  if (extras.guestLoginEnabled !== undefined) out.guestLoginEnabled = extras.guestLoginEnabled;
   return out;
 }
 
@@ -395,6 +396,7 @@ function readAll_() {
   if (extras.presence) out.presence = extras.presence;
   if (extras.userPerms) out.userPerms = extras.userPerms;
   if (extras.newbieGuide) out.newbieGuide = extras.newbieGuide;
+  if (extras.guestLoginEnabled !== undefined) out.guestLoginEnabled = extras.guestLoginEnabled;
     }
     return out;
   }
