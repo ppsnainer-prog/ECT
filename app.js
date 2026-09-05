@@ -4689,6 +4689,7 @@ let state = {
   guestLoginEnabled: true,
   blockedIps: [],
   guestIpMap: {},
+  visitLog: [],
   newbieQuery: '',
   newbieOpenId: '',
   refInfo: [],
@@ -4768,10 +4769,15 @@ async function pullExtraUsersFromCloud() {
   try {
     if (typeof loadLocalSettings === 'function') loadLocalSettings();
   } catch (_) {}
-  const url = (state.cloud && state.cloud.sheetsUrl || '').trim();
+  const url = (typeof getCloudExecUrl === 'function' ? getCloudExecUrl() : (state.cloud && state.cloud.sheetsUrl || '')).trim();
   if (!url || !url.includes('script.google.com')) return false;
   try {
-    const res = await fetchWithTimeout(url, { method: 'GET' }, 25000);
+    const res = await fetchWithTimeout(url + (url.includes('?') ? '&' : '?') + 'op=meta', { method: 'GET' }, 12000);
+    // meta не содержит extraUsers — полный GET только если meta живой
+    if (!res.ok) return false;
+  } catch (_) { return false; }
+  try {
+    const res = await fetchWithTimeout(url, { method: 'GET' }, 20000);
     if (!res.ok) return false;
     const json = await res.json();
     const record = (json && (json.record || json)) || {};
@@ -5460,15 +5466,18 @@ async function startApplication() {
 
 async function syncCloudInBackground() {
   if (!state.cloud.enabled) return;
+  // гости не тянут полный JSON — только heartbeat (иначе таймауты/404 в консоли)
+  if (typeof isGuestSession === 'function' && isGuestSession()) return;
+  if (typeof isGuestUser === 'function' && isGuestUser()) return;
   if (window.__ectCloudSyncing) return;
   window.__ectCloudSyncing = true;
   try {
-    const remote = await cloudFetch();
+    const remote = await cloudFetch({ quiet: true });
+    if (remote && remote._skipped) return;
     if (remote && applyCloudRecord(remote)) {
       try {
         render();
       } catch (_) {}
-      try { toast('Данные загружены из облака'); } catch (_) {}
     }
   } catch (e) {
     console.warn('background cloud sync failed', e);
@@ -5826,7 +5835,7 @@ async function cloudFetchOnce(url, opts) {
 
   // Полная выгрузка: Apps Script иногда отвечает 20–40 с при большой таблице
   const res = await fetchWithTimeout(url, { method: 'GET' }, 55000);
-  if (!res.ok) throw new Error('HTTP ' + res.status);
+  if (!res.ok) throw new Error(res.status === 404 ? 'HTTP 404 — неверный URL или старое развёртывание Apps Script' : ('HTTP ' + res.status));
   const json = await res.json();
   if (json && json.error) throw new Error(json.error);
   const record = json.record || json;
@@ -6042,6 +6051,7 @@ function buildCloudExtras() {
     guestLoginEnabled: (function(){ try { return isGuestLoginEnabled(); } catch(_){ return state.guestLoginEnabled !== false; } })(),
     blockedIps: Array.isArray(state.blockedIps) ? state.blockedIps : [],
     guestIpMap: (state.guestIpMap && typeof state.guestIpMap === 'object') ? state.guestIpMap : {},
+    visitLog: Array.isArray(state.visitLog) ? state.visitLog : [],
   };
     })(),
     presence: (function() {
@@ -6124,7 +6134,8 @@ function applyCloudRecord(remote) {
     try { if (typeof window.__ECT_UPDATE_GUEST_BTN === 'function') window.__ECT_UPDATE_GUEST_BTN(); } catch (_) {}
   }
   if (Array.isArray(ex.blockedIps)) state.blockedIps = ex.blockedIps;
-  if (ex.guestIpMap && typeof ex.guestIpMap === 'object') state.guestIpMap = ex.guestIpMap; else if (Array.isArray(remote.newbieGuide)) {
+  if (ex.guestIpMap && typeof ex.guestIpMap === 'object') state.guestIpMap = ex.guestIpMap;
+  if (Array.isArray(ex.visitLog)) state.visitLog = ex.visitLog; else if (Array.isArray(remote.newbieGuide)) {
     state.newbieGuide = remote.newbieGuide;
     try { localStorage.setItem(NEWBIE_KEY, JSON.stringify(state.newbieGuide)); } catch (_) {}
   } else if (Array.isArray(remote.sharedPenalties)) {
@@ -6504,6 +6515,9 @@ async function sendPresenceHeartbeat() {
         if (json && json.presence && typeof json.presence === 'object') {
           state.presence = Object.assign({}, state.presence, json.presence);
         }
+        if (json && Array.isArray(json.visitLog) && isAdminUser()) {
+          state.visitLog = json.visitLog;
+        }
         if (json && json.kick && isGuestSession()) {
           forceLogoutGuest(json.reason || 'Сессия завершена администратором');
           return;
@@ -6518,6 +6532,45 @@ async function sendPresenceHeartbeat() {
       } catch (_) {}
     }
   } catch (e) {}
+}
+
+
+async function testCloudConnection() {
+  const url = getCloudExecUrl();
+  if (!url) {
+    toast('Нет URL Apps Script', 'error');
+    return { ok: false };
+  }
+  const result = { url: url, meta: null, heartbeat: null, ok: false };
+  try {
+    const metaUrl = url + (url.includes('?') ? '&' : '?') + 'op=meta&_=' + Date.now();
+    const r = await fetchWithTimeout(metaUrl, { method: 'GET', mode: 'cors', credentials: 'omit', cache: 'no-store' }, 20000);
+    result.metaStatus = r.status;
+    if (r.ok) {
+      result.meta = await r.json();
+    }
+  } catch (e) {
+    result.metaError = String(e && e.message ? e.message : e);
+  }
+  try {
+    const posted = await postSheets(url, {
+      op: 'heartbeat',
+      user: state.currentUser || 'test',
+      page: 'admin-test',
+      lastSeen: Date.now(),
+      ip: (typeof __clientIp !== 'undefined' ? __clientIp : '') || '',
+      isGuest: false
+    }, 20000);
+    result.heartbeatStatus = posted.res ? posted.res.status : 0;
+    result.heartbeat = posted.json;
+    if (posted.json && posted.json.presence) {
+      state.presence = Object.assign({}, state.presence || {}, posted.json.presence);
+    }
+  } catch (e) {
+    result.heartbeatError = String(e && e.message ? e.message : e);
+  }
+  result.ok = !!(result.meta && result.meta.ok !== false) || !!(result.heartbeat && result.heartbeat.ok);
+  return result;
 }
 
 function startPresenceHeartbeat() {
@@ -6536,6 +6589,7 @@ function stopPresenceHeartbeat() {
 function startAutoSync() {
   stopAutoSync();
   if (!state.cloud.enabled) return;
+  if (typeof isGuestUser === 'function' && isGuestUser()) return;
   // 45 с — реже бьём Apps Script (квоты + меньше гонок с сохранением)
   syncTimer = setInterval(() => {
     if (document.hidden) return;
@@ -13587,6 +13641,32 @@ function renderOnlineUsersCard() {
       </div>`).join('')
     : '<p class="catalog-hint">Нет заблокированных IP</p>';
 
+  const visits = Array.isArray(state.visitLog) ? [...state.visitLog] : [];
+  visits.sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
+  const visitRows = visits.length ? visits.map(v => {
+    const first = v.firstSeen ? new Date(v.firstSeen).toLocaleString('ru-RU') : '—';
+    const last = v.lastSeen ? new Date(v.lastSeen).toLocaleString('ru-RU') : '—';
+    const ip = v.ip ? escapeHtml(v.ip) : '—';
+    const guestBadge = v.isGuest ? '<span class="badge">гость</span>' : '';
+    const onlineNow = list.some(u => u.online && u.name === v.name);
+    const blockBtn = (v.ip && isAdminUser())
+      ? (blocked.indexOf(v.ip) >= 0
+          ? `<button class="btn btn-outline btn-sm" data-action="unblock-ip" data-ip="${escapeAttr(v.ip)}">Разблок.</button>`
+          : `<button class="btn btn-danger btn-sm" data-action="block-ip" data-ip="${escapeAttr(v.ip)}" data-name="${escapeAttr(v.name || '')}">Блок IP</button>`)
+      : '';
+    return `<div class="team-row presence-row">
+      <div>
+        <span class="presence-dot ${onlineNow ? 'online' : 'offline'}"></span>
+        <strong>${escapeHtml(v.name || '—')}</strong>
+        ${guestBadge}
+        <span class="badge">${onlineNow ? 'сейчас онлайн' : 'был'}</span>
+        <span class="field-hint">заходов: ${Number(v.visits) || 1}</span>
+      </div>
+      <div class="field-hint">IP: ${ip}<br>первый: ${first}<br>последний: ${last}</div>
+      <div class="team-row-actions">${blockBtn}</div>
+    </div>`;
+  }).join('') : '<p class="catalog-hint">Пока нет записей. Они появятся после того, как пользователи зайдут и сработает heartbeat (облако должно отвечать).</p>';
+
   return `<div class="card settings-section">
     <h3>🟢 Сейчас на сайте</h3>
     <p class="catalog-hint" style="margin-bottom:12px">Онлайн — активность за 3 мин. Гости и IP видны здесь.</p>
@@ -13594,6 +13674,11 @@ function renderOnlineUsersCard() {
     <div class="actions-row" style="margin-top:12px">
       <button class="btn btn-outline btn-sm" data-action="refresh-presence">Обновить список</button>
     </div>
+  </div>
+  <div class="card settings-section">
+    <h3>📜 Все посещения</h3>
+    <p class="catalog-hint" style="margin-bottom:12px">Кто когда-либо заходил: имя, IP, первый и последний визит. Хранится в облаке.</p>
+    <div class="team-list" style="max-height:420px;overflow:auto">${visitRows}</div>
   </div>
   <div class="card settings-section">
     <h3>🚫 Блок по IP</h3>
@@ -13688,6 +13773,7 @@ function renderAdminPanel() {
       </label>
       <div class="actions-row" style="margin-top:12px">
         <button class="btn btn-primary btn-sm" data-action="save-guest-login-setting">Сохранить</button>
+        <button class="btn btn-outline btn-sm" data-action="test-cloud">Проверить облако</button>
       </div>
     </div>`;
 
@@ -15275,9 +15361,19 @@ function handleClick(e) {
     case 'view-otabotka': showViewOtabotkaModal(el.dataset.id); break;
     case 'add-team-user': showTeamUserModal(null); break;
     case 'refresh-presence':
-      Promise.resolve(sendPresenceHeartbeat()).then(() => {
+      Promise.resolve(sendPresenceHeartbeat()).then(async () => {
+        if (isAdminUser()) {
+          const tresult = await testCloudConnection();
+          if (!tresult.ok) {
+            toast('Облако не отвечает (404/таймаут). Проверьте URL Apps Script и сделайте новую версию развёртывания.', 'error');
+          } else {
+            const n = Object.keys(state.presence || {}).length;
+            toast('Облако OK · в presence: ' + n);
+          }
+        } else {
+          toast('Список обновлён');
+        }
         if (state.currentPage === 'admin') render();
-        toast('Список обновлён');
       });
       break;
     case 'edit-user-perms': showUserPermsModal(el.dataset.name); break;
@@ -15484,6 +15580,15 @@ function handleClick(e) {
     }
     case 'unblock-ip':
       Promise.resolve(unblockIpAdmin(el.dataset.ip)).then(() => {
+        if (state.currentPage === 'admin') render();
+      });
+      break;
+    case 'test-cloud':
+      toast('Проверка облака…');
+      Promise.resolve(testCloudConnection()).then((r) => {
+        if (r && r.ok) toast('Облако отвечает ✓');
+        else toast('Облако НЕ отвечает. Откройте Админ → URL скрипта, вставьте актуальный /exec и новую версию развёртывания.', 'error');
+        console.log('cloud test', r);
         if (state.currentPage === 'admin') render();
       });
       break;

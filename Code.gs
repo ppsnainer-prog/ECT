@@ -366,6 +366,7 @@ function flattenExtrasOnto_(out, extras) {
   if (extras.guestLoginEnabled !== undefined) out.guestLoginEnabled = extras.guestLoginEnabled;
   if (extras.blockedIps) out.blockedIps = extras.blockedIps;
   if (extras.guestIpMap) out.guestIpMap = extras.guestIpMap;
+  if (extras.visitLog) out.visitLog = extras.visitLog;
   return out;
 }
 
@@ -401,6 +402,7 @@ function readAll_() {
   if (extras.guestLoginEnabled !== undefined) out.guestLoginEnabled = extras.guestLoginEnabled;
   if (extras.blockedIps) out.blockedIps = extras.blockedIps;
   if (extras.guestIpMap) out.guestIpMap = extras.guestIpMap;
+  if (extras.visitLog) out.visitLog = extras.visitLog;
     }
     return out;
   }
@@ -857,12 +859,49 @@ function doPost(e) {
         var ls = Number(extrasHb.presence[k] && extrasHb.presence[k].lastSeen);
         if (!ls || nowHb - ls > 24 * 3600 * 1000) delete extrasHb.presence[k];
       });
+
+      // Журнал всех посещений (имя + IP)
+      if (!Array.isArray(extrasHb.visitLog)) extrasHb.visitLog = [];
+      var vKey = uname + '|' + (ipHb || '');
+      var foundV = -1;
+      var vi;
+      for (vi = 0; vi < extrasHb.visitLog.length; vi++) {
+        var row = extrasHb.visitLog[vi];
+        if (row && row.name === uname && String(row.ip || '') === String(ipHb || '')) {
+          foundV = vi;
+          break;
+        }
+      }
+      if (foundV >= 0) {
+        extrasHb.visitLog[foundV].lastSeen = nowHb;
+        extrasHb.visitLog[foundV].ip = ipHb || extrasHb.visitLog[foundV].ip || '';
+        extrasHb.visitLog[foundV].isGuest = isGuestHb;
+        extrasHb.visitLog[foundV].visits = (Number(extrasHb.visitLog[foundV].visits) || 1) + 1;
+        if (parsed.page) extrasHb.visitLog[foundV].lastPage = String(parsed.page);
+      } else {
+        extrasHb.visitLog.push({
+          name: uname,
+          ip: ipHb || '',
+          isGuest: isGuestHb,
+          firstSeen: nowHb,
+          lastSeen: nowHb,
+          visits: 1,
+          lastPage: String(parsed.page || '')
+        });
+      }
+      // лимит 500 записей
+      if (extrasHb.visitLog.length > 500) {
+        extrasHb.visitLog.sort(function(a, b) { return (b.lastSeen || 0) - (a.lastSeen || 0); });
+        extrasHb.visitLog = extrasHb.visitLog.slice(0, 500);
+      }
+
       writeExtras_(extrasHb);
       return jsonOut_({
         ok: true,
         presence: extrasHb.presence,
         guestLoginEnabled: guestOnHb,
-        blockedIps: extrasHb.blockedIps
+        blockedIps: extrasHb.blockedIps,
+        visitLog: extrasHb.visitLog
       });
     }
 
