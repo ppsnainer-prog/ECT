@@ -480,8 +480,8 @@
     function pullGuestFlagFromCloud() {
       var url = getSheetsUrlForGuestFlag();
       if (!url) return Promise.resolve();
-      var metaUrl = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'op=meta';
-      return fetch(metaUrl, { method: 'GET', mode: 'cors', credentials: 'omit' })
+      var metaUrl = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'op=meta&_=' + Date.now();
+      return fetch(metaUrl, { method: 'GET', mode: 'cors', credentials: 'omit', cache: 'no-store' })
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (meta) {
           if (!meta || typeof meta.guestLoginEnabled !== 'boolean') return;
@@ -500,32 +500,30 @@
       if (btn) btn.hidden = !on;
     }
     function openGuestModal() {
-      if (!isGuestLoginEnabled()) {
-        setMessage('Вход гостей временно отключён администратором');
-        return;
-      }
-      const modal = document.getElementById('guestModal');
-      const input = document.getElementById('guestNameInput');
-      const err = document.getElementById('guestError');
-      if (err) err.textContent = '';
-      if (input) input.value = '';
-      if (modal) {
-        modal.hidden = false;
-        modal.removeAttribute('hidden');
-        modal.style.display = 'flex';
-      }
-      setTimeout(function () { if (input) input.focus(); }, 50);
+      // сверяем с облаком прямо перед входом
+      pullGuestFlagFromCloud().then(function () {
+        if (!isGuestLoginEnabled()) {
+          setMessage('Вход гостей временно отключён администратором');
+          updateGuestBtnVisibility();
+          return;
+        }
+        const modal = document.getElementById('guestModal');
+        const input = document.getElementById('guestNameInput');
+        const err = document.getElementById('guestError');
+        if (err) err.textContent = '';
+        if (input) input.value = '';
+        if (modal) {
+          modal.hidden = false;
+          modal.removeAttribute('hidden');
+          modal.style.display = 'flex';
+        }
+        setTimeout(function () { if (input) input.focus(); }, 50);
+      });
     }
     function closeGuestModal() {
       closeGuestModalForce();
     }
     function confirmGuestLogin() {
-      if (!isGuestLoginEnabled()) {
-        setMessage('Вход гостей отключён администратором');
-        closeGuestModalForce();
-        updateGuestBtnVisibility();
-        return;
-      }
       const input = document.getElementById('guestNameInput');
       const err = document.getElementById('guestError');
       const confBtn = document.getElementById('guestConfirmBtn');
@@ -547,15 +545,26 @@
         if (err) err.textContent = 'Это имя занято. Укажите другое (например: Иван Петров)';
         return;
       }
-      try {
-        sessionStorage.setItem('ect_is_guest_v1', '1');
-        sessionStorage.setItem('ect_guest_name_v1', name);
-      } catch (_) {}
-      const display = 'Гость: ' + name;
-      if (confBtn) { confBtn.disabled = true; confBtn.textContent = 'Входим…'; }
-      closeGuestModalForce();
-      openApp(display).finally(function () {
-        if (confBtn) { confBtn.disabled = false; confBtn.textContent = 'Войти'; }
+      if (confBtn) { confBtn.disabled = true; confBtn.textContent = 'Проверка…'; }
+      pullGuestFlagFromCloud().then(function () {
+        if (!isGuestLoginEnabled()) {
+          if (err) err.textContent = '';
+          setMessage('Вход гостей отключён администратором');
+          closeGuestModalForce();
+          updateGuestBtnVisibility();
+          if (confBtn) { confBtn.disabled = false; confBtn.textContent = 'Войти'; }
+          return;
+        }
+        try {
+          sessionStorage.setItem('ect_is_guest_v1', '1');
+          sessionStorage.setItem('ect_guest_name_v1', name);
+        } catch (_) {}
+        const display = 'Гость: ' + name;
+        if (confBtn) confBtn.textContent = 'Входим…';
+        closeGuestModalForce();
+        openApp(display).finally(function () {
+          if (confBtn) { confBtn.disabled = false; confBtn.textContent = 'Войти'; }
+        });
       });
     }
     const guestBtn = document.getElementById('guestLoginBtn');

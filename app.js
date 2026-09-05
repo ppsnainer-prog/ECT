@@ -4819,19 +4819,39 @@ function isGuestLoginEnabled() {
   return true;
 }
 
-function setGuestLoginEnabled(on) {
-  state.guestLoginEnabled = !!on;
-  try { localStorage.setItem(GUEST_ENABLED_KEY, on ? '1' : '0'); } catch (_) {}
+async function setGuestLoginEnabled(on) {
+  const enabled = !!on;
+  state.guestLoginEnabled = enabled;
+  try { localStorage.setItem(GUEST_ENABLED_KEY, enabled ? '1' : '0'); } catch (_) {}
   try { if (typeof window.__ECT_UPDATE_GUEST_BTN === 'function') window.__ECT_UPDATE_GUEST_BTN(); } catch (_) {}
-  // сразу в облако, чтобы на других устройствах кнопка пропала
+
+  // Отдельный лёгкий запрос — не зависит от полного cloudSave
+  const url = (state.cloud && state.cloud.sheetsUrl || '').trim();
+  if (!url || !url.includes('script.google.com')) {
+    toast('Облако не подключено — флаг сохранён только на этом устройстве', 'error');
+    return false;
+  }
   try {
-    if (typeof scheduleCloudExtrasSave === 'function') scheduleCloudExtrasSave(0);
-    if (typeof cloudSave === 'function') {
-      Promise.resolve(cloudSave()).catch(function () {});
-    } else if (typeof saveExtrasToCloud === 'function') {
-      Promise.resolve(saveExtrasToCloud()).catch(function () {});
+    const posted = await postSheets(url, { op: 'setGuestFlag', enabled: enabled }, 20000);
+    if (posted && posted.json && posted.json.ok) {
+      toast(enabled ? 'Гостевой вход включён (облако)' : 'Гостевой вход отключён (облако)');
+      return true;
     }
-  } catch (_) {}
+    // fallback: saveExtras
+    const extras = typeof buildCloudExtras === 'function' ? buildCloudExtras() : { guestLoginEnabled: enabled };
+    extras.guestLoginEnabled = enabled;
+    const fb = await postSheets(url, { op: 'saveExtras', extras: extras, guestLoginEnabled: enabled, updatedAt: Date.now() }, 30000);
+    if (fb && fb.json && fb.json.ok) {
+      toast(enabled ? 'Гостевой вход включён (облако)' : 'Гостевой вход отключён (облако)');
+      return true;
+    }
+    toast('Не удалось записать в облако. Проверьте развёртывание Apps Script.', 'error');
+    return false;
+  } catch (e) {
+    console.warn('setGuestLoginEnabled', e);
+    toast('Ошибка записи в облако: ' + (e && e.message ? e.message : e), 'error');
+    return false;
+  }
 }
 
 function isGuestUser(name) {
@@ -15262,9 +15282,9 @@ function handleClick(e) {
     case 'save-guest-login-setting': {
       const elCb = document.getElementById('cfgGuestLogin');
       const on = !!(elCb && elCb.checked);
-      setGuestLoginEnabled(on);
-      toast(on ? 'Вход гостей включён' : 'Вход гостей отключён');
-      if (state.currentPage === 'admin') render();
+      Promise.resolve(setGuestLoginEnabled(on)).then(() => {
+        if (state.currentPage === 'admin') render();
+      });
       break;
     }
     case 'set-newbie-group':

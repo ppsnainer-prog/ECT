@@ -698,6 +698,26 @@ function handleMediaInfo_() {
   };
 }
 
+
+function setGuestLoginEnabled_(enabled) {
+  var on = !!enabled;
+  var sheet = dataSheet_();
+  var metaObj = {};
+  try {
+    metaObj = JSON.parse(String(sheet.getRange('A1').getValue() || '{}'));
+  } catch (e) { metaObj = {}; }
+  if (!metaObj || typeof metaObj !== 'object') metaObj = {};
+  metaObj.guestLoginEnabled = on;
+  metaObj.guestLoginUpdatedAt = Date.now();
+  sheet.getRange('A1').setValue(JSON.stringify(metaObj));
+  try {
+    var extras = readExtras_() || {};
+    extras.guestLoginEnabled = on;
+    writeExtras_(extras);
+  } catch (e2) {}
+  return { ok: true, guestLoginEnabled: on };
+}
+
 function doGet(e) {
   try {
     if (e && e.parameter && e.parameter.op === 'mediaInfo') {
@@ -712,10 +732,14 @@ function doGet(e) {
       var stamp = '';
       try { stamp = String(dataSheet_().getRange('C1').getValue() || ''); } catch (e2) {}
       var guestOn = true;
-      try {
-        var exMeta = readExtras_() || {};
-        if (typeof exMeta.guestLoginEnabled === 'boolean') guestOn = exMeta.guestLoginEnabled;
-      } catch (e3) {}
+      if (typeof meta.guestLoginEnabled === 'boolean') {
+        guestOn = meta.guestLoginEnabled;
+      } else {
+        try {
+          var exMeta = readExtras_() || {};
+          if (typeof exMeta.guestLoginEnabled === 'boolean') guestOn = exMeta.guestLoginEnabled;
+        } catch (e3) {}
+      }
       return jsonOut_({
         ok: true,
         op: 'meta',
@@ -795,7 +819,13 @@ function doPost(e) {
     }
 
     // Только extras (цели, авто, справка, звонки-мета, лидерборд) — без перезаписи скриптов
+    if (op === 'setGuestFlag') {
+      return jsonOut_(setGuestLoginEnabled_(parsed.enabled));
+    }
+
     if (op === 'saveExtras') {
+      var existingEx = {};
+      try { existingEx = readExtras_() || {}; } catch (eEx) { existingEx = {}; }
       var ex = parsed.extras || {
         cars: parsed.cars,
         calls: parsed.calls,
@@ -807,7 +837,23 @@ function doPost(e) {
         ruleItemTags: parsed.ruleItemTags,
         extraUsers: parsed.extraUsers
       };
-      writeExtras_(ex || {});
+      // merge: не затираем флаги/поля, которых нет в новом пакете
+      var mergedEx = {};
+      var k;
+      for (k in existingEx) { if (Object.prototype.hasOwnProperty.call(existingEx, k)) mergedEx[k] = existingEx[k]; }
+      for (k in (ex || {})) { if (Object.prototype.hasOwnProperty.call(ex, k)) mergedEx[k] = ex[k]; }
+      if (typeof parsed.guestLoginEnabled === 'boolean') mergedEx.guestLoginEnabled = parsed.guestLoginEnabled;
+      // если клиент прислал guestLoginEnabled — продублируем в meta A1
+      if (typeof mergedEx.guestLoginEnabled === 'boolean') {
+        try {
+          var sheetG = dataSheet_();
+          var metaG = {};
+          try { metaG = JSON.parse(String(sheetG.getRange('A1').getValue() || '{}')); } catch (eM) { metaG = {}; }
+          metaG.guestLoginEnabled = mergedEx.guestLoginEnabled;
+          sheetG.getRange('A1').setValue(JSON.stringify(metaG));
+        } catch (eM2) {}
+      }
+      writeExtras_(mergedEx);
       if (parsed.sharedOtabotki !== undefined) {
         writeShared_(parsed.sharedOtabotki || []);
       }
