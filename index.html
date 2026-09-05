@@ -489,10 +489,8 @@ function pullGuestFlagFromCloud() {
       if (wrap) wrap.hidden = !on;
       if (btn) btn.hidden = !on;
     }
-                const guestBtn = document.getElementById('guestLoginBtn');
+    const guestBtn = document.getElementById('guestLoginBtn');
     if (guestBtn) guestBtn.onclick = function (e) { e.preventDefault(); enterAsGuest(); };
-      };
-    }
     updateGuestBtnVisibility();
     window.__ECT_UPDATE_GUEST_BTN = updateGuestBtnVisibility;
     pullGuestFlagFromCloud();
@@ -508,7 +506,7 @@ function pullGuestFlagFromCloud() {
           known = Array.isArray(extra) && extra.some(u => u && u.name === saved);
         } catch (_) {}
       }
-      if (isGuest && saved && String(saved).indexOf('Гость:') === 0) {
+      if (isGuest && saved && (saved === 'Гость' || String(saved).indexOf('Гость') === 0)) {
         if (isGuestLoginEnabled()) openApp(saved);
         else {
           try { sessionStorage.removeItem('ect_team_session_v1'); sessionStorage.removeItem('ect_is_guest_v1'); } catch (_) {}
