@@ -5192,6 +5192,12 @@ function logout() {
     appRoot.setAttribute('hidden', '');
     appRoot.style.display = 'none';
   }
+  const guestModal = document.getElementById('guestModal');
+  if (guestModal) {
+    guestModal.hidden = true;
+    guestModal.setAttribute('hidden', '');
+    guestModal.style.display = 'none';
+  }
   if (login) {
     login.hidden = false;
     login.removeAttribute('hidden');

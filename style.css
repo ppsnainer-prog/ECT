@@ -3538,8 +3538,8 @@ input[type="color"] {
 .guest-modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 10000;
-  background: rgba(0,0,0,0.55);
+  z-index: 100000; /* выше login-screen (99999) */
+  background: rgba(0,0,0,0.65);
   display: flex;
   align-items: center;
   justify-content: center;

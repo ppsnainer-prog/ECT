@@ -63,9 +63,9 @@
       </div>
       <p class="login-error" id="guestError" role="alert"></p>
       <div class="guest-modal-actions">
-        <button type="button" class="btn btn-outline" id="guestCancelBtn">Отмена</button>
-        <button type="button" class="btn btn-primary" id="guestConfirmBtn">Войти</button>
+        <button type="button" class="btn btn-primary" id="guestConfirmBtn" style="width:100%">Войти</button>
       </div>
+      <p class="guest-modal-hint" style="margin-top:12px;margin-bottom:0;text-align:center;font-size:0.8rem">Имя обязательно. Без имени войти нельзя.</p>
     </div>
   </div>
 
@@ -235,7 +235,17 @@
     if (el) el.textContent = text || "";
   }
 
+  function closeGuestModalForce() {
+    const modal = document.getElementById("guestModal");
+    if (modal) {
+      modal.hidden = true;
+      modal.setAttribute("hidden", "");
+      modal.style.display = "none";
+    }
+  }
+
   function showMainUI(user) {
+    closeGuestModalForce();
     const login = document.getElementById("loginScreen");
     const app = document.getElementById("app");
     if (login) {
@@ -255,6 +265,10 @@
   }
 
   function showLoginUI() {
+    try { closeGuestModalForce(); } catch (_) {
+      const modal = document.getElementById("guestModal");
+      if (modal) { modal.hidden = true; modal.setAttribute("hidden", ""); modal.style.display = "none"; }
+    }
     const login = document.getElementById("loginScreen");
     const app = document.getElementById("app");
     if (app) {
@@ -472,24 +486,22 @@
       if (modal) {
         modal.hidden = false;
         modal.removeAttribute('hidden');
+        modal.style.display = 'flex';
       }
       setTimeout(function () { if (input) input.focus(); }, 50);
     }
     function closeGuestModal() {
-      const modal = document.getElementById('guestModal');
-      if (modal) {
-        modal.hidden = true;
-        modal.setAttribute('hidden', '');
-      }
+      closeGuestModalForce();
     }
     function confirmGuestLogin() {
       if (!isGuestLoginEnabled()) {
         setMessage('Вход гостей отключён');
-        closeGuestModal();
+        closeGuestModalForce();
         return;
       }
       const input = document.getElementById('guestNameInput');
       const err = document.getElementById('guestError');
+      const confBtn = document.getElementById('guestConfirmBtn');
       let name = (input && input.value || '').trim();
       name = name.replace(/\s+/g, ' ').slice(0, 40);
       if (!name || name.length < 2) {
@@ -497,9 +509,15 @@
         if (input) input.focus();
         return;
       }
-      // запрет системных имён
-      if (USERS[name] || name === 'Александр' || name === 'Общая') {
-        if (err) err.textContent = 'Это имя занято. Укажите другое, например: Иван (гость)';
+      var occupied = !!USERS[name];
+      if (!occupied) {
+        try {
+          var extra = JSON.parse(localStorage.getItem('ect_extra_users_v1') || '[]');
+          occupied = Array.isArray(extra) && extra.some(function (u) { return u && u.name === name; });
+        } catch (_) {}
+      }
+      if (occupied || name === 'Александр' || name === 'Общая' || name.indexOf('Гость:') === 0) {
+        if (err) err.textContent = 'Это имя занято. Укажите другое (например: Иван Петров)';
         return;
       }
       try {
@@ -507,28 +525,24 @@
         sessionStorage.setItem('ect_guest_name_v1', name);
       } catch (_) {}
       const display = 'Гость: ' + name;
-      closeGuestModal();
-      openApp(display);
+      if (confBtn) { confBtn.disabled = true; confBtn.textContent = 'Входим…'; }
+      closeGuestModalForce();
+      openApp(display).finally(function () {
+        if (confBtn) { confBtn.disabled = false; confBtn.textContent = 'Войти'; }
+      });
     }
     const guestBtn = document.getElementById('guestLoginBtn');
     if (guestBtn) guestBtn.onclick = function (e) { e.preventDefault(); openGuestModal(); };
-    const guestCancel = document.getElementById('guestCancelBtn');
-    if (guestCancel) guestCancel.onclick = function (e) { e.preventDefault(); closeGuestModal(); };
     const guestConfirm = document.getElementById('guestConfirmBtn');
     if (guestConfirm) guestConfirm.onclick = function (e) { e.preventDefault(); confirmGuestLogin(); };
     const guestInput = document.getElementById('guestNameInput');
     if (guestInput) {
       guestInput.onkeydown = function (e) {
         if (e.key === 'Enter') { e.preventDefault(); confirmGuestLogin(); }
-        if (e.key === 'Escape') { e.preventDefault(); closeGuestModal(); }
+        // Escape не закрывает — имя обязательно
       };
     }
-    const guestModal = document.getElementById('guestModal');
-    if (guestModal) {
-      guestModal.onclick = function (e) {
-        if (e.target === guestModal) closeGuestModal();
-      };
-    }
+    // клик по фону не закрывает — имя обязательно
     updateGuestBtnVisibility();
     window.__ECT_UPDATE_GUEST_BTN = updateGuestBtnVisibility;
 
