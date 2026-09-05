@@ -240,6 +240,27 @@
     }
   }
 
+
+  function showMainUI(user) {
+    try { closeGuestModalForce(); } catch (_) {}
+    const login = document.getElementById("loginScreen");
+    const app = document.getElementById("app");
+    if (login) {
+      login.hidden = true;
+      login.setAttribute("hidden", "");
+      login.style.display = "none";
+    }
+    if (app) {
+      app.hidden = false;
+      app.removeAttribute("hidden");
+      app.style.display = "flex";
+    }
+    const badge = document.getElementById("currentUserBadge");
+    if (badge) badge.textContent = "👤 " + (user || "");
+    try { sessionStorage.setItem("ect_team_session_v1", user || ""); } catch (_) {}
+    if (typeof state !== "undefined") state.currentUser = user || "";
+  }
+
   async function bootApp(user) {
     if (typeof state !== "undefined") state.currentUser = user;
     try {
@@ -262,7 +283,15 @@
     setMessage("");
 
     // 1) Сразу показать интерфейс — до любых async
-    showMainUI(user);
+    if (typeof showMainUI === "function") showMainUI(user);
+    else if (typeof showAppAfterLogin === "function") showAppAfterLogin(user);
+    else {
+      var login = document.getElementById("loginScreen");
+      var appEl = document.getElementById("app");
+      if (login) { login.hidden = true; login.style.display = "none"; }
+      if (appEl) { appEl.hidden = false; appEl.style.display = "flex"; }
+      if (typeof state !== "undefined") state.currentUser = user;
+    }
 
     try {
       await bootApp(user);
