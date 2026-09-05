@@ -711,12 +711,18 @@ function doGet(e) {
       } catch (e1) {}
       var stamp = '';
       try { stamp = String(dataSheet_().getRange('C1').getValue() || ''); } catch (e2) {}
+      var guestOn = true;
+      try {
+        var exMeta = readExtras_() || {};
+        if (typeof exMeta.guestLoginEnabled === 'boolean') guestOn = exMeta.guestLoginEnabled;
+      } catch (e3) {}
       return jsonOut_({
         ok: true,
         op: 'meta',
         updatedAt: meta.updatedAt || 0,
         count: meta.count || 0,
-        extrasStamp: stamp
+        extrasStamp: stamp,
+        guestLoginEnabled: guestOn
       });
     }
     return jsonOut_(readAll_());

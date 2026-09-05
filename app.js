@@ -4686,6 +4686,7 @@ let state = {
   sharedPenalties: [],
   newbieGuide: null,
   newbieGroup: 'checklist',
+  guestLoginEnabled: true,
   newbieQuery: '',
   newbieOpenId: '',
   refInfo: [],
@@ -4821,8 +4822,16 @@ function isGuestLoginEnabled() {
 function setGuestLoginEnabled(on) {
   state.guestLoginEnabled = !!on;
   try { localStorage.setItem(GUEST_ENABLED_KEY, on ? '1' : '0'); } catch (_) {}
-  try { if (typeof scheduleCloudExtrasSave === 'function') scheduleCloudExtrasSave(); } catch (_) {}
   try { if (typeof window.__ECT_UPDATE_GUEST_BTN === 'function') window.__ECT_UPDATE_GUEST_BTN(); } catch (_) {}
+  // сразу в облако, чтобы на других устройствах кнопка пропала
+  try {
+    if (typeof scheduleCloudExtrasSave === 'function') scheduleCloudExtrasSave(0);
+    if (typeof cloudSave === 'function') {
+      Promise.resolve(cloudSave()).catch(function () {});
+    } else if (typeof saveExtrasToCloud === 'function') {
+      Promise.resolve(saveExtrasToCloud()).catch(function () {});
+    }
+  } catch (_) {}
 }
 
 function isGuestUser(name) {
@@ -5113,11 +5122,30 @@ function canSeeLeaderboard() {
 
 function applyAccountPermissions() {
   const user = state.currentUser || '';
+  const adminOnly = isAdminUser();
   PAGE_PERM_DEFS.forEach(p => {
     document.querySelectorAll('.nav-item[data-page="' + p.key + '"]').forEach(el => {
-      el.hidden = !canViewPage(p.key);
+      let ok = canViewPage(p.key);
+      if (p.key === 'admin') ok = adminOnly;
+      el.hidden = !ok;
+      if (p.key === 'admin' && !adminOnly) {
+        el.style.display = 'none';
+        el.setAttribute('hidden', '');
+      } else if (p.key === 'admin' && adminOnly) {
+        el.style.display = '';
+        el.removeAttribute('hidden');
+        el.hidden = false;
+      }
     });
   });
+
+  // на всякий случай прячем все ссылки на admin
+  if (!adminOnly) {
+    document.querySelectorAll('[data-page="admin"]').forEach(el => {
+      el.hidden = true;
+      el.style.display = 'none';
+    });
+  }
 
   const exportBtn = document.getElementById('exportData');
   const importBtn = document.getElementById('importData');
@@ -5892,7 +5920,7 @@ function buildCloudExtras() {
     userPerms: (function() {
       try { loadUserPermsStore(); } catch (_) {}
       return (state.userPerms && typeof state.userPerms === 'object') ? state.userPerms : {    newbieGuide: Array.isArray(state.newbieGuide) ? state.newbieGuide : [],
-    guestLoginEnabled: state.guestLoginEnabled !== false,
+    guestLoginEnabled: (function(){ try { return isGuestLoginEnabled(); } catch(_){ return state.guestLoginEnabled !== false; } })(),
   };
     })(),
     presence: (function() {
@@ -6619,6 +6647,10 @@ function escapeAttr(str) {
 function navigate(page, scriptId = null) {
   if (page === 'leaderboard' && !canSeeLeaderboard()) {
     toast('Лидерборд недоступен для вашего аккаунта.', 'error');
+    page = 'home';
+  }
+  if (page === 'admin' && !isAdminUser()) {
+    toast('Админ-панель только для администратора', 'error');
     page = 'home';
   }
   if (!canViewPage(page === 'script' ? 'scripts' : page)) {

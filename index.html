@@ -463,8 +463,34 @@
       try {
         const v = localStorage.getItem('ect_guest_login_enabled');
         if (v === '0' || v === 'false') return false;
+        if (v === '1' || v === 'true') return true;
       } catch (_) {}
-      return true; // по умолчанию включено
+      return true;
+    }
+    function getSheetsUrlForGuestFlag() {
+      try {
+        const raw = localStorage.getItem('ect_cloud_cfg_v1');
+        if (raw) {
+          const c = JSON.parse(raw);
+          if (c && c.sheetsUrl && String(c.sheetsUrl).indexOf('script.google.com') >= 0) return c.sheetsUrl;
+        }
+      } catch (_) {}
+      return "https://script.google.com/macros/s/AKfycbxk9hWog0sAruR4QRCM0t-oOFJTDvkHoA9mHy12ixT3dKWspy0Q2Pkiy85lJRnt_BlewA/exec";
+    }
+    function pullGuestFlagFromCloud() {
+      var url = getSheetsUrlForGuestFlag();
+      if (!url) return Promise.resolve();
+      var metaUrl = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'op=meta';
+      return fetch(metaUrl, { method: 'GET', mode: 'cors', credentials: 'omit' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (meta) {
+          if (!meta || typeof meta.guestLoginEnabled !== 'boolean') return;
+          try {
+            localStorage.setItem('ect_guest_login_enabled', meta.guestLoginEnabled ? '1' : '0');
+          } catch (_) {}
+          updateGuestBtnVisibility();
+        })
+        .catch(function () {});
     }
     function updateGuestBtnVisibility() {
       const wrap = document.getElementById('guestLoginWrap');
@@ -495,8 +521,9 @@
     }
     function confirmGuestLogin() {
       if (!isGuestLoginEnabled()) {
-        setMessage('Вход гостей отключён');
+        setMessage('Вход гостей отключён администратором');
         closeGuestModalForce();
+        updateGuestBtnVisibility();
         return;
       }
       const input = document.getElementById('guestNameInput');
@@ -545,6 +572,7 @@
     // клик по фону не закрывает — имя обязательно
     updateGuestBtnVisibility();
     window.__ECT_UPDATE_GUEST_BTN = updateGuestBtnVisibility;
+    pullGuestFlagFromCloud();
 
     // Восстановление сессии — только если всё ок
     try {
