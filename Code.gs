@@ -705,6 +705,144 @@ function handleMediaInfo_() {
 }
 
 
+
+var VISITOR_HEADERS = ['key', 'name', 'ip', 'isGuest', 'firstSeen', 'lastSeen', 'visits', 'lastPage'];
+var GUESTMAP_HEADERS = ['ip', 'name', 'createdAt'];
+
+function visitorsSheet_() {
+  return getOrCreateSheet_('visitors', VISITOR_HEADERS);
+}
+
+function guestMapSheet_() {
+  return getOrCreateSheet_('guest_map', GUESTMAP_HEADERS);
+}
+
+function loadVisitLogFromSheet_() {
+  var sh = visitorsSheet_();
+  var last = sh.getLastRow();
+  if (last < 2) return [];
+  var values = sh.getRange(2, 1, last, VISITOR_HEADERS.length).getValues();
+  var out = [];
+  var i;
+  for (i = 0; i < values.length; i++) {
+    var r = values[i];
+    if (!r[1]) continue;
+    out.push({
+      key: String(r[0] || ''),
+      name: String(r[1] || ''),
+      ip: String(r[2] || ''),
+      isGuest: r[3] === true || r[3] === 'true' || r[3] === 1,
+      firstSeen: Number(r[4]) || 0,
+      lastSeen: Number(r[5]) || 0,
+      visits: Number(r[6]) || 1,
+      lastPage: String(r[7] || '')
+    });
+  }
+  return out;
+}
+
+function saveVisitLogToSheet_(list) {
+  var sh = visitorsSheet_();
+  var rows = [[VISITOR_HEADERS[0], VISITOR_HEADERS[1], VISITOR_HEADERS[2], VISITOR_HEADERS[3], VISITOR_HEADERS[4], VISITOR_HEADERS[5], VISITOR_HEADERS[6], VISITOR_HEADERS[7]]];
+  // rewrite header+data
+  var data = [];
+  var i;
+  for (i = 0; i < (list || []).length; i++) {
+    var v = list[i];
+    if (!v || !v.name) continue;
+    var key = v.key || (v.name + '|' + (v.ip || ''));
+    data.push([key, v.name, v.ip || '', !!v.isGuest, Number(v.firstSeen) || 0, Number(v.lastSeen) || 0, Number(v.visits) || 1, v.lastPage || '']);
+  }
+  sh.clear();
+  sh.getRange(1, 1, 1, VISITOR_HEADERS.length).setValues([VISITOR_HEADERS]);
+  if (data.length) {
+    sh.getRange(2, 1, data.length, VISITOR_HEADERS.length).setValues(data);
+    sh.getRange(2, 1, data.length, VISITOR_HEADERS.length).setNumberFormat('@');
+  }
+}
+
+function upsertVisit_(name, ip, isGuest, page) {
+  var list = loadVisitLogFromSheet_();
+  var now = Date.now();
+  var found = -1;
+  var i;
+  for (i = 0; i < list.length; i++) {
+    if (list[i].name === name && String(list[i].ip || '') === String(ip || '')) {
+      found = i;
+      break;
+    }
+  }
+  if (found >= 0) {
+    list[found].lastSeen = now;
+    list[found].ip = ip || list[found].ip || '';
+    list[found].isGuest = !!isGuest;
+    list[found].visits = (Number(list[found].visits) || 1) + 1;
+    if (page) list[found].lastPage = String(page);
+  } else {
+    list.push({
+      key: name + '|' + (ip || ''),
+      name: name,
+      ip: ip || '',
+      isGuest: !!isGuest,
+      firstSeen: now,
+      lastSeen: now,
+      visits: 1,
+      lastPage: String(page || '')
+    });
+  }
+  if (list.length > 500) {
+    list.sort(function(a, b) { return (b.lastSeen || 0) - (a.lastSeen || 0); });
+    list = list.slice(0, 500);
+  }
+  saveVisitLogToSheet_(list);
+  // mirror into extras for old clients
+  try {
+    var ex = readExtras_() || {};
+    ex.visitLog = list;
+    writeExtras_(ex);
+  } catch (e) {}
+  return list;
+}
+
+function loadGuestMapFromSheet_() {
+  var sh = guestMapSheet_();
+  var last = sh.getLastRow();
+  var map = {};
+  if (last < 2) return map;
+  var values = sh.getRange(2, 1, last, 3).getValues();
+  var i;
+  for (i = 0; i < values.length; i++) {
+    var ip = String(values[i][0] || '').trim();
+    var name = String(values[i][1] || '').trim();
+    if (ip && name) map[ip] = { name: name, createdAt: Number(values[i][2]) || Date.now() };
+  }
+  return map;
+}
+
+function saveGuestMapToSheet_(map) {
+  var sh = guestMapSheet_();
+  var data = [];
+  var ip;
+  for (ip in map) {
+    if (!Object.prototype.hasOwnProperty.call(map, ip)) continue;
+    var row = map[ip];
+    if (!row || !row.name) continue;
+    data.push([ip, row.name, Number(row.createdAt) || Date.now()]);
+  }
+  sh.clear();
+  sh.getRange(1, 1, 1, 3).setValues([GUESTMAP_HEADERS]);
+  if (data.length) {
+    sh.getRange(2, 1, data.length, 3).setValues(data);
+    sh.getRange(2, 1, data.length, 3).setNumberFormat('@');
+  }
+  try {
+    var ex = readExtras_() || {};
+    ex.guestIpMap = map;
+    writeExtras_(ex);
+  } catch (e) {}
+}
+
+
 function setGuestLoginEnabled_(enabled) {
   var on = !!enabled;
   var sheet = dataSheet_();
@@ -828,14 +966,39 @@ function doPost(e) {
         if (typeof metaP.guestLoginEnabled === 'boolean') guestOnP = metaP.guestLoginEnabled;
         else if (typeof extrasP.guestLoginEnabled === 'boolean') guestOnP = extrasP.guestLoginEnabled;
       } catch (eP) {}
+      var visitSheet = [];
+      try { visitSheet = loadVisitLogFromSheet_(); } catch (eV) { visitSheet = Array.isArray(extrasP.visitLog) ? extrasP.visitLog : []; }
+      if (!visitSheet.length && Array.isArray(extrasP.visitLog)) visitSheet = extrasP.visitLog;
+      var gmap = {};
+      try { gmap = loadGuestMapFromSheet_(); } catch (eG) { gmap = extrasP.guestIpMap || {}; }
+      if (!gmap || !Object.keys(gmap).length) gmap = extrasP.guestIpMap || {};
       return jsonOut_({
         ok: true,
         presence: extrasP.presence || {},
-        visitLog: Array.isArray(extrasP.visitLog) ? extrasP.visitLog : [],
+        visitLog: visitSheet,
         blockedIps: Array.isArray(extrasP.blockedIps) ? extrasP.blockedIps : [],
         guestLoginEnabled: guestOnP,
-        guestIpMap: extrasP.guestIpMap || {}
+        guestIpMap: gmap
       });
+    }
+
+    if (op === 'adminSetGuestName') {
+      var ipSet = String(parsed.ip || '').trim();
+      var newName = String(parsed.name || '').replace(/^Гость:\s*/, '').trim();
+      if (!ipSet) return jsonOut_({ ok: false, error: 'no ip' });
+      if (!newName || newName.length < 2) return jsonOut_({ ok: false, error: 'no name' });
+      var mapSet = loadGuestMapFromSheet_();
+      mapSet[ipSet] = { name: newName, createdAt: (mapSet[ipSet] && mapSet[ipSet].createdAt) || Date.now() };
+      saveGuestMapToSheet_(mapSet);
+      return jsonOut_({ ok: true, guestIpMap: mapSet });
+    }
+
+    if (op === 'adminClearGuestName') {
+      var ipClr = String(parsed.ip || '').trim();
+      var mapClr = loadGuestMapFromSheet_();
+      if (ipClr && mapClr[ipClr]) delete mapClr[ipClr];
+      saveGuestMapToSheet_(mapClr);
+      return jsonOut_({ ok: true, guestIpMap: mapClr });
     }
 
     if (op === 'heartbeat') {
@@ -903,39 +1066,11 @@ function doPost(e) {
         if (!ls || nowHb - ls > 24 * 3600 * 1000) delete extrasHb.presence[k];
       });
 
-      // Журнал всех посещений (имя + IP)
-      if (!Array.isArray(extrasHb.visitLog)) extrasHb.visitLog = [];
-      var vKey = uname + '|' + (ipHb || '');
-      var foundV = -1;
-      var vi;
-      for (vi = 0; vi < extrasHb.visitLog.length; vi++) {
-        var row = extrasHb.visitLog[vi];
-        if (row && row.name === uname && String(row.ip || '') === String(ipHb || '')) {
-          foundV = vi;
-          break;
-        }
-      }
-      if (foundV >= 0) {
-        extrasHb.visitLog[foundV].lastSeen = nowHb;
-        extrasHb.visitLog[foundV].ip = ipHb || extrasHb.visitLog[foundV].ip || '';
-        extrasHb.visitLog[foundV].isGuest = isGuestHb;
-        extrasHb.visitLog[foundV].visits = (Number(extrasHb.visitLog[foundV].visits) || 1) + 1;
-        if (parsed.page) extrasHb.visitLog[foundV].lastPage = String(parsed.page);
-      } else {
-        extrasHb.visitLog.push({
-          name: uname,
-          ip: ipHb || '',
-          isGuest: isGuestHb,
-          firstSeen: nowHb,
-          lastSeen: nowHb,
-          visits: 1,
-          lastPage: String(parsed.page || '')
-        });
-      }
-      // лимит 500 записей
-      if (extrasHb.visitLog.length > 500) {
-        extrasHb.visitLog.sort(function(a, b) { return (b.lastSeen || 0) - (a.lastSeen || 0); });
-        extrasHb.visitLog = extrasHb.visitLog.slice(0, 500);
+      // Журнал посещений → отдельный лист visitors + extras
+      try {
+        extrasHb.visitLog = upsertVisit_(uname, ipHb, isGuestHb, parsed.page || '');
+      } catch (eVis) {
+        if (!Array.isArray(extrasHb.visitLog)) extrasHb.visitLog = [];
       }
 
       writeExtras_(extrasHb);
@@ -955,7 +1090,15 @@ function doPost(e) {
       if (!nameRg || nameRg.length < 2) return jsonOut_({ ok: false, error: 'no name' });
       var extrasRg = readExtras_() || {};
       if (!Array.isArray(extrasRg.blockedIps)) extrasRg.blockedIps = [];
-      if (!extrasRg.guestIpMap || typeof extrasRg.guestIpMap !== 'object') extrasRg.guestIpMap = {};
+      var mapRg = {};
+      try { mapRg = loadGuestMapFromSheet_(); } catch (eMap) { mapRg = {}; }
+      if (!mapRg || typeof mapRg !== 'object') mapRg = {};
+      if (extrasRg.guestIpMap && typeof extrasRg.guestIpMap === 'object') {
+        for (var mk in extrasRg.guestIpMap) {
+          if (Object.prototype.hasOwnProperty.call(extrasRg.guestIpMap, mk) && !mapRg[mk]) mapRg[mk] = extrasRg.guestIpMap[mk];
+        }
+      }
+      extrasRg.guestIpMap = mapRg;
       var guestOnRg = true;
       try {
         var metaRg = JSON.parse(String(dataSheet_().getRange('A1').getValue() || '{}'));
@@ -993,6 +1136,8 @@ function doPost(e) {
         });
       }
       extrasRg.guestIpMap[ipRg] = { name: nameRg, createdAt: Date.now() };
+      try { saveGuestMapToSheet_(extrasRg.guestIpMap); } catch (eSaveMap) {}
+      try { upsertVisit_('Гость: ' + nameRg, ipRg, true, 'login'); } catch (eUp) {}
       if (!Array.isArray(extrasRg.visitLog)) extrasRg.visitLog = [];
       var dispRg = 'Гость: ' + nameRg;
       var nowRg = Date.now();

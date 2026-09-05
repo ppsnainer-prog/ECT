@@ -4865,7 +4865,7 @@ async function setGuestLoginEnabled(on) {
 function isGuestUser(name) {
   const who = name || state.currentUser || '';
   if (!who) return false;
-  if (String(who).indexOf('Гость:') === 0) return true;
+  if (who === 'Гость' || String(who).indexOf('Гость:') === 0 || String(who).indexOf('Гость') === 0) return true;
   try {
     if (sessionStorage.getItem('ect_is_guest_v1') === '1' && who === sessionStorage.getItem('ect_team_session_v1')) return true;
   } catch (_) {}
@@ -4950,10 +4950,7 @@ function startGuestWatchdog() {
         forceLogoutGuest('Вход гостей отключён администратором');
         return;
       }
-      const ip = await detectClientIp();
-      if (ip && Array.isArray(meta.blockedIps) && meta.blockedIps.indexOf(ip) >= 0) {
-        forceLogoutGuest('Доступ заблокирован');
-      }
+      // только флаг гостевого входа
     } catch (_) {}
   };
   tick();
@@ -6494,6 +6491,7 @@ async function fetchPresenceFromCloud() {
       }
       if (Array.isArray(posted.json.visitLog)) state.visitLog = posted.json.visitLog;
       if (Array.isArray(posted.json.blockedIps)) state.blockedIps = posted.json.blockedIps;
+      if (posted.json.guestIpMap && typeof posted.json.guestIpMap === 'object') state.guestIpMap = posted.json.guestIpMap;
       if (typeof posted.json.guestLoginEnabled === 'boolean') {
         state.guestLoginEnabled = posted.json.guestLoginEnabled;
         try { localStorage.setItem(GUEST_ENABLED_KEY, posted.json.guestLoginEnabled ? '1' : '0'); } catch (_) {}
@@ -13592,6 +13590,38 @@ function showViewOtabotkaModal(id) {
 
 
 
+
+async function adminSetGuestName(ip, name) {
+  if (!isAdminUser()) return false;
+  const url = getCloudExecUrl();
+  try {
+    const posted = await postSheets(url, { op: 'adminSetGuestName', ip: ip, name: name }, 20000);
+    if (posted && posted.json && posted.json.ok) {
+      if (posted.json.guestIpMap) state.guestIpMap = posted.json.guestIpMap;
+      toast('Имя гостя обновлено');
+      return true;
+    }
+  } catch (e) { console.warn(e); }
+  toast('Не удалось сменить имя', 'error');
+  return false;
+}
+
+async function adminClearGuestName(ip) {
+  if (!isAdminUser()) return false;
+  const url = getCloudExecUrl();
+  try {
+    const posted = await postSheets(url, { op: 'adminClearGuestName', ip: ip }, 20000);
+    if (posted && posted.json && posted.json.ok) {
+      if (posted.json.guestIpMap) state.guestIpMap = posted.json.guestIpMap;
+      else if (state.guestIpMap) delete state.guestIpMap[ip];
+      toast('Имя сброшено');
+      return true;
+    }
+  } catch (e) { console.warn(e); }
+  toast('Ошибка', 'error');
+  return false;
+}
+
 async function blockIpAdmin(ip, name) {
   if (!isAdminUser()) return false;
   ip = String(ip || '').trim();
@@ -13633,17 +13663,10 @@ async function unblockIpAdmin(ip) {
 
 function renderOnlineUsersCard() {
   const list = typeof getPresenceList === 'function' ? getPresenceList() : [];
-  const blocked = Array.isArray(state.blockedIps) ? state.blockedIps : [];
   const rows = list.length ? list.map(u => {
     const when = u.lastSeen ? new Date(u.lastSeen).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '—';
     const page = u.page ? escapeHtml(u.page) : '—';
-    const ip = u.ip ? escapeHtml(u.ip) : '—';
     const guestBadge = u.isGuest ? '<span class="badge">гость</span>' : '';
-    const blockBtn = (u.ip && isAdminUser())
-      ? (blocked.indexOf(u.ip) >= 0
-          ? `<button class="btn btn-outline btn-sm" data-action="unblock-ip" data-ip="${escapeAttr(u.ip)}">Разблок.</button>`
-          : `<button class="btn btn-danger btn-sm" data-action="block-ip" data-ip="${escapeAttr(u.ip)}" data-name="${escapeAttr(u.name)}">Блок IP</button>`)
-      : '';
     return `<div class="team-row presence-row">
       <div>
         <span class="presence-dot ${u.online ? 'online' : 'offline'}"></span>
@@ -13651,70 +13674,17 @@ function renderOnlineUsersCard() {
         ${guestBadge}
         <span class="badge ${u.online ? 'badge-teal' : ''}">${u.online ? 'онлайн' : 'офлайн'}</span>
       </div>
-      <div class="field-hint">${u.online ? 'раздел: ' + page : 'был(а): ' + when} · IP: ${ip}</div>
-      <div class="team-row-actions">${blockBtn}</div>
+      <div class="field-hint">${u.online ? 'раздел: ' + page : 'был(а): ' + when}</div>
     </div>`;
-  }).join('') : '<p class="catalog-hint">Пока никого не видно. Гости появляются в течение ~40 сек после входа.</p>';
-
-  const blockedRows = blocked.length
-    ? blocked.map(ip => `<div class="team-row">
-        <div><code>${escapeHtml(ip)}</code></div>
-        <div class="team-row-actions">
-          <button class="btn btn-outline btn-sm" data-action="unblock-ip" data-ip="${escapeAttr(ip)}">Разблокировать</button>
-        </div>
-      </div>`).join('')
-    : '<p class="catalog-hint">Нет заблокированных IP</p>';
-
-  const visits = Array.isArray(state.visitLog) ? [...state.visitLog] : [];
-  visits.sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
-  const visitRows = visits.length ? visits.map(v => {
-    const first = v.firstSeen ? new Date(v.firstSeen).toLocaleString('ru-RU') : '—';
-    const last = v.lastSeen ? new Date(v.lastSeen).toLocaleString('ru-RU') : '—';
-    const ip = v.ip ? escapeHtml(v.ip) : '—';
-    const guestBadge = v.isGuest ? '<span class="badge">гость</span>' : '';
-    const onlineNow = list.some(u => u.online && u.name === v.name);
-    const blockBtn = (v.ip && isAdminUser())
-      ? (blocked.indexOf(v.ip) >= 0
-          ? `<button class="btn btn-outline btn-sm" data-action="unblock-ip" data-ip="${escapeAttr(v.ip)}">Разблок.</button>`
-          : `<button class="btn btn-danger btn-sm" data-action="block-ip" data-ip="${escapeAttr(v.ip)}" data-name="${escapeAttr(v.name || '')}">Блок IP</button>`)
-      : '';
-    return `<div class="team-row presence-row">
-      <div>
-        <span class="presence-dot ${onlineNow ? 'online' : 'offline'}"></span>
-        <strong>${escapeHtml(v.name || '—')}</strong>
-        ${guestBadge}
-        <span class="badge">${onlineNow ? 'сейчас онлайн' : 'был'}</span>
-        <span class="field-hint">заходов: ${Number(v.visits) || 1}</span>
-      </div>
-      <div class="field-hint">IP: ${ip}<br>первый: ${first}<br>последний: ${last}</div>
-      <div class="team-row-actions">${blockBtn}</div>
-    </div>`;
-  }).join('') : '<p class="catalog-hint">Пока нет записей. Они появятся после того, как пользователи зайдут и сработает heartbeat (облако должно отвечать).</p>';
+  }).join('') : '<p class="catalog-hint">Пока никого не видно. Статус появляется после входа (~40 сек).</p>';
 
   return `<div class="card settings-section">
     <h3>🟢 Сейчас на сайте</h3>
-    <p class="catalog-hint" style="margin-bottom:12px">Онлайн — активность за 3 мин. Гости и IP видны здесь.
-      ${isGuestLoginEnabled() ? '' : '<br><b style="color:#f87171">⚠ Вход гостей СЕЙЧАС ВЫКЛЮЧЕН</b> — включите выше, иначе гости не остаются на сайте.'}</p>
+    <p class="catalog-hint" style="margin-bottom:12px">Онлайн — активность за последние 3 минуты.
+      ${isGuestLoginEnabled() ? '' : '<br><b style="color:#f87171">⚠ Вход гостей выключен</b>'}</p>
     <div class="team-list">${rows}</div>
     <div class="actions-row" style="margin-top:12px">
       <button class="btn btn-outline btn-sm" data-action="refresh-presence">Обновить список</button>
-    </div>
-  </div>
-  <div class="card settings-section">
-    <h3>📜 Все посещения</h3>
-    <p class="catalog-hint" style="margin-bottom:12px">Кто когда-либо заходил: имя, IP, первый и последний визит. Хранится в облаке.</p>
-    <div class="team-list" style="max-height:420px;overflow:auto">${visitRows}</div>
-  </div>
-  <div class="card settings-section">
-    <h3>🚫 Блок по IP</h3>
-    <p class="catalog-hint" style="margin-bottom:12px">Заблокированный IP не сможет войти (в т.ч. гостем). Имя гостя привязано к IP.</p>
-    <div class="team-list">${blockedRows}</div>
-    <div class="form-group" style="margin-top:12px">
-      <label>Добавить IP вручную</label>
-      <div class="actions-row">
-        <input type="text" id="manualBlockIp" placeholder="например 1.2.3.4" style="flex:1">
-        <button class="btn btn-danger btn-sm" data-action="block-ip-manual">Заблокировать</button>
-      </div>
     </div>
   </div>`;
 }
@@ -15594,24 +15564,7 @@ function handleClick(e) {
     case 'save-cloud': saveCloudConfig(); break;
     case 'disconnect-cloud': disconnectCloud(); break;
     case 'sync-now': syncNow(); break;
-    case 'block-ip':
-      Promise.resolve(blockIpAdmin(el.dataset.ip, el.dataset.name)).then(() => {
-        if (state.currentPage === 'admin') render();
-      });
-      break;
-    case 'block-ip-manual': {
-      const ip = (document.getElementById('manualBlockIp')?.value || '').trim();
-      Promise.resolve(blockIpAdmin(ip)).then(() => {
-        if (state.currentPage === 'admin') render();
-      });
-      break;
-    }
-    case 'unblock-ip':
-      Promise.resolve(unblockIpAdmin(el.dataset.ip)).then(() => {
-        if (state.currentPage === 'admin') render();
-      });
-      break;
-    case 'test-cloud':
+                        case 'test-cloud':
       toast('Проверка облака…');
       Promise.resolve(testCloudConnection()).then((r) => {
         if (r && r.ok) toast('Облако отвечает ✓');
