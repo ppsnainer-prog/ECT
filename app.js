@@ -6482,6 +6482,30 @@ function getPresenceList() {
   });
 }
 
+
+async function fetchPresenceFromCloud() {
+  const url = getCloudExecUrl();
+  if (!url) return null;
+  try {
+    const posted = await postSheets(url, { op: 'getPresence' }, 20000);
+    if (posted && posted.json && posted.json.ok) {
+      if (posted.json.presence && typeof posted.json.presence === 'object') {
+        state.presence = Object.assign({}, state.presence || {}, posted.json.presence);
+      }
+      if (Array.isArray(posted.json.visitLog)) state.visitLog = posted.json.visitLog;
+      if (Array.isArray(posted.json.blockedIps)) state.blockedIps = posted.json.blockedIps;
+      if (typeof posted.json.guestLoginEnabled === 'boolean') {
+        state.guestLoginEnabled = posted.json.guestLoginEnabled;
+        try { localStorage.setItem(GUEST_ENABLED_KEY, posted.json.guestLoginEnabled ? '1' : '0'); } catch (_) {}
+      }
+      return posted.json;
+    }
+  } catch (e) {
+    console.warn('fetchPresenceFromCloud', e);
+  }
+  return null;
+}
+
 async function sendPresenceHeartbeat() {
   if (!state.currentUser) return;
   const ip = await detectClientIp();
@@ -13669,7 +13693,8 @@ function renderOnlineUsersCard() {
 
   return `<div class="card settings-section">
     <h3>🟢 Сейчас на сайте</h3>
-    <p class="catalog-hint" style="margin-bottom:12px">Онлайн — активность за 3 мин. Гости и IP видны здесь.</p>
+    <p class="catalog-hint" style="margin-bottom:12px">Онлайн — активность за 3 мин. Гости и IP видны здесь.
+      ${isGuestLoginEnabled() ? '' : '<br><b style="color:#f87171">⚠ Вход гостей СЕЙЧАС ВЫКЛЮЧЕН</b> — включите выше, иначе гости не остаются на сайте.'}</p>
     <div class="team-list">${rows}</div>
     <div class="actions-row" style="margin-top:12px">
       <button class="btn btn-outline btn-sm" data-action="refresh-presence">Обновить список</button>
@@ -15361,14 +15386,17 @@ function handleClick(e) {
     case 'view-otabotka': showViewOtabotkaModal(el.dataset.id); break;
     case 'add-team-user': showTeamUserModal(null); break;
     case 'refresh-presence':
-      Promise.resolve(sendPresenceHeartbeat()).then(async () => {
+      Promise.resolve().then(async () => {
+        await sendPresenceHeartbeat();
         if (isAdminUser()) {
-          const tresult = await testCloudConnection();
-          if (!tresult.ok) {
-            toast('Облако не отвечает (404/таймаут). Проверьте URL Apps Script и сделайте новую версию развёртывания.', 'error');
+          const data = await fetchPresenceFromCloud();
+          if (!data) {
+            toast('Не удалось загрузить список из облака. Проверьте URL / развёртывание.', 'error');
           } else {
-            const n = Object.keys(state.presence || {}).length;
-            toast('Облако OK · в presence: ' + n);
+            const online = (typeof getPresenceList === 'function' ? getPresenceList() : []).filter(x => x.online).length;
+            const visits = (state.visitLog || []).length;
+            const guestOn = data.guestLoginEnabled !== false;
+            toast('Онлайн: ' + online + ' · визитов: ' + visits + (guestOn ? '' : ' · ⚠ гости ВЫКЛ'));
           }
         } else {
           toast('Список обновлён');

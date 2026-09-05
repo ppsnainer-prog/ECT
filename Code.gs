@@ -819,6 +819,25 @@ function doPost(e) {
   }
   try {
     // Онлайн-присутствие: обновляет только presence в extras
+    
+    if (op === 'getPresence') {
+      var extrasP = readExtras_() || {};
+      var guestOnP = true;
+      try {
+        var metaP = JSON.parse(String(dataSheet_().getRange('A1').getValue() || '{}'));
+        if (typeof metaP.guestLoginEnabled === 'boolean') guestOnP = metaP.guestLoginEnabled;
+        else if (typeof extrasP.guestLoginEnabled === 'boolean') guestOnP = extrasP.guestLoginEnabled;
+      } catch (eP) {}
+      return jsonOut_({
+        ok: true,
+        presence: extrasP.presence || {},
+        visitLog: Array.isArray(extrasP.visitLog) ? extrasP.visitLog : [],
+        blockedIps: Array.isArray(extrasP.blockedIps) ? extrasP.blockedIps : [],
+        guestLoginEnabled: guestOnP,
+        guestIpMap: extrasP.guestIpMap || {}
+      });
+    }
+
     if (op === 'heartbeat') {
       var uname = String(parsed.user || parsed.name || '');
       if (!uname) return jsonOut_({ ok: false, error: 'no user' });
@@ -842,9 +861,33 @@ function doPost(e) {
         return jsonOut_({ ok: false, blocked: true, reason: 'IP blocked', guestLoginEnabled: guestOnHb, blockedIps: extrasHb.blockedIps });
       }
       if (isGuestHb && !guestOnHb) {
-        // выкинуть гостя: убрать из presence
-        try { delete extrasHb.presence[uname]; writeExtras_(extrasHb); } catch (eDel) {}
-        return jsonOut_({ ok: true, kick: true, reason: 'guest login disabled', guestLoginEnabled: false, presence: extrasHb.presence || {} });
+        // всё равно пишем в журнал визитов, но кикаем с сайта
+        try {
+          if (!Array.isArray(extrasHb.visitLog)) extrasHb.visitLog = [];
+          var nowKick = Date.now();
+          var foundKick = -1;
+          for (var ki = 0; ki < extrasHb.visitLog.length; ki++) {
+            if (extrasHb.visitLog[ki] && extrasHb.visitLog[ki].name === uname && String(extrasHb.visitLog[ki].ip || '') === String(ipHb || '')) {
+              foundKick = ki; break;
+            }
+          }
+          if (foundKick >= 0) {
+            extrasHb.visitLog[foundKick].lastSeen = nowKick;
+            extrasHb.visitLog[foundKick].visits = (Number(extrasHb.visitLog[foundKick].visits) || 1) + 1;
+          } else {
+            extrasHb.visitLog.push({ name: uname, ip: ipHb || '', isGuest: true, firstSeen: nowKick, lastSeen: nowKick, visits: 1, note: 'guest-disabled' });
+          }
+          if (extrasHb.presence) delete extrasHb.presence[uname];
+          writeExtras_(extrasHb);
+        } catch (eDel) {}
+        return jsonOut_({
+          ok: true,
+          kick: true,
+          reason: 'guest login disabled',
+          guestLoginEnabled: false,
+          presence: extrasHb.presence || {},
+          visitLog: extrasHb.visitLog || []
+        });
       }
 
       extrasHb.presence[uname] = {
@@ -923,20 +966,63 @@ function doPost(e) {
       if (extrasRg.blockedIps.indexOf(ipRg) >= 0) return jsonOut_({ ok: false, blocked: true, error: 'IP blocked' });
       // имя уже привязано к IP — только оно
       if (extrasRg.guestIpMap[ipRg] && extrasRg.guestIpMap[ipRg].name) {
+        var bn = extrasRg.guestIpMap[ipRg].name;
+        var bd = 'Гость: ' + bn;
+        var nowB = Date.now();
+        if (!extrasRg.presence || typeof extrasRg.presence !== 'object') extrasRg.presence = {};
+        extrasRg.presence[bd] = { lastSeen: nowB, page: 'login', name: bd, ip: ipRg, isGuest: true };
+        if (!Array.isArray(extrasRg.visitLog)) extrasRg.visitLog = [];
+        var fb = -1;
+        for (var bi = 0; bi < extrasRg.visitLog.length; bi++) {
+          if (extrasRg.visitLog[bi] && extrasRg.visitLog[bi].name === bd && String(extrasRg.visitLog[bi].ip || '') === ipRg) {
+            fb = bi; break;
+          }
+        }
+        if (fb >= 0) {
+          extrasRg.visitLog[fb].lastSeen = nowB;
+          extrasRg.visitLog[fb].visits = (Number(extrasRg.visitLog[fb].visits) || 1) + 1;
+        } else {
+          extrasRg.visitLog.push({ name: bd, ip: ipRg, isGuest: true, firstSeen: nowB, lastSeen: nowB, visits: 1 });
+        }
+        writeExtras_(extrasRg);
         return jsonOut_({
           ok: true,
           bound: true,
-          name: extrasRg.guestIpMap[ipRg].name,
-          display: 'Гость: ' + extrasRg.guestIpMap[ipRg].name
+          name: bn,
+          display: bd
         });
       }
       extrasRg.guestIpMap[ipRg] = { name: nameRg, createdAt: Date.now() };
+      if (!Array.isArray(extrasRg.visitLog)) extrasRg.visitLog = [];
+      var dispRg = 'Гость: ' + nameRg;
+      var nowRg = Date.now();
+      extrasRg.visitLog.push({
+        name: dispRg,
+        ip: ipRg,
+        isGuest: true,
+        firstSeen: nowRg,
+        lastSeen: nowRg,
+        visits: 1
+      });
+      if (extrasRg.visitLog.length > 500) {
+        extrasRg.visitLog.sort(function(a, b) { return (b.lastSeen || 0) - (a.lastSeen || 0); });
+        extrasRg.visitLog = extrasRg.visitLog.slice(0, 500);
+      }
+      // сразу в presence
+      if (!extrasRg.presence || typeof extrasRg.presence !== 'object') extrasRg.presence = {};
+      extrasRg.presence[dispRg] = {
+        lastSeen: nowRg,
+        page: 'login',
+        name: dispRg,
+        ip: ipRg,
+        isGuest: true
+      };
       writeExtras_(extrasRg);
       return jsonOut_({
         ok: true,
         bound: false,
         name: nameRg,
-        display: 'Гость: ' + nameRg
+        display: dispRg
       });
     }
 
