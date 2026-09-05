@@ -477,7 +477,30 @@
       } catch (_) {}
       return "https://script.google.com/macros/s/AKfycbxk9hWog0sAruR4QRCM0t-oOFJTDvkHoA9mHy12ixT3dKWspy0Q2Pkiy85lJRnt_BlewA/exec";
     }
-    function pullGuestFlagFromCloud() {
+    
+    function detectIpIndex() {
+      return fetch('https://api.ipify.org?format=json', { cache: 'no-store' })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          var ip = (j && j.ip) ? String(j.ip) : '';
+          try { if (ip) sessionStorage.setItem('ect_client_ip', ip); } catch (_) {}
+          return ip;
+        })
+        .catch(function () {
+          try { return sessionStorage.getItem('ect_client_ip') || ''; } catch (_) { return ''; }
+        });
+    }
+    function sheetsUrlIndex() {
+      try {
+        var raw = localStorage.getItem('ect_cloud_cfg_v1');
+        if (raw) {
+          var c = JSON.parse(raw);
+          if (c && c.sheetsUrl) return c.sheetsUrl;
+        }
+      } catch (_) {}
+      return "https://script.google.com/macros/s/AKfycbxk9hWog0sAruR4QRCM0t-oOFJTDvkHoA9mHy12ixT3dKWspy0Q2Pkiy85lJRnt_BlewA/exec";
+    }
+function pullGuestFlagFromCloud() {
       var url = getSheetsUrlForGuestFlag();
       if (!url) return Promise.resolve();
       var metaUrl = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'op=meta&_=' + Date.now();
@@ -500,69 +523,124 @@
       if (btn) btn.hidden = !on;
     }
     function openGuestModal() {
-      // сверяем с облаком прямо перед входом
-      pullGuestFlagFromCloud().then(function () {
+      var modal = document.getElementById('guestModal');
+      var input = document.getElementById('guestNameInput');
+      var err = document.getElementById('guestError');
+      var confBtn = document.getElementById('guestConfirmBtn');
+      if (err) err.textContent = '';
+      if (confBtn) { confBtn.disabled = true; confBtn.textContent = 'Проверка…'; }
+      Promise.all([pullGuestFlagFromCloud(), detectIpIndex()]).then(function (pair) {
+        var ip = pair[1] || '';
         if (!isGuestLoginEnabled()) {
           setMessage('Вход гостей временно отключён администратором');
           updateGuestBtnVisibility();
+          if (confBtn) { confBtn.disabled = false; confBtn.textContent = 'Войти'; }
           return;
         }
-        const modal = document.getElementById('guestModal');
-        const input = document.getElementById('guestNameInput');
-        const err = document.getElementById('guestError');
-        if (err) err.textContent = '';
-        if (input) input.value = '';
-        if (modal) {
-          modal.hidden = false;
-          modal.removeAttribute('hidden');
-          modal.style.display = 'flex';
-        }
-        setTimeout(function () { if (input) input.focus(); }, 50);
+        var url = sheetsUrlIndex();
+        return fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ op: 'lookupGuestIp', ip: ip })
+        }).then(function (r) { return r.json(); }).then(function (j) {
+          if (j && j.blocked) {
+            setMessage('Доступ с вашего IP заблокирован');
+            if (confBtn) { confBtn.disabled = false; confBtn.textContent = 'Войти'; }
+            return;
+          }
+          if (j && j.guestLoginEnabled === false) {
+            try { localStorage.setItem('ect_guest_login_enabled', '0'); } catch (_) {}
+            setMessage('Вход гостей временно отключён администратором');
+            updateGuestBtnVisibility();
+            if (confBtn) { confBtn.disabled = false; confBtn.textContent = 'Войти'; }
+            return;
+          }
+          if (modal) {
+            modal.hidden = false;
+            modal.removeAttribute('hidden');
+            modal.style.display = 'flex';
+          }
+          if (j && j.boundName) {
+            if (input) {
+              input.value = j.boundName;
+              input.readOnly = true;
+            }
+            if (err) err.textContent = 'Ваш IP уже привязан к имени «' + j.boundName + '». Сменить имя нельзя.';
+          } else {
+            if (input) {
+              input.value = '';
+              input.readOnly = false;
+            }
+          }
+          if (confBtn) { confBtn.disabled = false; confBtn.textContent = 'Войти'; }
+          setTimeout(function () { if (input && !input.readOnly) input.focus(); }, 50);
+        }).catch(function () {
+          if (modal) {
+            modal.hidden = false;
+            modal.removeAttribute('hidden');
+            modal.style.display = 'flex';
+          }
+          if (confBtn) { confBtn.disabled = false; confBtn.textContent = 'Войти'; }
+        });
       });
     }
     function closeGuestModal() {
       closeGuestModalForce();
     }
     function confirmGuestLogin() {
-      const input = document.getElementById('guestNameInput');
-      const err = document.getElementById('guestError');
-      const confBtn = document.getElementById('guestConfirmBtn');
-      let name = (input && input.value || '').trim();
-      name = name.replace(/\s+/g, ' ').slice(0, 40);
+      var input = document.getElementById('guestNameInput');
+      var err = document.getElementById('guestError');
+      var confBtn = document.getElementById('guestConfirmBtn');
+      var name = (input && input.value || '').trim().replace(/\s+/g, ' ').slice(0, 40);
       if (!name || name.length < 2) {
         if (err) err.textContent = 'Введите имя (минимум 2 символа)';
         if (input) input.focus();
         return;
       }
-      var occupied = !!USERS[name];
-      if (!occupied) {
-        try {
-          var extra = JSON.parse(localStorage.getItem('ect_extra_users_v1') || '[]');
-          occupied = Array.isArray(extra) && extra.some(function (u) { return u && u.name === name; });
-        } catch (_) {}
-      }
-      if (occupied || name === 'Александр' || name === 'Общая' || name.indexOf('Гость:') === 0) {
-        if (err) err.textContent = 'Это имя занято. Укажите другое (например: Иван Петров)';
+      if (USERS[name] || name === 'Александр' || name === 'Общая' || name.indexOf('Гость:') === 0) {
+        if (err) err.textContent = 'Это имя занято. Укажите другое';
         return;
       }
-      if (confBtn) { confBtn.disabled = true; confBtn.textContent = 'Проверка…'; }
-      pullGuestFlagFromCloud().then(function () {
-        if (!isGuestLoginEnabled()) {
-          if (err) err.textContent = '';
-          setMessage('Вход гостей отключён администратором');
+      if (confBtn) { confBtn.disabled = true; confBtn.textContent = 'Входим…'; }
+      detectIpIndex().then(function (ip) {
+        var url = sheetsUrlIndex();
+        return fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ op: 'registerGuest', ip: ip, name: name })
+        }).then(function (r) { return r.json(); }).then(function (j) {
+          if (j && j.blocked) {
+            setMessage('Доступ с вашего IP заблокирован');
+            closeGuestModalForce();
+            if (confBtn) { confBtn.disabled = false; confBtn.textContent = 'Войти'; }
+            return;
+          }
+          if (j && (j.guestLoginEnabled === false || j.error === 'guest disabled')) {
+            setMessage('Вход гостей отключён администратором');
+            closeGuestModalForce();
+            updateGuestBtnVisibility();
+            if (confBtn) { confBtn.disabled = false; confBtn.textContent = 'Войти'; }
+            return;
+          }
+          if (j && j.ok === false) {
+            if (err) err.textContent = j.error || 'Ошибка входа';
+            if (confBtn) { confBtn.disabled = false; confBtn.textContent = 'Войти'; }
+            return;
+          }
+          // если IP уже был привязан — сервер вернёт старое имя
+          var finalName = (j && j.name) ? j.name : name;
+          var display = (j && j.display) ? j.display : ('Гость: ' + finalName);
+          try {
+            sessionStorage.setItem('ect_is_guest_v1', '1');
+            sessionStorage.setItem('ect_guest_name_v1', finalName);
+            if (ip) sessionStorage.setItem('ect_client_ip', ip);
+          } catch (_) {}
           closeGuestModalForce();
-          updateGuestBtnVisibility();
-          if (confBtn) { confBtn.disabled = false; confBtn.textContent = 'Войти'; }
-          return;
-        }
-        try {
-          sessionStorage.setItem('ect_is_guest_v1', '1');
-          sessionStorage.setItem('ect_guest_name_v1', name);
-        } catch (_) {}
-        const display = 'Гость: ' + name;
-        if (confBtn) confBtn.textContent = 'Входим…';
-        closeGuestModalForce();
-        openApp(display).finally(function () {
+          openApp(display).finally(function () {
+            if (confBtn) { confBtn.disabled = false; confBtn.textContent = 'Войти'; }
+          });
+        }).catch(function (e) {
+          if (err) err.textContent = 'Нет связи с облаком. Попробуйте ещё раз.';
           if (confBtn) { confBtn.disabled = false; confBtn.textContent = 'Войти'; }
         });
       });

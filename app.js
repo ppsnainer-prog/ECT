@@ -4687,6 +4687,8 @@ let state = {
   newbieGuide: null,
   newbieGroup: 'checklist',
   guestLoginEnabled: true,
+  blockedIps: [],
+  guestIpMap: {},
   newbieQuery: '',
   newbieOpenId: '',
   refInfo: [],
@@ -4865,6 +4867,101 @@ function isGuestUser(name) {
 }
 
 window.__ECT_GUEST_ENABLED = isGuestLoginEnabled;
+
+/* ========== IP / гости ========== */
+const DEFAULT_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxk9hWog0sAruR4QRCM0t-oOFJTDvkHoA9mHy12ixT3dKWspy0Q2Pkiy85lJRnt_BlewA/exec';
+let __clientIp = '';
+let __guestWatchTimer = null;
+
+function getCloudExecUrl() {
+  const u = (state.cloud && state.cloud.sheetsUrl || '').trim();
+  if (u && u.includes('script.google.com')) return u;
+  try {
+    const raw = localStorage.getItem('ect_cloud_cfg_v1');
+    if (raw) {
+      const c = JSON.parse(raw);
+      if (c && c.sheetsUrl && String(c.sheetsUrl).includes('script.google.com')) return String(c.sheetsUrl).trim();
+    }
+  } catch (_) {}
+  return DEFAULT_SHEETS_URL;
+}
+
+async function detectClientIp() {
+  if (__clientIp) return __clientIp;
+  try {
+    const r = await fetch('https://api.ipify.org?format=json', { cache: 'no-store' });
+    const j = await r.json();
+    if (j && j.ip) {
+      __clientIp = String(j.ip);
+      try { sessionStorage.setItem('ect_client_ip', __clientIp); } catch (_) {}
+      return __clientIp;
+    }
+  } catch (_) {}
+  try {
+    const cached = sessionStorage.getItem('ect_client_ip');
+    if (cached) { __clientIp = cached; return __clientIp; }
+  } catch (_) {}
+  return '';
+}
+
+function isGuestSession() {
+  return typeof isGuestUser === 'function' && isGuestUser();
+}
+
+function forceLogoutGuest(reason) {
+  try { stopPresenceHeartbeat(); } catch (_) {}
+  try { stopGuestWatchdog(); } catch (_) {}
+  try {
+    sessionStorage.removeItem('ect_team_session_v1');
+    sessionStorage.removeItem('ect_is_guest_v1');
+    sessionStorage.removeItem('ect_guest_name_v1');
+  } catch (_) {}
+  state.currentUser = '';
+  try {
+    if (typeof logout === 'function') logout();
+    else {
+      const appRoot = document.getElementById('app');
+      const login = document.getElementById('loginScreen');
+      if (appRoot) { appRoot.hidden = true; appRoot.style.display = 'none'; }
+      if (login) { login.hidden = false; login.style.display = 'flex'; }
+    }
+  } catch (_) {}
+  try { toast(reason || 'Сессия гостя завершена', 'error'); } catch (_) {}
+}
+
+function startGuestWatchdog() {
+  stopGuestWatchdog();
+  if (!isGuestSession()) return;
+  const tick = async () => {
+    if (!isGuestSession()) { stopGuestWatchdog(); return; }
+    try {
+      const url = getCloudExecUrl();
+      const metaUrl = url + (url.includes('?') ? '&' : '?') + 'op=meta&_=' + Date.now();
+      const r = await fetch(metaUrl, { method: 'GET', mode: 'cors', credentials: 'omit', cache: 'no-store' });
+      if (!r.ok) return;
+      const meta = await r.json();
+      if (meta && meta.guestLoginEnabled === false) {
+        forceLogoutGuest('Вход гостей отключён администратором');
+        return;
+      }
+      const ip = await detectClientIp();
+      if (ip && Array.isArray(meta.blockedIps) && meta.blockedIps.indexOf(ip) >= 0) {
+        forceLogoutGuest('Доступ заблокирован');
+      }
+    } catch (_) {}
+  };
+  tick();
+  __guestWatchTimer = setInterval(tick, 20000);
+}
+
+function stopGuestWatchdog() {
+  if (__guestWatchTimer) {
+    clearInterval(__guestWatchTimer);
+    __guestWatchTimer = null;
+  }
+}
+
+
 
 
 function getAllLoginNames() {
@@ -5206,6 +5303,7 @@ function showAppAfterLogin(user) {
   safeSessionSet(LOGIN_SESSION_KEY, user);
   state.currentUser = user;
   try { startPresenceHeartbeat(); } catch (_) {}
+  try { if (isGuestSession()) startGuestWatchdog(); else stopGuestWatchdog(); } catch (_) {}
   const login = document.getElementById('loginScreen');
   const appRoot = document.getElementById('app');
   if (login) {
@@ -5225,6 +5323,7 @@ function showAppAfterLogin(user) {
 }
 
 function logout() {
+  try { stopGuestWatchdog(); } catch (_) {}
   try {
     sessionStorage.removeItem('ect_is_guest_v1');
     sessionStorage.removeItem('ect_guest_name_v1');
@@ -5941,6 +6040,8 @@ function buildCloudExtras() {
       try { loadUserPermsStore(); } catch (_) {}
       return (state.userPerms && typeof state.userPerms === 'object') ? state.userPerms : {    newbieGuide: Array.isArray(state.newbieGuide) ? state.newbieGuide : [],
     guestLoginEnabled: (function(){ try { return isGuestLoginEnabled(); } catch(_){ return state.guestLoginEnabled !== false; } })(),
+    blockedIps: Array.isArray(state.blockedIps) ? state.blockedIps : [],
+    guestIpMap: (state.guestIpMap && typeof state.guestIpMap === 'object') ? state.guestIpMap : {},
   };
     })(),
     presence: (function() {
@@ -6021,7 +6122,9 @@ function applyCloudRecord(remote) {
     state.guestLoginEnabled = ex.guestLoginEnabled;
     try { localStorage.setItem(GUEST_ENABLED_KEY, ex.guestLoginEnabled ? '1' : '0'); } catch (_) {}
     try { if (typeof window.__ECT_UPDATE_GUEST_BTN === 'function') window.__ECT_UPDATE_GUEST_BTN(); } catch (_) {}
-  } else if (Array.isArray(remote.newbieGuide)) {
+  }
+  if (Array.isArray(ex.blockedIps)) state.blockedIps = ex.blockedIps;
+  if (ex.guestIpMap && typeof ex.guestIpMap === 'object') state.guestIpMap = ex.guestIpMap; else if (Array.isArray(remote.newbieGuide)) {
     state.newbieGuide = remote.newbieGuide;
     try { localStorage.setItem(NEWBIE_KEY, JSON.stringify(state.newbieGuide)); } catch (_) {}
   } else if (Array.isArray(remote.sharedPenalties)) {
@@ -6359,6 +6462,8 @@ function getPresenceList() {
     name,
     lastSeen: map[name].lastSeen || 0,
     page: map[name].page || '',
+    ip: map[name].ip || '',
+    isGuest: !!(map[name].isGuest || String(name).indexOf('Гость:') === 0),
     online: isUserOnline(map[name])
   })).sort((a, b) => {
     if (a.online !== b.online) return a.online ? -1 : 1;
@@ -6368,15 +6473,19 @@ function getPresenceList() {
 
 async function sendPresenceHeartbeat() {
   if (!state.currentUser) return;
+  const ip = await detectClientIp();
   if (!state.presence || typeof state.presence !== 'object') state.presence = {};
   state.presence[state.currentUser] = {
     lastSeen: Date.now(),
     page: state.currentPage || '',
-    name: state.currentUser
+    name: state.currentUser,
+    ip: ip || '',
+    isGuest: isGuestSession()
   };
   try {
-    const url = (state.cloud.sheetsUrl || '').trim();
-    if (!url || !url.includes('script.google.com')) return;
+    const url = getCloudExecUrl();
+    if (!url) return;
+    // гости тоже шлют heartbeat (даже без «облака» в настройках)
     const res = await fetchWithTimeout(url, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -6384,7 +6493,9 @@ async function sendPresenceHeartbeat() {
         op: 'heartbeat',
         user: state.currentUser,
         page: state.currentPage || '',
-        lastSeen: Date.now()
+        lastSeen: Date.now(),
+        ip: ip || '',
+        isGuest: isGuestSession()
       })
     }, 15000);
     if (res && res.ok) {
@@ -6392,6 +6503,17 @@ async function sendPresenceHeartbeat() {
         const json = await res.json();
         if (json && json.presence && typeof json.presence === 'object') {
           state.presence = Object.assign({}, state.presence, json.presence);
+        }
+        if (json && json.kick && isGuestSession()) {
+          forceLogoutGuest(json.reason || 'Сессия завершена администратором');
+          return;
+        }
+        if (json && json.blocked) {
+          forceLogoutGuest('Доступ с вашего IP заблокирован');
+          return;
+        }
+        if (typeof json.guestLoginEnabled === 'boolean' && json.guestLoginEnabled === false && isGuestSession()) {
+          forceLogoutGuest('Вход гостей отключён администратором');
         }
       } catch (_) {}
     }
@@ -13391,29 +13513,98 @@ function showViewOtabotkaModal(id) {
 }
 
 
+
+async function blockIpAdmin(ip, name) {
+  if (!isAdminUser()) return false;
+  ip = String(ip || '').trim();
+  if (!ip || !/^\d{1,3}(\.\d{1,3}){3}$/.test(ip) && !ip.includes(':')) {
+    // allow IPv6 loosely
+    if (!ip) { toast('Укажите IP', 'error'); return false; }
+  }
+  if (!Array.isArray(state.blockedIps)) state.blockedIps = [];
+  if (state.blockedIps.indexOf(ip) < 0) state.blockedIps.push(ip);
+  const url = getCloudExecUrl();
+  try {
+    const posted = await postSheets(url, { op: 'blockIp', ip: ip, name: name || '' }, 20000);
+    if (posted && posted.json && posted.json.ok) {
+      if (Array.isArray(posted.json.blockedIps)) state.blockedIps = posted.json.blockedIps;
+      toast('IP заблокирован: ' + ip);
+      return true;
+    }
+  } catch (e) { console.warn(e); }
+  toast('Не удалось записать блок в облако', 'error');
+  return false;
+}
+
+async function unblockIpAdmin(ip) {
+  if (!isAdminUser()) return false;
+  ip = String(ip || '').trim();
+  state.blockedIps = (state.blockedIps || []).filter(x => x !== ip);
+  const url = getCloudExecUrl();
+  try {
+    const posted = await postSheets(url, { op: 'unblockIp', ip: ip }, 20000);
+    if (posted && posted.json && posted.json.ok) {
+      if (Array.isArray(posted.json.blockedIps)) state.blockedIps = posted.json.blockedIps;
+      toast('IP разблокирован: ' + ip);
+      return true;
+    }
+  } catch (e) { console.warn(e); }
+  toast('Ошибка облака', 'error');
+  return false;
+}
+
 function renderOnlineUsersCard() {
   const list = typeof getPresenceList === 'function' ? getPresenceList() : [];
-  if (!list.length) {
-    return `<div class="card settings-section"><h3>🟢 Сейчас на сайте</h3><p class="catalog-hint">Пока никого не видно. Статус появляется после входа (~40 сек).</p></div>`;
-  }
-  const rows = list.map(u => {
+  const blocked = Array.isArray(state.blockedIps) ? state.blockedIps : [];
+  const rows = list.length ? list.map(u => {
     const when = u.lastSeen ? new Date(u.lastSeen).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '—';
     const page = u.page ? escapeHtml(u.page) : '—';
+    const ip = u.ip ? escapeHtml(u.ip) : '—';
+    const guestBadge = u.isGuest ? '<span class="badge">гость</span>' : '';
+    const blockBtn = (u.ip && isAdminUser())
+      ? (blocked.indexOf(u.ip) >= 0
+          ? `<button class="btn btn-outline btn-sm" data-action="unblock-ip" data-ip="${escapeAttr(u.ip)}">Разблок.</button>`
+          : `<button class="btn btn-danger btn-sm" data-action="block-ip" data-ip="${escapeAttr(u.ip)}" data-name="${escapeAttr(u.name)}">Блок IP</button>`)
+      : '';
     return `<div class="team-row presence-row">
       <div>
         <span class="presence-dot ${u.online ? 'online' : 'offline'}"></span>
         <strong>${escapeHtml(u.name)}</strong>
+        ${guestBadge}
         <span class="badge ${u.online ? 'badge-teal' : ''}">${u.online ? 'онлайн' : 'офлайн'}</span>
       </div>
-      <div class="field-hint">${u.online ? 'раздел: ' + page : 'был(а): ' + when}</div>
+      <div class="field-hint">${u.online ? 'раздел: ' + page : 'был(а): ' + when} · IP: ${ip}</div>
+      <div class="team-row-actions">${blockBtn}</div>
     </div>`;
-  }).join('');
+  }).join('') : '<p class="catalog-hint">Пока никого не видно. Гости появляются в течение ~40 сек после входа.</p>';
+
+  const blockedRows = blocked.length
+    ? blocked.map(ip => `<div class="team-row">
+        <div><code>${escapeHtml(ip)}</code></div>
+        <div class="team-row-actions">
+          <button class="btn btn-outline btn-sm" data-action="unblock-ip" data-ip="${escapeAttr(ip)}">Разблокировать</button>
+        </div>
+      </div>`).join('')
+    : '<p class="catalog-hint">Нет заблокированных IP</p>';
+
   return `<div class="card settings-section">
     <h3>🟢 Сейчас на сайте</h3>
-    <p class="catalog-hint" style="margin-bottom:12px">Онлайн — активность за последние 3 минуты.</p>
+    <p class="catalog-hint" style="margin-bottom:12px">Онлайн — активность за 3 мин. Гости и IP видны здесь.</p>
     <div class="team-list">${rows}</div>
     <div class="actions-row" style="margin-top:12px">
       <button class="btn btn-outline btn-sm" data-action="refresh-presence">Обновить список</button>
+    </div>
+  </div>
+  <div class="card settings-section">
+    <h3>🚫 Блок по IP</h3>
+    <p class="catalog-hint" style="margin-bottom:12px">Заблокированный IP не сможет войти (в т.ч. гостем). Имя гостя привязано к IP.</p>
+    <div class="team-list">${blockedRows}</div>
+    <div class="form-group" style="margin-top:12px">
+      <label>Добавить IP вручную</label>
+      <div class="actions-row">
+        <input type="text" id="manualBlockIp" placeholder="например 1.2.3.4" style="flex:1">
+        <button class="btn btn-danger btn-sm" data-action="block-ip-manual">Заблокировать</button>
+      </div>
     </div>
   </div>`;
 }
@@ -15279,6 +15470,23 @@ function handleClick(e) {
     case 'save-cloud': saveCloudConfig(); break;
     case 'disconnect-cloud': disconnectCloud(); break;
     case 'sync-now': syncNow(); break;
+    case 'block-ip':
+      Promise.resolve(blockIpAdmin(el.dataset.ip, el.dataset.name)).then(() => {
+        if (state.currentPage === 'admin') render();
+      });
+      break;
+    case 'block-ip-manual': {
+      const ip = (document.getElementById('manualBlockIp')?.value || '').trim();
+      Promise.resolve(blockIpAdmin(ip)).then(() => {
+        if (state.currentPage === 'admin') render();
+      });
+      break;
+    }
+    case 'unblock-ip':
+      Promise.resolve(unblockIpAdmin(el.dataset.ip)).then(() => {
+        if (state.currentPage === 'admin') render();
+      });
+      break;
     case 'save-guest-login-setting': {
       const elCb = document.getElementById('cfgGuestLogin');
       const on = !!(elCb && elCb.checked);

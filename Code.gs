@@ -364,6 +364,8 @@ function flattenExtrasOnto_(out, extras) {
   if (extras.userPerms) out.userPerms = extras.userPerms;
   if (extras.newbieGuide) out.newbieGuide = extras.newbieGuide;
   if (extras.guestLoginEnabled !== undefined) out.guestLoginEnabled = extras.guestLoginEnabled;
+  if (extras.blockedIps) out.blockedIps = extras.blockedIps;
+  if (extras.guestIpMap) out.guestIpMap = extras.guestIpMap;
   return out;
 }
 
@@ -397,6 +399,8 @@ function readAll_() {
   if (extras.userPerms) out.userPerms = extras.userPerms;
   if (extras.newbieGuide) out.newbieGuide = extras.newbieGuide;
   if (extras.guestLoginEnabled !== undefined) out.guestLoginEnabled = extras.guestLoginEnabled;
+  if (extras.blockedIps) out.blockedIps = extras.blockedIps;
+  if (extras.guestIpMap) out.guestIpMap = extras.guestIpMap;
     }
     return out;
   }
@@ -713,6 +717,14 @@ function setGuestLoginEnabled_(enabled) {
   try {
     var extras = readExtras_() || {};
     extras.guestLoginEnabled = on;
+    // при выключении — вычищаем гостей из presence (кик)
+    if (!on && extras.presence && typeof extras.presence === 'object') {
+      Object.keys(extras.presence).forEach(function(k) {
+        if (k.indexOf('Гость:') === 0 || (extras.presence[k] && extras.presence[k].isGuest)) {
+          delete extras.presence[k];
+        }
+      });
+    }
     writeExtras_(extras);
   } catch (e2) {}
   return { ok: true, guestLoginEnabled: on };
@@ -740,13 +752,19 @@ function doGet(e) {
           if (typeof exMeta.guestLoginEnabled === 'boolean') guestOn = exMeta.guestLoginEnabled;
         } catch (e3) {}
       }
+      var blockedMeta = [];
+      try {
+        var exB = readExtras_() || {};
+        if (Array.isArray(exB.blockedIps)) blockedMeta = exB.blockedIps;
+      } catch (eB) {}
       return jsonOut_({
         ok: true,
         op: 'meta',
         updatedAt: meta.updatedAt || 0,
         count: meta.count || 0,
         extrasStamp: stamp,
-        guestLoginEnabled: guestOn
+        guestLoginEnabled: guestOn,
+        blockedIps: blockedMeta
       });
     }
     return jsonOut_(readAll_());
@@ -802,12 +820,37 @@ function doPost(e) {
     if (op === 'heartbeat') {
       var uname = String(parsed.user || parsed.name || '');
       if (!uname) return jsonOut_({ ok: false, error: 'no user' });
+      var ipHb = String(parsed.ip || '');
+      var isGuestHb = !!parsed.isGuest || uname.indexOf('Гость:') === 0;
       var extrasHb = readExtras_() || {};
       if (!extrasHb.presence || typeof extrasHb.presence !== 'object') extrasHb.presence = {};
+      if (!Array.isArray(extrasHb.blockedIps)) extrasHb.blockedIps = [];
+      if (!extrasHb.guestIpMap || typeof extrasHb.guestIpMap !== 'object') extrasHb.guestIpMap = {};
+
+      var guestOnHb = true;
+      try {
+        var metaHb = JSON.parse(String(dataSheet_().getRange('A1').getValue() || '{}'));
+        if (typeof metaHb.guestLoginEnabled === 'boolean') guestOnHb = metaHb.guestLoginEnabled;
+        else if (typeof extrasHb.guestLoginEnabled === 'boolean') guestOnHb = extrasHb.guestLoginEnabled;
+      } catch (eHb) {
+        if (typeof extrasHb.guestLoginEnabled === 'boolean') guestOnHb = extrasHb.guestLoginEnabled;
+      }
+
+      if (ipHb && extrasHb.blockedIps.indexOf(ipHb) >= 0) {
+        return jsonOut_({ ok: false, blocked: true, reason: 'IP blocked', guestLoginEnabled: guestOnHb, blockedIps: extrasHb.blockedIps });
+      }
+      if (isGuestHb && !guestOnHb) {
+        // выкинуть гостя: убрать из presence
+        try { delete extrasHb.presence[uname]; writeExtras_(extrasHb); } catch (eDel) {}
+        return jsonOut_({ ok: true, kick: true, reason: 'guest login disabled', guestLoginEnabled: false, presence: extrasHb.presence || {} });
+      }
+
       extrasHb.presence[uname] = {
         lastSeen: Number(parsed.lastSeen) || Date.now(),
         page: String(parsed.page || ''),
-        name: uname
+        name: uname,
+        ip: ipHb,
+        isGuest: isGuestHb
       };
       var nowHb = Date.now();
       Object.keys(extrasHb.presence).forEach(function(k) {
@@ -815,7 +858,93 @@ function doPost(e) {
         if (!ls || nowHb - ls > 24 * 3600 * 1000) delete extrasHb.presence[k];
       });
       writeExtras_(extrasHb);
-      return jsonOut_({ ok: true, presence: extrasHb.presence });
+      return jsonOut_({
+        ok: true,
+        presence: extrasHb.presence,
+        guestLoginEnabled: guestOnHb,
+        blockedIps: extrasHb.blockedIps
+      });
+    }
+
+    if (op === 'registerGuest') {
+      var ipRg = String(parsed.ip || '');
+      var nameRg = String(parsed.name || '').replace(/^Гость:\s*/, '').trim();
+      if (!ipRg) return jsonOut_({ ok: false, error: 'no ip' });
+      if (!nameRg || nameRg.length < 2) return jsonOut_({ ok: false, error: 'no name' });
+      var extrasRg = readExtras_() || {};
+      if (!Array.isArray(extrasRg.blockedIps)) extrasRg.blockedIps = [];
+      if (!extrasRg.guestIpMap || typeof extrasRg.guestIpMap !== 'object') extrasRg.guestIpMap = {};
+      var guestOnRg = true;
+      try {
+        var metaRg = JSON.parse(String(dataSheet_().getRange('A1').getValue() || '{}'));
+        if (typeof metaRg.guestLoginEnabled === 'boolean') guestOnRg = metaRg.guestLoginEnabled;
+        else if (typeof extrasRg.guestLoginEnabled === 'boolean') guestOnRg = extrasRg.guestLoginEnabled;
+      } catch (eRg) {}
+      if (!guestOnRg) return jsonOut_({ ok: false, error: 'guest disabled', guestLoginEnabled: false });
+      if (extrasRg.blockedIps.indexOf(ipRg) >= 0) return jsonOut_({ ok: false, blocked: true, error: 'IP blocked' });
+      // имя уже привязано к IP — только оно
+      if (extrasRg.guestIpMap[ipRg] && extrasRg.guestIpMap[ipRg].name) {
+        return jsonOut_({
+          ok: true,
+          bound: true,
+          name: extrasRg.guestIpMap[ipRg].name,
+          display: 'Гость: ' + extrasRg.guestIpMap[ipRg].name
+        });
+      }
+      extrasRg.guestIpMap[ipRg] = { name: nameRg, createdAt: Date.now() };
+      writeExtras_(extrasRg);
+      return jsonOut_({
+        ok: true,
+        bound: false,
+        name: nameRg,
+        display: 'Гость: ' + nameRg
+      });
+    }
+
+    if (op === 'blockIp') {
+      var ipB = String(parsed.ip || '').trim();
+      if (!ipB) return jsonOut_({ ok: false, error: 'no ip' });
+      var extrasB = readExtras_() || {};
+      if (!Array.isArray(extrasB.blockedIps)) extrasB.blockedIps = [];
+      if (extrasB.blockedIps.indexOf(ipB) < 0) extrasB.blockedIps.push(ipB);
+      // убрать presence с этим IP
+      if (extrasB.presence && typeof extrasB.presence === 'object') {
+        Object.keys(extrasB.presence).forEach(function(k) {
+          if (extrasB.presence[k] && extrasB.presence[k].ip === ipB) delete extrasB.presence[k];
+        });
+      }
+      writeExtras_(extrasB);
+      return jsonOut_({ ok: true, blockedIps: extrasB.blockedIps });
+    }
+
+    if (op === 'unblockIp') {
+      var ipU = String(parsed.ip || '').trim();
+      var extrasU = readExtras_() || {};
+      if (!Array.isArray(extrasU.blockedIps)) extrasU.blockedIps = [];
+      extrasU.blockedIps = extrasU.blockedIps.filter(function(x) { return x !== ipU; });
+      writeExtras_(extrasU);
+      return jsonOut_({ ok: true, blockedIps: extrasU.blockedIps });
+    }
+
+    if (op === 'lookupGuestIp') {
+      var ipL = String(parsed.ip || '').trim();
+      var extrasL = readExtras_() || {};
+      if (!Array.isArray(extrasL.blockedIps)) extrasL.blockedIps = [];
+      if (!extrasL.guestIpMap || typeof extrasL.guestIpMap !== 'object') extrasL.guestIpMap = {};
+      var guestOnL = true;
+      try {
+        var metaL = JSON.parse(String(dataSheet_().getRange('A1').getValue() || '{}'));
+        if (typeof metaL.guestLoginEnabled === 'boolean') guestOnL = metaL.guestLoginEnabled;
+      } catch (eL) {}
+      if (typeof extrasL.guestLoginEnabled === 'boolean') guestOnL = extrasL.guestLoginEnabled;
+      var bound = extrasL.guestIpMap[ipL] || null;
+      return jsonOut_({
+        ok: true,
+        guestLoginEnabled: guestOnL,
+        blocked: extrasL.blockedIps.indexOf(ipL) >= 0,
+        boundName: bound && bound.name ? bound.name : '',
+        blockedIps: extrasL.blockedIps
+      });
     }
 
     // Только extras (цели, авто, справка, звонки-мета, лидерборд) — без перезаписи скриптов
