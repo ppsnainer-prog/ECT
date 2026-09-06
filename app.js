@@ -4690,6 +4690,8 @@ let state = {
   blockedIps: [],
   guestIpMap: {},
   visitLog: [],
+  announcements: [],
+
   newbieQuery: '',
   newbieOpenId: '',
   refInfo: [],
@@ -5307,6 +5309,7 @@ function showAppAfterLogin(user) {
   state.currentUser = user;
   try { startPresenceHeartbeat(); } catch (_) {}
   try { if (isGuestSession()) startGuestWatchdog(); else stopGuestWatchdog(); } catch (_) {}
+  try { setTimeout(() => renderAnnouncementsBanner(), 100); } catch (_) {}
   const login = document.getElementById('loginScreen');
   const appRoot = document.getElementById('app');
   if (login) {
@@ -5326,6 +5329,10 @@ function showAppAfterLogin(user) {
 }
 
 function logout() {
+  try {
+    const host = document.getElementById('announcementsHost');
+    if (host) { host.innerHTML = ''; host.hidden = true; }
+  } catch (_) {}
   try { stopGuestWatchdog(); } catch (_) {}
   try {
     sessionStorage.removeItem('ect_is_guest_v1');
@@ -6049,6 +6056,7 @@ function buildCloudExtras() {
     blockedIps: Array.isArray(state.blockedIps) ? state.blockedIps : [],
     guestIpMap: (state.guestIpMap && typeof state.guestIpMap === 'object') ? state.guestIpMap : {},
     visitLog: Array.isArray(state.visitLog) ? state.visitLog : [],
+    announcements: Array.isArray(state.announcements) ? state.announcements : [],
   };
     })(),
     presence: (function() {
@@ -6132,7 +6140,11 @@ function applyCloudRecord(remote) {
   }
   if (Array.isArray(ex.blockedIps)) state.blockedIps = ex.blockedIps;
   if (ex.guestIpMap && typeof ex.guestIpMap === 'object') state.guestIpMap = ex.guestIpMap;
-  if (Array.isArray(ex.visitLog)) state.visitLog = ex.visitLog; else if (Array.isArray(remote.newbieGuide)) {
+  if (Array.isArray(ex.visitLog)) state.visitLog = ex.visitLog;
+  if (Array.isArray(ex.announcements)) {
+    state.announcements = ex.announcements;
+    try { renderAnnouncementsBanner(); } catch (_) {}
+  } else if (Array.isArray(remote.newbieGuide)) {
     state.newbieGuide = remote.newbieGuide;
     try { localStorage.setItem(NEWBIE_KEY, JSON.stringify(state.newbieGuide)); } catch (_) {}
   } else if (Array.isArray(remote.sharedPenalties)) {
@@ -6813,6 +6825,166 @@ function applyTheme() {
 }
 
 /* ========== UI helpers ========== */
+
+/* ========== Уведомления администратора ========== */
+const ANN_DISMISS_KEY = 'ect_ann_dismissed_v1';
+const ANN_MAX = 20;
+
+function loadDismissedAnnouncements() {
+  try {
+    const raw = localStorage.getItem(ANN_DISMISS_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr.map(String) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveDismissedAnnouncements(ids) {
+  try {
+    localStorage.setItem(ANN_DISMISS_KEY, JSON.stringify(ids.slice(-100)));
+  } catch (_) {}
+}
+
+function dismissAnnouncement(id) {
+  const ids = loadDismissedAnnouncements();
+  if (!ids.includes(String(id))) {
+    ids.push(String(id));
+    saveDismissedAnnouncements(ids);
+  }
+  renderAnnouncementsBanner();
+}
+
+function getActiveAnnouncements() {
+  const list = Array.isArray(state.announcements) ? state.announcements : [];
+  const dismissed = new Set(loadDismissedAnnouncements());
+  return list
+    .filter(a => a && a.id && a.body && !dismissed.has(String(a.id)))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
+function ensureAnnouncementsHost() {
+  let host = document.getElementById('announcementsHost');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'announcementsHost';
+    host.className = 'announcements-host';
+    host.setAttribute('aria-live', 'polite');
+    document.body.appendChild(host);
+  }
+  return host;
+}
+
+function renderAnnouncementsBanner() {
+  const host = ensureAnnouncementsHost();
+  // только когда пользователь уже в приложении
+  const appRoot = document.getElementById('app');
+  if (!appRoot || appRoot.hidden) {
+    host.innerHTML = '';
+    host.hidden = true;
+    return;
+  }
+  const items = getActiveAnnouncements();
+  if (!items.length) {
+    host.innerHTML = '';
+    host.hidden = true;
+    return;
+  }
+  host.hidden = false;
+  host.innerHTML = items.map((a, idx) => {
+    const title = escapeHtml(a.title || 'Уведомление');
+    const body = escapeHtml(a.body || '').replace(/\n/g, '<br>');
+    const when = a.createdAt
+      ? new Date(a.createdAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+      : '';
+    return `<div class="ann-banner" data-ann-id="${escapeAttr(a.id)}" style="z-index:${12000 - idx}">
+      <button type="button" class="ann-close" data-action="dismiss-announcement" data-id="${escapeAttr(a.id)}" aria-label="Закрыть">×</button>
+      <div class="ann-title">${title}</div>
+      <div class="ann-body">${body}</div>
+      ${when ? `<div class="ann-meta">${when}${a.author ? ' · ' + escapeHtml(a.author) : ''}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function publishAnnouncement(title, body) {
+  if (!isAdminUser()) return false;
+  title = String(title || '').trim().slice(0, 120);
+  body = String(body || '').trim().slice(0, 4000);
+  if (!body) {
+    toast('Введите текст уведомления', 'error');
+    return false;
+  }
+  if (!Array.isArray(state.announcements)) state.announcements = [];
+  const item = {
+    id: 'ann_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    title: title || 'Уведомление',
+    body,
+    author: state.currentUser || 'Админ',
+    createdAt: Date.now()
+  };
+  state.announcements.unshift(item);
+  if (state.announcements.length > ANN_MAX) {
+    state.announcements = state.announcements.slice(0, ANN_MAX);
+  }
+  renderAnnouncementsBanner();
+  try {
+    if (typeof scheduleCloudExtrasSave === 'function') scheduleCloudExtrasSave();
+    if (typeof cloudSave === 'function') Promise.resolve(cloudSave()).catch(() => {});
+  } catch (_) {}
+  toast('Уведомление опубликовано');
+  return true;
+}
+
+function deleteAnnouncement(id) {
+  if (!isAdminUser()) return;
+  state.announcements = (state.announcements || []).filter(a => a && a.id !== id);
+  renderAnnouncementsBanner();
+  try {
+    if (typeof scheduleCloudExtrasSave === 'function') scheduleCloudExtrasSave();
+    if (typeof cloudSave === 'function') Promise.resolve(cloudSave()).catch(() => {});
+  } catch (_) {}
+  toast('Уведомление удалено');
+}
+
+function renderAnnouncementsAdminCard() {
+  if (!isAdminUser()) return '';
+  const list = Array.isArray(state.announcements) ? [...state.announcements] : [];
+  list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const rows = list.length
+    ? list.map(a => {
+        const when = a.createdAt ? new Date(a.createdAt).toLocaleString('ru-RU') : '—';
+        return `<div class="team-row">
+          <div>
+            <strong>${escapeHtml(a.title || 'Уведомление')}</strong>
+            <div class="field-hint">${escapeHtml((a.body || '').slice(0, 120))}${(a.body || '').length > 120 ? '…' : ''}</div>
+            <div class="field-hint">${when}</div>
+          </div>
+          <div class="team-row-actions">
+            <button class="btn btn-danger btn-sm" data-action="delete-announcement" data-id="${escapeAttr(a.id)}">Удалить</button>
+          </div>
+        </div>`;
+      }).join('')
+    : '<p class="catalog-hint">Пока нет уведомлений</p>';
+
+  return `<div class="card settings-section">
+    <h3>📣 Уведомления для всех</h3>
+    <p class="catalog-hint" style="margin-bottom:12px">Сообщение увидят все, кто зайдёт на сайт. Закрывается только крестиком у каждого пользователя.</p>
+    <div class="form-group">
+      <label>Заголовок</label>
+      <input type="text" id="annTitle" placeholder="Например: Обновление сайта" maxlength="120">
+    </div>
+    <div class="form-group">
+      <label>Текст</label>
+      <textarea id="annBody" rows="5" placeholder="Что нового:&#10;— пункт 1&#10;— пункт 2" maxlength="4000"></textarea>
+    </div>
+    <div class="actions-row">
+      <button class="btn btn-primary btn-sm" data-action="publish-announcement">📢 Опубликовать</button>
+    </div>
+    <div class="team-list" style="margin-top:16px">${rows}</div>
+  </div>`;
+}
+
+
 function toast(msg, type = 'success') {
   const container = document.getElementById('toastContainer');
   const el = document.createElement('div');
@@ -13803,6 +13975,7 @@ function renderAdminPanel() {
       <h3 class="rules-section-title">🛡 Админ-панель</h3>
       <p class="catalog-hint">Онлайн, участники, права, облако и служебные операции.</p>
     </div>
+    ${renderAnnouncementsAdminCard()}
     ${guestBlock}
     ${renderOnlineUsersCard()}
     ${teamBlock}
@@ -15605,6 +15778,21 @@ function handleClick(e) {
         console.log('cloud test', r);
         if (state.currentPage === 'admin') render();
       });
+      break;
+    case 'publish-announcement': {
+      const title = document.getElementById('annTitle')?.value || '';
+      const body = document.getElementById('annBody')?.value || '';
+      if (publishAnnouncement(title, body)) {
+        if (state.currentPage === 'admin') render();
+      }
+      break;
+    }
+    case 'delete-announcement':
+      deleteAnnouncement(el.dataset.id);
+      if (state.currentPage === 'admin') render();
+      break;
+    case 'dismiss-announcement':
+      dismissAnnouncement(el.dataset.id);
       break;
     case 'save-guest-login-setting': {
       const elCb = document.getElementById('cfgGuestLogin');

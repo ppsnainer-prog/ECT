@@ -367,6 +367,7 @@ function flattenExtrasOnto_(out, extras) {
   if (extras.blockedIps) out.blockedIps = extras.blockedIps;
   if (extras.guestIpMap) out.guestIpMap = extras.guestIpMap;
   if (extras.visitLog) out.visitLog = extras.visitLog;
+  if (extras.announcements) out.announcements = extras.announcements;
   return out;
 }
 
@@ -403,6 +404,7 @@ function readAll_() {
   if (extras.blockedIps) out.blockedIps = extras.blockedIps;
   if (extras.guestIpMap) out.guestIpMap = extras.guestIpMap;
   if (extras.visitLog) out.visitLog = extras.visitLog;
+  if (extras.announcements) out.announcements = extras.announcements;
     }
     return out;
   }
