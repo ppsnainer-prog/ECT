@@ -3571,3 +3571,23 @@ input[type="color"] {
   justify-content: flex-end;
   margin-top: 16px;
 }
+
+
+/* Копирование названия авто в карточке */
+.view-value-copy,
+.car-title-copy {
+  cursor: pointer;
+  border-bottom: 1px dashed currentColor;
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+.view-value-copy:hover,
+.car-title-copy:hover {
+  color: var(--accent, #60a5fa);
+  opacity: 0.95;
+}
+.modal-title .car-title-copy {
+  border-bottom-color: transparent;
+}
+.modal-title .car-title-copy:hover {
+  border-bottom-color: currentColor;
+}

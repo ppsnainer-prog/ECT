@@ -13535,16 +13535,42 @@ function doDeleteGoal(userName) {
   render();
 }
 
+async function copyTextToClipboard(text) {
+  const value = String(text || '').trim();
+  if (!value) { toast('Нечего копировать', 'error'); return false; }
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch (_) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = value;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+      return true;
+    } catch (e2) {
+      toast('Не удалось скопировать', 'error');
+      return false;
+    }
+  }
+}
+
 function showViewCarModal(id) {
   ensureCarsModel();
   const c = (state.cars || []).find(x => x.id === id);
   if (!c) { toast('Авто не найдено', 'error'); return; }
+  const fullName = [c.brand, c.model].filter(Boolean).join(' ').trim();
+  const copyAttr = escapeAttr(fullName);
   openModal(
     `${escapeHtml(c.brand)} ${escapeHtml(c.model)}`,
     `<div class="view-card">
       ${c.notInAc ? `<div class="car-ac-warning">⚠ В АЦ НЕТ — по правилам это авто/сегмент обычно не проводится (риск «Не актуально»).</div>` : ''}
-      <div class="view-row"><span class="view-label">Марка</span><span class="view-value">${escapeHtml(c.brand)}</span></div>
-      <div class="view-row"><span class="view-label">Модель</span><span class="view-value">${escapeHtml(c.model)}</span></div>
+      <div class="view-row"><span class="view-label">Марка</span><span class="view-value view-value-copy" data-action="copy-car-name" data-name="${copyAttr}" title="Нажмите, чтобы скопировать">${escapeHtml(c.brand)}</span></div>
+      <div class="view-row"><span class="view-label">Модель</span><span class="view-value view-value-copy" data-action="copy-car-name" data-name="${copyAttr}" title="Нажмите, чтобы скопировать">${escapeHtml(c.model)}</span></div>
       ${c.bodyType ? `<div class="view-row"><span class="view-label">Кузов</span><span class="view-value">${escapeHtml(c.bodyType)}</span></div>` : ''}
       ${c.price ? `<div class="view-row"><span class="view-label">Цена</span><span class="view-value view-price">${escapeHtml(c.price)}</span></div>` : ''}
       ${c.transmission ? `<div class="view-row"><span class="view-label">КПП</span><span class="view-value">${escapeHtml(c.transmission)}</span></div>` : ''}
@@ -15353,6 +15379,13 @@ function handleClick(e) {
       toggleCallPlay(el.dataset.id);
       break;
     case 'view-car': showViewCarModal(el.dataset.id); break;
+    case 'copy-car-name': {
+      const name = el.dataset.name || '';
+      Promise.resolve(copyTextToClipboard(name)).then(ok => {
+        if (ok) toast('Название авто скопировано: ' + name);
+      });
+      break;
+    }
     case 'view-otabotka': showViewOtabotkaModal(el.dataset.id); break;
     case 'add-team-user': showTeamUserModal(null); break;
     case 'refresh-presence':
