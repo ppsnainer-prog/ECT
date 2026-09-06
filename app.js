@@ -5309,7 +5309,6 @@ function showAppAfterLogin(user) {
   state.currentUser = user;
   try { startPresenceHeartbeat(); } catch (_) {}
   try { if (isGuestSession()) startGuestWatchdog(); else stopGuestWatchdog(); } catch (_) {}
-  try { setTimeout(() => renderAnnouncementsBanner(), 100); } catch (_) {}
   const login = document.getElementById('loginScreen');
   const appRoot = document.getElementById('app');
   if (login) {
@@ -5325,6 +5324,23 @@ function showAppAfterLogin(user) {
   applyAccountPermissions();
   if (isCommonAccount() && (state.currentPage === 'goals' || state.currentPage === 'settings')) {
     state.currentPage = 'home';
+  }
+  // сразу подтянуть облако (гости и все пользователи) + уведомления
+  try {
+    if (typeof loadLocalSettings === 'function') loadLocalSettings();
+    if (!state.cloud.enabled && typeof DEFAULT_SHEETS_URL === 'string') {
+      state.cloud.provider = 'sheets';
+      state.cloud.sheetsUrl = DEFAULT_SHEETS_URL;
+      state.cloud.enabled = true;
+    }
+  } catch (_) {}
+  try {
+    Promise.resolve(syncCloudInBackground()).finally(() => {
+      try { renderAnnouncementsBanner(); } catch (_) {}
+      try { if (typeof startAutoSync === 'function') startAutoSync(); } catch (_) {}
+    });
+  } catch (_) {
+    try { setTimeout(() => renderAnnouncementsBanner(), 200); } catch (_2) {}
   }
 }
 
@@ -5469,19 +5485,30 @@ async function startApplication() {
 }
 
 async function syncCloudInBackground() {
+  // гости тоже читают облако (скрипты, уведомления) — запись по-прежнему запрещена
+  try {
+    if (typeof loadLocalSettings === 'function') loadLocalSettings();
+  } catch (_) {}
+  if (!state.cloud.enabled) {
+    // форс-включить чтение по дефолтному URL
+    try {
+      if (typeof DEFAULT_SHEETS_URL === 'string' && DEFAULT_SHEETS_URL) {
+        state.cloud.provider = 'sheets';
+        state.cloud.sheetsUrl = state.cloud.sheetsUrl || DEFAULT_SHEETS_URL;
+        state.cloud.enabled = true;
+      }
+    } catch (_) {}
+  }
   if (!state.cloud.enabled) return;
-  // гости не тянут полный JSON — только heartbeat (иначе таймауты/404 в консоли)
-  if (typeof isGuestSession === 'function' && isGuestSession()) return;
-  if (typeof isGuestUser === 'function' && isGuestUser()) return;
   if (window.__ectCloudSyncing) return;
   window.__ectCloudSyncing = true;
   try {
-    const remote = await cloudFetch({ quiet: true });
+    const remote = await cloudFetch({ quiet: true, force: true });
     if (remote && remote._skipped) return;
-    if (remote && applyCloudRecord(remote)) {
-      try {
-        render();
-      } catch (_) {}
+    if (remote) {
+      applyCloudRecord(remote);
+      try { render(); } catch (_) {}
+      try { renderAnnouncementsBanner(); } catch (_) {}
     }
   } catch (e) {
     console.warn('background cloud sync failed', e);
@@ -5509,6 +5536,15 @@ function loadLocalSettings() {
       state.cloud.useAccessKey = false;
     }
   } catch (e) {}
+  // дефолтный URL, если не настроен (гости и новые устройства читают облако)
+  if (!state.cloud.sheetsUrl || !String(state.cloud.sheetsUrl).includes('script.google.com')) {
+    try {
+      if (typeof DEFAULT_SHEETS_URL === 'string' && DEFAULT_SHEETS_URL) {
+        state.cloud.sheetsUrl = DEFAULT_SHEETS_URL;
+      }
+    } catch (_) {}
+  }
+  if (!state.cloud.provider) state.cloud.provider = 'sheets';
   state.cloud.enabled = state.cloud.provider === 'sheets'
     ? !!(state.cloud.sheetsUrl && state.cloud.sheetsUrl.includes('script.google.com'))
     : !!(state.cloud.binId && state.cloud.apiKey);
@@ -6144,12 +6180,6 @@ function applyCloudRecord(remote) {
   if (Array.isArray(ex.announcements)) {
     state.announcements = ex.announcements;
     try { renderAnnouncementsBanner(); } catch (_) {}
-  } else if (Array.isArray(remote.newbieGuide)) {
-    state.newbieGuide = remote.newbieGuide;
-    try { localStorage.setItem(NEWBIE_KEY, JSON.stringify(state.newbieGuide)); } catch (_) {}
-  } else if (Array.isArray(remote.sharedPenalties)) {
-    state.sharedPenalties = remote.sharedPenalties;
-    try { localStorage.setItem('ect_shared_penalties_v1', JSON.stringify(state.sharedPenalties)); } catch (_) {}
   }
   if (ex.ruleItemTags && typeof ex.ruleItemTags === 'object') {
     state.ruleItemTags = ex.ruleItemTags;
@@ -6214,6 +6244,7 @@ function applyCloudRecord(remote) {
     try { saveLocalScripts(); } catch (_) {}
     try { if (typeof ensureOtabotkiModel === 'function') ensureOtabotkiModel(); } catch (_) {}
   }
+  try { renderAnnouncementsBanner(); } catch (_) {}
   return applied;
 }
 
@@ -6622,8 +6653,18 @@ function stopPresenceHeartbeat() {
 
 function startAutoSync() {
   stopAutoSync();
+  try { if (typeof loadLocalSettings === 'function') loadLocalSettings(); } catch (_) {}
+  if (!state.cloud.enabled) {
+    try {
+      if (typeof DEFAULT_SHEETS_URL === 'string' && DEFAULT_SHEETS_URL) {
+        state.cloud.provider = 'sheets';
+        state.cloud.sheetsUrl = state.cloud.sheetsUrl || DEFAULT_SHEETS_URL;
+        state.cloud.enabled = true;
+      }
+    } catch (_) {}
+  }
   if (!state.cloud.enabled) return;
-  if (typeof isGuestUser === 'function' && isGuestUser()) return;
+  // гости: только чтение через cloudFetch; save блокируется isCommonAccount
   // 45 с — реже бьём Apps Script (квоты + меньше гонок с сохранением)
   syncTimer = setInterval(() => {
     if (document.hidden) return;
@@ -6647,26 +6688,37 @@ function startAutoSync() {
       if (remoteShared !== localShared) changed = true;
 
       if (!changed && remote.extras) {
-        // extras могли обновиться без scripts
         const rGoals = JSON.stringify(remote.goalsStore || (remote.extras && remote.extras.goalsStore) || {});
         const lGoals = JSON.stringify(state.goalsStore || {});
         if (rGoals !== lGoals) changed = true;
+        const rAnn = JSON.stringify(remote.announcements || (remote.extras && remote.extras.announcements) || []);
+        const lAnn = JSON.stringify(state.announcements || []);
+        if (rAnn !== lAnn) changed = true;
+      }
+      // уведомления — всегда подтягиваем extras (дешёво относительно UX)
+      const remoteAnn = remote.announcements || (remote.extras && remote.extras.announcements);
+      if (Array.isArray(remoteAnn)) {
+        const prev = JSON.stringify(state.announcements || []);
+        const next = JSON.stringify(remoteAnn);
+        if (prev !== next) changed = true;
       }
 
       if (!changed) {
         if (remoteAt) state.cloud.lastRemoteUpdatedAt = remoteAt;
+        // всё равно обновим баннеры на случай смены dismiss-локально
+        try { renderAnnouncementsBanner(); } catch (_) {}
         return;
       }
 
       applyCloudRecord(remote);
       try { ensureOtabotkiModel(); } catch (_) {}
       try { saveLocalScripts(); } catch (_) {}
+      try { renderAnnouncementsBanner(); } catch (_) {}
       if (remoteAt) state.cloud.lastRemoteUpdatedAt = remoteAt;
       const p = state.currentPage;
-      if (p === 'scripts' || p === 'home' || p === 'script' || p === 'otabotki' || p === 'goals' || p === 'catalog' || p === 'calls') {
+      if (p === 'scripts' || p === 'home' || p === 'script' || p === 'otabotki' || p === 'goals' || p === 'catalog' || p === 'calls' || p === 'admin' || p === 'newbie' || p === 'rules') {
         render();
       }
-      // без тоста при каждом автообновлении — меньше шума
     });
   }, 45000);
 }
