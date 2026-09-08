@@ -1,5 +1,6 @@
 /**
- * ЕЦТ Скрипты v2.6 — единый список отработок + привязка к скриптам
+ * ЕЦТ Скрипты v2.6.1 — единый список отработок + привязка к скриптам
+ * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
 
@@ -4956,7 +4957,7 @@ function startGuestWatchdog() {
     } catch (_) {}
   };
   tick();
-  __guestWatchTimer = setInterval(tick, 20000);
+  __guestWatchTimer = setInterval(tick, 30000);
 }
 
 function stopGuestWatchdog() {
@@ -5859,15 +5860,31 @@ function isAbortError(e) {
   return /aborted|timeout|AbortError/i.test(msg);
 }
 
+// Клиентский кэш последнего meta — не долбим Apps Script чаще ~12 сек
+let __lastMetaAt = 0;
+let __lastMetaPayload = null;
+const META_CLIENT_TTL = 12000;
+
 async function cloudFetchOnce(url, opts) {
+  const force = !!(opts && opts.force);
   // Сначала лёгкий meta (updatedAt) — не качаем весь JSON зря
   try {
-    const metaRes = await fetchWithTimeout(url + (url.includes('?') ? '&' : '?') + 'op=meta', { method: 'GET' }, 12000);
-    if (metaRes.ok) {
-      const meta = await metaRes.json();
-      const remoteAt = Number(meta && meta.updatedAt) || 0;
+    let meta = null;
+    const now = Date.now();
+    if (!force && __lastMetaPayload && (now - __lastMetaAt) < META_CLIENT_TTL) {
+      meta = __lastMetaPayload;
+    } else {
+      const metaRes = await fetchWithTimeout(url + (url.includes('?') ? '&' : '?') + 'op=meta', { method: 'GET' }, 10000);
+      if (metaRes.ok) {
+        meta = await metaRes.json();
+        __lastMetaAt = now;
+        __lastMetaPayload = meta;
+      }
+    }
+    if (meta) {
+      const remoteAt = Number(meta.updatedAt) || 0;
       const localAt = Number(state.cloud.lastRemoteUpdatedAt) || 0;
-      if (remoteAt && localAt && remoteAt <= localAt && !(opts && opts.force)) {
+      if (!force && remoteAt && localAt && remoteAt <= localAt) {
         return { skip: true, remoteAt };
       }
     }
@@ -5879,6 +5896,15 @@ async function cloudFetchOnce(url, opts) {
   const json = await res.json();
   if (json && json.error) throw new Error(json.error);
   const record = json.record || json;
+  if (record && record.updatedAt) {
+    __lastMetaAt = Date.now();
+    __lastMetaPayload = {
+      ok: true,
+      op: 'meta',
+      updatedAt: record.updatedAt,
+      count: Array.isArray(record.scripts) ? record.scripts.length : (Number(record.count) || 0)
+    };
+  }
   return { record };
 }
 
@@ -5888,7 +5914,7 @@ async function cloudFetch(opts) {
   const force = opts && opts.force;
   // Не перетираем локальные правки, которые только что ушли в облако
   // (ручной «Синхронизировать» с force — всегда читаем)
-  if (!force && state.cloud.lastLocalWrite && Date.now() - state.cloud.lastLocalWrite < 8000) {
+  if (!force && state.cloud.lastLocalWrite && Date.now() - state.cloud.lastLocalWrite < 15000) {
     return { _skipped: 'local_write' };
   }
   if (!quiet) {
@@ -6311,6 +6337,7 @@ async function cloudSaveExtrasOnly() {
       throw new Error(posted.json.error || 'saveExtras failed');
     }
     state.cloud.lastLocalWrite = Date.now();
+    __lastMetaAt = 0; __lastMetaPayload = null;
     if (posted.json && posted.json.updatedAt) {
       state.cloud.lastRemoteUpdatedAt = posted.json.updatedAt;
     } else {
@@ -6356,7 +6383,7 @@ function scheduleCloudSave() {
     __pendingFullSave = false;
     __pendingExtrasSave = false; // full save включает extras
     enqueueCloud(() => cloudSave());
-  }, 2000);
+  }, 2500);
 }
 
 /** Только extras — без перезаписи всех скриптов */
@@ -6469,6 +6496,7 @@ async function cloudSave() {
       state.cloud.status = 'ok';
       state.cloud.lastSync = Date.now();
       state.cloud.lastLocalWrite = Date.now();
+    __lastMetaAt = 0; __lastMetaPayload = null;
       updateSyncBadge();
       return true;
     }
@@ -6708,7 +6736,7 @@ function startAutoSync() {
   }
   if (!state.cloud.enabled) return;
   // гости: только чтение через cloudFetch; save блокируется isCommonAccount
-  // 45 с — реже бьём Apps Script (квоты + меньше гонок с сохранением)
+  // 90 с — реже бьём Apps Script (квоты + меньше гонок с сохранением)
   syncTimer = setInterval(() => {
     if (document.hidden) return;
     if (__cloudBusy || __pendingFullSave || __pendingExtrasSave) return;
@@ -6763,7 +6791,7 @@ function startAutoSync() {
         render();
       }
     });
-  }, 45000);
+  }, 90000);
 }
 
 function stopAutoSync() {
