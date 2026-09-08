@@ -2002,1753 +2002,1752 @@ const DEFAULT_CARS = [
       "ev",
       "электромобили"
     ]
-  }
-,
-{
-  "id": "car_n1",
-  "brand": "Chery",
-  "model": "Tiggo 7 Pro",
-  "price": "2 200 000 ₽",
-  "transmission": "Вариатор",
-  "description": "Популярный кроссовер, богатая комплектация.",
-  "country": "CHN",
-  "engine": "1.5 турбо",
-  "power": "147 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "чери",
-    "chery",
-    "tiggo",
-    "тигго",
-    "кроссовер"
-  ]
-},
-{
-  "id": "car_n2",
-  "brand": "Chery",
-  "model": "Tiggo 4",
-  "price": "1 850 000 ₽",
-  "transmission": "Механика / Вариатор",
-  "description": "Компактный кроссовер для города.",
-  "country": "CHN",
-  "engine": "1.5 л",
-  "power": "113 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "чери",
-    "chery",
-    "tiggo 4",
-    "тигго"
-  ]
-},
-{
-  "id": "car_n3",
-  "brand": "Chery",
-  "model": "Arrizo 8",
-  "price": "2 400 000 ₽",
-  "transmission": "Робот",
-  "description": "Бизнес-седан, просторный салон.",
-  "country": "CHN",
-  "engine": "1.6 турбо",
-  "power": "186 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Седан",
-  "tags": [
-    "чери",
-    "arrizo",
-    "аризо",
-    "седан"
-  ]
-},
-{
-  "id": "car_n4",
-  "brand": "Haval",
-  "model": "Jolion",
-  "price": "2 100 000 ₽",
-  "transmission": "Робот",
-  "description": "Стильный кроссовер, полный/передний привод.",
-  "country": "CHN",
-  "engine": "1.5 турбо",
-  "power": "143 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "хавал",
-    "haval",
-    "jolion",
-    "джолион"
-  ]
-},
-{
-  "id": "car_n5",
-  "brand": "Haval",
-  "model": "Dargo",
-  "price": "2 800 000 ₽",
-  "transmission": "Робот",
-  "description": "Рамный характер, высокий клиренс.",
-  "country": "CHN",
-  "engine": "2.0 турбо",
-  "power": "192 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "хавал",
-    "dargo",
-    "дарго"
-  ]
-},
-{
-  "id": "car_n6",
-  "brand": "Haval",
-  "model": "F7",
-  "price": "2 500 000 ₽",
-  "transmission": "Робот",
-  "description": "Семейный кроссовер.",
-  "country": "CHN",
-  "engine": "1.5/2.0 турбо",
-  "power": "150–190 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "хавал",
-    "f7"
-  ]
-},
-{
-  "id": "car_n7",
-  "brand": "Geely",
-  "model": "Coolray",
-  "price": "2 150 000 ₽",
-  "transmission": "Робот",
-  "description": "Динамичный кроссовер.",
-  "country": "CHN",
-  "engine": "1.5 турбо",
-  "power": "150 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "джили",
-    "geely",
-    "coolray",
-    "кулрей"
-  ]
-},
-{
-  "id": "car_n8",
-  "brand": "Geely",
-  "model": "Monjaro",
-  "price": "3 900 000 ₽",
-  "transmission": "Автомат",
-  "description": "Флагманский кроссовер Geely.",
-  "country": "CHN",
-  "engine": "2.0 турбо",
-  "power": "238 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "джили",
-    "monjaro",
-    "монжаро"
-  ]
-},
-{
-  "id": "car_n9",
-  "brand": "Geely",
-  "model": "Atlas Pro",
-  "price": "2 700 000 ₽",
-  "transmission": "Робот",
-  "description": "Просторный семейный кроссовер.",
-  "country": "CHN",
-  "engine": "1.5 турбо",
-  "power": "177 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "джили",
-    "atlas",
-    "атлас"
-  ]
-},
-{
-  "id": "car_n10",
-  "brand": "Changan",
-  "model": "UNI-V",
-  "price": "2 300 000 ₽",
-  "transmission": "Робот",
-  "description": "Спортивный лифтбек.",
-  "country": "CHN",
-  "engine": "1.5 турбо",
-  "power": "181 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Седан",
-  "tags": [
-    "чанган",
-    "changan",
-    "uni-v",
-    "юни"
-  ]
-},
-{
-  "id": "car_n11",
-  "brand": "Changan",
-  "model": "CS55 Plus",
-  "price": "2 200 000 ₽",
-  "transmission": "Автомат",
-  "description": "Кроссовер с ярким дизайном.",
-  "country": "CHN",
-  "engine": "1.5 турбо",
-  "power": "181 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "чанган",
-    "cs55"
-  ]
-},
-{
-  "id": "car_n12",
-  "brand": "Omoda",
-  "model": "C5",
-  "price": "2 250 000 ₽",
-  "transmission": "Вариатор",
-  "description": "Стильный городской кроссовер.",
-  "country": "CHN",
-  "engine": "1.5 турбо",
-  "power": "147 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "омода",
-    "omoda",
-    "c5"
-  ]
-},
-{
-  "id": "car_n13",
-  "brand": "Omoda",
-  "model": "S5",
-  "price": "1 950 000 ₽",
-  "transmission": "Вариатор",
-  "description": "Седан нового бренда.",
-  "country": "CHN",
-  "engine": "1.5 турбо",
-  "power": "147 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Седан",
-  "tags": [
-    "омода",
-    "s5"
-  ]
-},
-{
-  "id": "car_n14",
-  "brand": "Exeed",
-  "model": "TXL",
-  "price": "3 800 000 ₽",
-  "transmission": "Робот",
-  "description": "Премиальный кроссовер Chery Exeed.",
-  "country": "CHN",
-  "engine": "1.6/2.0 турбо",
-  "power": "186–249 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "эксид",
-    "exeed",
-    "txl"
-  ]
-},
-{
-  "id": "car_n15",
-  "brand": "Exeed",
-  "model": "RX",
-  "price": "4 200 000 ₽",
-  "transmission": "Робот",
-  "description": "Флагман Exeed.",
-  "country": "CHN",
-  "engine": "2.0 турбо",
-  "power": "249 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "эксид",
-    "rx"
-  ]
-},
-{
-  "id": "car_n16",
-  "brand": "Belgee",
-  "model": "X50",
-  "price": "1 750 000 ₽",
-  "transmission": "Вариатор",
-  "description": "Доступный кроссовер (Geely).",
-  "country": "CHN",
-  "engine": "1.5 л",
-  "power": "102–150 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "белджи",
-    "belgee",
-    "x50"
-  ]
-},
-{
-  "id": "car_n17",
-  "brand": "Belgee",
-  "model": "X70",
-  "price": "2 100 000 ₽",
-  "transmission": "Робот",
-  "description": "Среднеразмерный кроссовер.",
-  "country": "CHN",
-  "engine": "1.5 турбо",
-  "power": "150 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "белджи",
-    "x70"
-  ]
-},
-{
-  "id": "car_n18",
-  "brand": "Moskvich",
-  "model": "3",
-  "price": "1 900 000 ₽",
-  "transmission": "Механика / Автомат",
-  "description": "Городской кроссовер.",
-  "country": "RUS",
-  "engine": "1.5 л",
-  "power": "136–150 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "москвич",
-    "moskvich",
-    "3"
-  ]
-},
-{
-  "id": "car_n19",
-  "brand": "Moskvich",
-  "model": "6",
-  "price": "2 400 000 ₽",
-  "transmission": "Робот",
-  "description": "Седан Москвич.",
-  "country": "RUS",
-  "engine": "1.5 турбо",
-  "power": "150 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Седан",
-  "tags": [
-    "москвич",
-    "6"
-  ]
-},
-{
-  "id": "car_n20",
-  "brand": "UAZ",
-  "model": "Patriot",
-  "price": "1 600 000 ₽",
-  "transmission": "Механика / Автомат",
-  "description": "Рамный внедорожник.",
-  "country": "RUS",
-  "engine": "2.7 л",
-  "power": "150 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Внедорожник / SUV",
-  "tags": [
-    "уаз",
-    "uaz",
-    "patriot",
-    "патриот"
-  ]
-},
-{
-  "id": "car_n21",
-  "brand": "UAZ",
-  "model": "Hunter",
-  "price": "1 250 000 ₽",
-  "transmission": "Механика",
-  "description": "Классика бездорожья.",
-  "country": "RUS",
-  "engine": "2.7 л",
-  "power": "135 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Внедорожник / SUV",
-  "tags": [
-    "уаз",
-    "hunter",
-    "хантер"
-  ]
-},
-{
-  "id": "car_n22",
-  "brand": "Toyota",
-  "model": "Camry",
-  "price": "3 800 000 ₽",
-  "transmission": "Автомат",
-  "description": "Бизнес-седан, высокий спрос.",
-  "country": "JPN",
-  "engine": "2.5 / 3.5 л",
-  "power": "181–249 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Седан",
-  "tags": [
-    "тойота",
-    "toyota",
-    "camry",
-    "камри",
-    "седан"
-  ]
-},
-{
-  "id": "car_n23",
-  "brand": "Toyota",
-  "model": "RAV4",
-  "price": "4 200 000 ₽",
-  "transmission": "Вариатор",
-  "description": "Популярный кроссовер.",
-  "country": "JPN",
-  "engine": "2.0 / 2.5",
-  "power": "149–199 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "тойота",
-    "rav4",
-    "рав4"
-  ]
-},
-{
-  "id": "car_n24",
-  "brand": "Toyota",
-  "model": "Land Cruiser 300",
-  "price": "9 500 000 ₽",
-  "transmission": "Автомат",
-  "description": "Премиальный рамный внедорожник.",
-  "country": "JPN",
-  "engine": "3.5 турбо",
-  "power": "415 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Внедорожник / SUV",
-  "tags": [
-    "тойота",
-    "land cruiser",
-    "крузак",
-    "300"
-  ]
-},
-{
-  "id": "car_n25",
-  "brand": "Lexus",
-  "model": "RX",
-  "price": "7 500 000 ₽",
-  "transmission": "Автомат",
-  "description": "Премиальный кроссовер.",
-  "country": "JPN",
-  "engine": "2.4 турбо / hybrid",
-  "power": "299+ л.с.",
-  "fuel": "АИ-95 / гибрид",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "лексус",
-    "lexus",
-    "rx"
-  ]
-},
-{
-  "id": "car_n26",
-  "brand": "Lexus",
-  "model": "LX",
-  "price": "12 000 000 ₽",
-  "transmission": "Автомат",
-  "description": "Флагман Lexus.",
-  "country": "JPN",
-  "engine": "3.5 турбо",
-  "power": "415 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Внедорожник / SUV",
-  "tags": [
-    "лексус",
-    "lx"
-  ]
-},
-{
-  "id": "car_n27",
-  "brand": "Hyundai",
-  "model": "Solaris",
-  "price": "1 550 000 ₽",
-  "transmission": "Механика / Автомат",
-  "description": "Массовый седан.",
-  "country": "KOR",
-  "engine": "1.4 / 1.6",
-  "power": "100–123 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Седан",
-  "tags": [
-    "хендай",
-    "hyundai",
-    "solaris",
-    "солярис"
-  ]
-},
-{
-  "id": "car_n28",
-  "brand": "Hyundai",
-  "model": "Creta",
-  "price": "2 100 000 ₽",
-  "transmission": "Механика / Автомат",
-  "description": "Бестселлер-кроссовер.",
-  "country": "KOR",
-  "engine": "1.6 / 2.0",
-  "power": "123–149 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "хендай",
-    "creta",
-    "крета"
-  ]
-},
-{
-  "id": "car_n29",
-  "brand": "Hyundai",
-  "model": "Tucson",
-  "price": "3 200 000 ₽",
-  "transmission": "Автомат",
-  "description": "Среднеразмерный кроссовер.",
-  "country": "KOR",
-  "engine": "2.0 / 2.5",
-  "power": "150–190 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "хендай",
-    "tucson",
-    "туссан",
-    "тусон"
-  ]
-},
-{
-  "id": "car_n30",
-  "brand": "Kia",
-  "model": "Rio",
-  "price": "1 500 000 ₽",
-  "transmission": "Механика / Автомат",
-  "description": "Городской седан/хетч.",
-  "country": "KOR",
-  "engine": "1.4 / 1.6",
-  "power": "100–123 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Седан",
-  "tags": [
-    "киа",
-    "kia",
-    "rio",
-    "рио"
-  ]
-},
-{
-  "id": "car_n31",
-  "brand": "Kia",
-  "model": "Sportage",
-  "price": "3 100 000 ₽",
-  "transmission": "Автомат",
-  "description": "Популярный кроссовер Kia.",
-  "country": "KOR",
-  "engine": "2.0 / 2.5",
-  "power": "150–190 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "киа",
-    "sportage",
-    "спортейдж"
-  ]
-},
-{
-  "id": "car_n32",
-  "brand": "Kia",
-  "model": "Carnival",
-  "price": "4 500 000 ₽",
-  "transmission": "Автомат",
-  "description": "Семейный минивэн.",
-  "country": "KOR",
-  "engine": "2.2 дизель / 3.5",
-  "power": "199–249 л.с.",
-  "fuel": "ДТ / АИ-95",
-  "bodyType": "Компактвэн",
-  "tags": [
-    "киа",
-    "carnival",
-    "карнавал",
-    "минивэн"
-  ]
-},
-{
-  "id": "car_n33",
-  "brand": "Volkswagen",
-  "model": "Polo",
-  "price": "1 600 000 ₽",
-  "transmission": "Механика / Автомат",
-  "description": "Народный седан/лифтбек.",
-  "country": "DEU",
-  "engine": "1.6 л",
-  "power": "90–110 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Седан",
-  "tags": [
-    "фольксваген",
-    "vw",
-    "polo",
-    "поло"
-  ]
-},
-{
-  "id": "car_n34",
-  "brand": "Volkswagen",
-  "model": "Tiguan",
-  "price": "3 400 000 ₽",
-  "transmission": "Робот",
-  "description": "Кроссовер VW.",
-  "country": "DEU",
-  "engine": "1.4 / 2.0 турбо",
-  "power": "150–220 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "фольксваген",
-    "tiguan",
-    "тигуан"
-  ]
-},
-{
-  "id": "car_n35",
-  "brand": "Skoda",
-  "model": "Octavia",
-  "price": "2 400 000 ₽",
-  "transmission": "Робот",
-  "description": "Практичный лифтбек.",
-  "country": "CZE",
-  "engine": "1.4 / 1.8 турбо",
-  "power": "150–180 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Седан",
-  "tags": [
-    "шкода",
-    "skoda",
-    "octavia",
-    "октавия"
-  ]
-},
-{
-  "id": "car_n36",
-  "brand": "Skoda",
-  "model": "Kodiaq",
-  "price": "3 600 000 ₽",
-  "transmission": "Робот",
-  "description": "Семейный кроссовер 7 мест.",
-  "country": "CZE",
-  "engine": "2.0 турбо",
-  "power": "180–220 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "шкода",
-    "kodiaq",
-    "кодиак"
-  ]
-},
-{
-  "id": "car_n37",
-  "brand": "Nissan",
-  "model": "Qashqai",
-  "price": "2 800 000 ₽",
-  "transmission": "Вариатор",
-  "description": "Городской кроссовер.",
-  "country": "JPN",
-  "engine": "1.2 / 2.0",
-  "power": "115–144 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "ниссан",
-    "nissan",
-    "qashqai",
-    "кашкай"
-  ]
-},
-{
-  "id": "car_n38",
-  "brand": "Nissan",
-  "model": "X-Trail",
-  "price": "3 300 000 ₽",
-  "transmission": "Вариатор",
-  "description": "Семейный кроссовер.",
-  "country": "JPN",
-  "engine": "2.0 / 2.5",
-  "power": "144–171 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "ниссан",
-    "x-trail",
-    "икстрейл"
-  ]
-},
-{
-  "id": "car_n39",
-  "brand": "Mazda",
-  "model": "CX-5",
-  "price": "3 500 000 ₽",
-  "transmission": "Автомат",
-  "description": "Драйверский кроссовер.",
-  "country": "JPN",
-  "engine": "2.0 / 2.5",
-  "power": "150–194 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "мазда",
-    "mazda",
-    "cx-5",
-    "сикс5"
-  ]
-},
-{
-  "id": "car_n40",
-  "brand": "Mazda",
-  "model": "3",
-  "price": "2 400 000 ₽",
-  "transmission": "Автомат",
-  "description": "Стильный гольф-класс.",
-  "country": "JPN",
-  "engine": "1.5 / 2.0",
-  "power": "120–150 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Седан",
-  "tags": [
-    "мазда",
-    "mazda 3",
-    "тройка"
-  ]
-},
-{
-  "id": "car_n41",
-  "brand": "Honda",
-  "model": "CR-V",
-  "price": "3 600 000 ₽",
-  "transmission": "Вариатор",
-  "description": "Надёжный кроссовер.",
-  "country": "JPN",
-  "engine": "1.5 турбо / 2.0",
-  "power": "150–193 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "хонда",
-    "honda",
-    "cr-v",
-    "срв"
-  ]
-},
-{
-  "id": "car_n42",
-  "brand": "Subaru",
-  "model": "Forester",
-  "price": "3 800 000 ₽",
-  "transmission": "Вариатор",
-  "description": "Постоянный полный привод.",
-  "country": "JPN",
-  "engine": "2.0 / 2.5",
-  "power": "150–185 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "субару",
-    "subaru",
-    "forester",
-    "форестер"
-  ]
-},
-{
-  "id": "car_n43",
-  "brand": "Suzuki",
-  "model": "Vitara",
-  "price": "2 200 000 ₽",
-  "transmission": "Автомат",
-  "description": "Компактный кроссовер.",
-  "country": "JPN",
-  "engine": "1.4 / 1.6",
-  "power": "117–140 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "сузуки",
-    "suzuki",
-    "vitara",
-    "витара"
-  ]
-},
-{
-  "id": "car_n44",
-  "brand": "Mitsubishi",
-  "model": "Outlander",
-  "price": "3 200 000 ₽",
-  "transmission": "Вариатор",
-  "description": "Семейный кроссовер 7 мест.",
-  "country": "JPN",
-  "engine": "2.0 / 2.4",
-  "power": "146–167 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "митсубиси",
-    "mitsubishi",
-    "outlander",
-    "аутлендер"
-  ]
-},
-{
-  "id": "car_n45",
-  "brand": "BMW",
-  "model": "X5",
-  "price": "8 500 000 ₽",
-  "transmission": "Автомат",
-  "description": "Премиальный SAV.",
-  "country": "DEU",
-  "engine": "3.0 турбо",
-  "power": "340+ л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "бмв",
-    "bmw",
-    "x5"
-  ]
-},
-{
-  "id": "car_n46",
-  "brand": "BMW",
-  "model": "3 Series",
-  "price": "4 800 000 ₽",
-  "transmission": "Автомат",
-  "description": "Спортивный бизнес-седан.",
-  "country": "DEU",
-  "engine": "2.0 турбо",
-  "power": "184–245 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Седан",
-  "tags": [
-    "бмв",
-    "3 series",
-    "тройка"
-  ]
-},
-{
-  "id": "car_n47",
-  "brand": "Mercedes",
-  "model": "E-Class",
-  "price": "6 500 000 ₽",
-  "transmission": "Автомат",
-  "description": "Бизнес-седан Mercedes.",
-  "country": "DEU",
-  "engine": "2.0 турбо",
-  "power": "197–258 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Седан",
-  "tags": [
-    "мерседес",
-    "mercedes",
-    "e-class",
-    "е класс"
-  ]
-},
-{
-  "id": "car_n48",
-  "brand": "Mercedes",
-  "model": "GLC",
-  "price": "6 200 000 ₽",
-  "transmission": "Автомат",
-  "description": "Популярный кроссовер MB.",
-  "country": "DEU",
-  "engine": "2.0 турбо",
-  "power": "197–258 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "мерседес",
-    "glc"
-  ]
-},
-{
-  "id": "car_n49",
-  "brand": "Audi",
-  "model": "Q5",
-  "price": "5 800 000 ₽",
-  "transmission": "Робот",
-  "description": "Премиальный кроссовер.",
-  "country": "DEU",
-  "engine": "2.0 турбо",
-  "power": "249 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "ауди",
-    "audi",
-    "q5"
-  ]
-},
-{
-  "id": "car_n50",
-  "brand": "Audi",
-  "model": "A6",
-  "price": "5 500 000 ₽",
-  "transmission": "Робот",
-  "description": "Бизнес-седан Audi.",
-  "country": "DEU",
-  "engine": "2.0 турбо",
-  "power": "245 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Седан",
-  "tags": [
-    "ауди",
-    "a6"
-  ]
-},
-{
-  "id": "car_n51",
-  "brand": "Volvo",
-  "model": "XC60",
-  "price": "5 200 000 ₽",
-  "transmission": "Автомат",
-  "description": "Безопасный кроссовер.",
-  "country": "SWE",
-  "engine": "2.0 турбо / hybrid",
-  "power": "250+ л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "вольво",
-    "volvo",
-    "xc60"
-  ]
-},
-{
-  "id": "car_n52",
-  "brand": "Genesis",
-  "model": "GV70",
-  "price": "6 800 000 ₽",
-  "transmission": "Автомат",
-  "description": "Премиум-кроссовер Genesis.",
-  "country": "KOR",
-  "engine": "2.5 турбо",
-  "power": "249 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "генезис",
-    "genesis",
-    "gv70"
-  ]
-},
-{
-  "id": "car_n53",
-  "brand": "Genesis",
-  "model": "G80",
-  "price": "6 500 000 ₽",
-  "transmission": "Автомат",
-  "description": "Бизнес-седан Genesis.",
-  "country": "KOR",
-  "engine": "2.5 турбо",
-  "power": "249 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Седан",
-  "tags": [
-    "генезис",
-    "g80"
-  ]
-},
-{
-  "id": "car_n54",
-  "brand": "Tesla",
-  "model": "Model 3",
-  "price": "4 500 000 ₽",
-  "transmission": "Автомат (1 передача)",
-  "description": "Электроседан.",
-  "country": "USA",
-  "engine": "Электро",
-  "power": "283–460 л.с.",
-  "fuel": "Электро",
-  "bodyType": "Электромобили",
-  "tags": [
-    "тесла",
-    "tesla",
-    "model 3",
-    "электро"
-  ]
-},
-{
-  "id": "car_n55",
-  "brand": "Tesla",
-  "model": "Model Y",
-  "price": "5 200 000 ₽",
-  "transmission": "Автомат (1 передача)",
-  "description": "Электрокроссовер.",
-  "country": "USA",
-  "engine": "Электро",
-  "power": "299–534 л.с.",
-  "fuel": "Электро",
-  "bodyType": "Электромобили",
-  "tags": [
-    "тесла",
-    "model y",
-    "электро"
-  ]
-},
-{
-  "id": "car_n56",
-  "brand": "Zeekr",
-  "model": "001",
-  "price": "5 800 000 ₽",
-  "transmission": "Автомат",
-  "description": "Премиальный электроуниверсал.",
-  "country": "CHN",
-  "engine": "Электро",
-  "power": "544–789 л.с.",
-  "fuel": "Электро",
-  "bodyType": "Электромобили",
-  "tags": [
-    "зикр",
-    "zeekr",
-    "001",
-    "электро"
-  ]
-},
-{
-  "id": "car_n57",
-  "brand": "Lixiang",
-  "model": "L7",
-  "price": "6 200 000 ₽",
-  "transmission": "Автомат",
-  "description": "Гибридный кроссовер Li Auto.",
-  "country": "CHN",
-  "engine": "1.5 турбо + электро",
-  "power": "449 л.с.",
-  "fuel": "Гибрид",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "лисян",
-    "lixiang",
-    "li auto",
-    "l7"
-  ]
-},
-{
-  "id": "car_n58",
-  "brand": "Tank",
-  "model": "300",
-  "price": "3 900 000 ₽",
-  "transmission": "Автомат",
-  "description": "Рамный внедорожник в стиле ретро.",
-  "country": "CHN",
-  "engine": "2.0 турбо",
-  "power": "220 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Внедорожник / SUV",
-  "tags": [
-    "танк",
-    "tank",
-    "300"
-  ]
-},
-{
-  "id": "car_n59",
-  "brand": "Tank",
-  "model": "500",
-  "price": "5 500 000 ₽",
-  "transmission": "Автомат",
-  "description": "Крупный рамный SUV.",
-  "country": "CHN",
-  "engine": "3.0 турбо",
-  "power": "299 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Внедорожник / SUV",
-  "tags": [
-    "танк",
-    "500"
-  ]
-},
-{
-  "id": "car_n60",
-  "brand": "Jaecoo",
-  "model": "J7",
-  "price": "2 900 000 ₽",
-  "transmission": "Робот",
-  "description": "Кроссовер Jaecoo.",
-  "country": "CHN",
-  "engine": "1.6 турбо",
-  "power": "186 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "jaecoo",
-    "джику",
-    "j7"
-  ]
-},
-{
-  "id": "car_x1",
-  "brand": "LADA",
-  "model": "Priora",
-  "price": "—",
-  "transmission": "Механика",
-  "description": "Снята с производства. ⚠ В АЦ НЕТ: по правилам проекта это авто / сегмент обычно не проводится (заявка может уйти в «Не актуально»).",
-  "country": "RUS",
-  "engine": "1.6 л",
-  "power": "98 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Седан",
-  "tags": [
-    "лада",
-    "priora",
-    "приора"
-  ],
-  "notInAc": true
-},
-{
-  "id": "car_x2",
-  "brand": "Daewoo",
-  "model": "Matiz",
-  "price": "—",
-  "transmission": "Механика",
-  "description": "Городской микролитражный. ⚠ В АЦ НЕТ: по правилам проекта это авто / сегмент обычно не проводится (заявка может уйти в «Не актуально»).",
-  "country": "KOR",
-  "engine": "0.8 л",
-  "power": "51 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Хетчбэк",
-  "tags": [
-    "дэу",
-    "daewoo",
-    "matiz",
-    "матиз"
-  ],
-  "notInAc": true
-},
-{
-  "id": "car_x3",
-  "brand": "LADA",
-  "model": "2107",
-  "price": "—",
-  "transmission": "Механика",
-  "description": "Классика ВАЗ. ⚠ В АЦ НЕТ: по правилам проекта это авто / сегмент обычно не проводится (заявка может уйти в «Не актуально»).",
-  "country": "RUS",
-  "engine": "1.6 л",
-  "power": "74 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Седан",
-  "tags": [
-    "ваз",
-    "2107",
-    "семёрка"
-  ],
-  "notInAc": true
-},
-{
-  "id": "car_x4",
-  "brand": "Chevrolet",
-  "model": "Niva",
-  "price": "—",
-  "transmission": "Механика",
-  "description": "Старое поколение Niva (Chevrolet). ⚠ В АЦ НЕТ: по правилам проекта это авто / сегмент обычно не проводится (заявка может уйти в «Не актуально»).",
-  "country": "RUS",
-  "engine": "1.7 л",
-  "power": "80 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Внедорожник / SUV",
-  "tags": [
-    "шевроле",
-    "niva",
-    "нива"
-  ],
-  "notInAc": true
-},
-{
-  "id": "car_x5",
-  "brand": "LADA",
-  "model": "Kalina",
-  "price": "—",
-  "transmission": "Механика",
-  "description": "Снята с конвейера. ⚠ В АЦ НЕТ: по правилам проекта это авто / сегмент обычно не проводится (заявка может уйти в «Не актуально»).",
-  "country": "RUS",
-  "engine": "1.6 л",
-  "power": "87–106 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Хетчбэк",
-  "tags": [
-    "лада",
-    "kalina",
-    "калина"
-  ],
-  "notInAc": true
-},
-{
-  "id": "car_x6",
-  "brand": "Ravon",
-  "model": "R2",
-  "price": "—",
-  "transmission": "Автомат",
-  "description": "Бюджетный городской. ⚠ В АЦ НЕТ: по правилам проекта это авто / сегмент обычно не проводится (заявка может уйти в «Не актуально»).",
-  "country": "UZB",
-  "engine": "1.2 л",
-  "power": "85 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Хетчбэк",
-  "tags": [
-    "равон",
-    "ravon",
-    "r2"
-  ],
-  "notInAc": true
-},
-{
-  "id": "car_m1",
-  "brand": "LADA",
-  "model": "Vesta SW Cross",
-  "price": "1 650 000 ₽",
-  "transmission": "Механика / Автомат",
-  "description": "Универсал с увеличенным клиренсом.",
-  "country": "RUS",
-  "engine": "1.6 / 1.8",
-  "power": "106–122 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Универсал",
-  "tags": [
-    "лада",
-    "vesta",
-    "sw cross",
-    "универсал"
-  ]
-},
-{
-  "id": "car_m2",
-  "brand": "LADA",
-  "model": "Largus",
-  "price": "1 450 000 ₽",
-  "transmission": "Механика",
-  "description": "Семейный универсал / фургон.",
-  "country": "RUS",
-  "engine": "1.6 л",
-  "power": "90–106 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Универсал",
-  "tags": [
-    "лада",
-    "largus",
-    "ларгус"
-  ]
-},
-{
-  "id": "car_m3",
-  "brand": "LADA",
-  "model": "XRAY Cross",
-  "price": "1 350 000 ₽",
-  "transmission": "Механика / Робот",
-  "description": "Компактный кроссовер-хетч.",
-  "country": "RUS",
-  "engine": "1.6 / 1.8",
-  "power": "106–122 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "лада",
-    "xray",
-    "иксрей"
-  ]
-},
-{
-  "id": "car_m4",
-  "brand": "Renault",
-  "model": "Duster",
-  "price": "2 000 000 ₽",
-  "transmission": "Механика / Автомат",
-  "description": "Практичный кроссовер.",
-  "country": "FRA",
-  "engine": "1.6 / 2.0",
-  "power": "114–143 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "рено",
-    "renault",
-    "duster",
-    "дастер"
-  ]
-},
-{
-  "id": "car_m5",
-  "brand": "Renault",
-  "model": "Logan",
-  "price": "1 300 000 ₽",
-  "transmission": "Механика / Автомат",
-  "description": "Бюджетный седан.",
-  "country": "FRA",
-  "engine": "1.6 л",
-  "power": "82–113 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Седан",
-  "tags": [
-    "рено",
-    "logan",
-    "логан"
-  ]
-},
-{
-  "id": "car_m6",
-  "brand": "Renault",
-  "model": "Arkana",
-  "price": "2 200 000 ₽",
-  "transmission": "Вариатор",
-  "description": "Купе-кроссовер.",
-  "country": "FRA",
-  "engine": "1.3 турбо",
-  "power": "150 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "рено",
-    "arkana",
-    "аркана"
-  ]
-},
-{
-  "id": "car_m7",
-  "brand": "Peugeot",
-  "model": "3008",
-  "price": "3 200 000 ₽",
-  "transmission": "Автомат",
-  "description": "Стильный кроссовер.",
-  "country": "FRA",
-  "engine": "1.6 турбо",
-  "power": "150–180 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "пежо",
-    "peugeot",
-    "3008"
-  ]
-},
-{
-  "id": "car_m8",
-  "brand": "Peugeot",
-  "model": "408",
-  "price": "2 600 000 ₽",
-  "transmission": "Автомат",
-  "description": "Лифтбек.",
-  "country": "FRA",
-  "engine": "1.6 турбо",
-  "power": "150 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Седан",
-  "tags": [
-    "пежо",
-    "408"
-  ]
-},
-{
-  "id": "car_m9",
-  "brand": "Citroen",
-  "model": "C5 Aircross",
-  "price": "2 900 000 ₽",
-  "transmission": "Автомат",
-  "description": "Комфортный кроссовер.",
-  "country": "FRA",
-  "engine": "1.6 турбо",
-  "power": "150–180 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "ситроен",
-    "citroen",
-    "c5"
-  ]
-},
-{
-  "id": "car_m10",
-  "brand": "Ford",
-  "model": "Kuga",
-  "price": "2 800 000 ₽",
-  "transmission": "Автомат",
-  "description": "Кроссовер Ford.",
-  "country": "USA",
-  "engine": "1.5 / 2.0",
-  "power": "150–190 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "форд",
-    "ford",
-    "kuga",
-    "куга"
-  ]
-},
-{
-  "id": "car_m11",
-  "brand": "Ford",
-  "model": "Focus",
-  "price": "1 800 000 ₽",
-  "transmission": "Механика / Автомат",
-  "description": "Гольф-класс.",
-  "country": "USA",
-  "engine": "1.5 / 1.6",
-  "power": "105–150 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Седан",
-  "tags": [
-    "форд",
-    "focus",
-    "фокус"
-  ]
-},
-{
-  "id": "car_m12",
-  "brand": "Chevrolet",
-  "model": "Trailblazer",
-  "price": "2 500 000 ₽",
-  "transmission": "Автомат",
-  "description": "Компактный кроссовер.",
-  "country": "USA",
-  "engine": "1.2 / 1.3 турбо",
-  "power": "137–150 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "шевроле",
-    "trailblazer"
-  ]
-},
-{
-  "id": "car_m13",
-  "brand": "Jetour",
-  "model": "Dashing",
-  "price": "2 400 000 ₽",
-  "transmission": "Робот",
-  "description": "Кроссовер Jetour.",
-  "country": "CHN",
-  "engine": "1.5 / 1.6 турбо",
-  "power": "147–190 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "джетур",
-    "jetour",
-    "dashing"
-  ]
-},
-{
-  "id": "car_m14",
-  "brand": "Jetour",
-  "model": "X70 Plus",
-  "price": "2 300 000 ₽",
-  "transmission": "Робот",
-  "description": "Семейный кроссовер 7 мест.",
-  "country": "CHN",
-  "engine": "1.5 / 1.6 турбо",
-  "power": "147–190 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "джетур",
-    "x70"
-  ]
-},
-{
-  "id": "car_m15",
-  "brand": "Kaiyi",
-  "model": "X3 Pro",
-  "price": "1 850 000 ₽",
-  "transmission": "Вариатор",
-  "description": "Доступный кроссовер.",
-  "country": "CHN",
-  "engine": "1.5 л",
-  "power": "147 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "каи",
-    "kaiyi",
-    "x3"
-  ]
-},
-{
-  "id": "car_m16",
-  "brand": "Kaiyi",
-  "model": "E5",
-  "price": "1 700 000 ₽",
-  "transmission": "Вариатор",
-  "description": "Седан Kaiyi.",
-  "country": "CHN",
-  "engine": "1.5 л",
-  "power": "147 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Седан",
-  "tags": [
-    "каи",
-    "e5"
-  ]
-},
-{
-  "id": "car_m17",
-  "brand": "Hongqi",
-  "model": "H5",
-  "price": "3 500 000 ₽",
-  "transmission": "Автомат",
-  "description": "Бизнес-седан Hongqi.",
-  "country": "CHN",
-  "engine": "1.5 / 2.0 турбо",
-  "power": "169–224 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Седан",
-  "tags": [
-    "хунци",
-    "hongqi",
-    "h5"
-  ]
-},
-{
-  "id": "car_m18",
-  "brand": "Hongqi",
-  "model": "HS5",
-  "price": "3 800 000 ₽",
-  "transmission": "Автомат",
-  "description": "Кроссовер Hongqi.",
-  "country": "CHN",
-  "engine": "2.0 турбо",
-  "power": "224 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "хунци",
-    "hs5"
-  ]
-},
-{
-  "id": "car_m19",
-  "brand": "Voyah",
-  "model": "Free",
-  "price": "5 500 000 ₽",
-  "transmission": "Автомат",
-  "description": "Премиальный электро/гибрид кроссовер.",
-  "country": "CHN",
-  "engine": "Электро / гибрид",
-  "power": "489 л.с.",
-  "fuel": "Электро",
-  "bodyType": "Электромобили",
-  "tags": [
-    "voyah",
-    "воя",
-    "free"
-  ]
-},
-{
-  "id": "car_m20",
-  "brand": "BYD",
-  "model": "Song Plus",
-  "price": "3 800 000 ₽",
-  "transmission": "Автомат",
-  "description": "Гибридный кроссовер BYD.",
-  "country": "CHN",
-  "engine": "1.5 турбо + электро",
-  "power": "218+ л.с.",
-  "fuel": "Гибрид",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "byd",
-    "бид",
-    "song"
-  ]
-},
-{
-  "id": "car_m21",
-  "brand": "BYD",
-  "model": "Han",
-  "price": "4 500 000 ₽",
-  "transmission": "Автомат",
-  "description": "Электро/гибрид седан.",
-  "country": "CHN",
-  "engine": "Электро / гибрид",
-  "power": "245–509 л.с.",
-  "fuel": "Электро",
-  "bodyType": "Электромобили",
-  "tags": [
-    "byd",
-    "han"
-  ]
-},
-{
-  "id": "car_m22",
-  "brand": "Changan",
-  "model": "UNI-K",
-  "price": "3 200 000 ₽",
-  "transmission": "Робот",
-  "description": "Крупный кроссовер Changan.",
-  "country": "CHN",
-  "engine": "2.0 турбо",
-  "power": "226 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "чанган",
-    "uni-k"
-  ]
-},
-{
-  "id": "car_m23",
-  "brand": "Haval",
-  "model": "H9",
-  "price": "4 200 000 ₽",
-  "transmission": "Автомат",
-  "description": "Рамный внедорожник.",
-  "country": "CHN",
-  "engine": "2.0 турбо",
-  "power": "218 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Внедорожник / SUV",
-  "tags": [
-    "хавал",
-    "h9"
-  ]
-},
-{
-  "id": "car_m24",
-  "brand": "Haval",
-  "model": "M6",
-  "price": "1 950 000 ₽",
-  "transmission": "Робот",
-  "description": "Доступный семейный кроссовер.",
-  "country": "CHN",
-  "engine": "1.5 турбо",
-  "power": "143 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "хавал",
-    "m6"
-  ]
-},
-{
-  "id": "car_m25",
-  "brand": "Chery",
-  "model": "Tiggo 8 Pro",
-  "price": "2 800 000 ₽",
-  "transmission": "Робот",
-  "description": "Семейный 7-местный кроссовер.",
-  "country": "CHN",
-  "engine": "1.6 / 2.0 турбо",
-  "power": "186–197 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "чери",
-    "tiggo 8",
-    "тигго 8"
-  ]
-},
-{
-  "id": "car_m26",
-  "brand": "Toyota",
-  "model": "Corolla",
-  "price": "2 600 000 ₽",
-  "transmission": "Вариатор",
-  "description": "Надёжный гольф-класс.",
-  "country": "JPN",
-  "engine": "1.6 / 1.8",
-  "power": "122–140 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Седан",
-  "tags": [
-    "тойота",
-    "corolla",
-    "королла"
-  ]
-},
-{
-  "id": "car_m27",
-  "brand": "Toyota",
-  "model": "Highlander",
-  "price": "5 500 000 ₽",
-  "transmission": "Автомат",
-  "description": "Крупный семейный кроссовер.",
-  "country": "JPN",
-  "engine": "2.5 / 3.5 hybrid",
-  "power": "244–299 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "тойота",
-    "highlander",
-    "хайлендер"
-  ]
-},
-{
-  "id": "car_m28",
-  "brand": "Honda",
-  "model": "Civic",
-  "price": "2 800 000 ₽",
-  "transmission": "Вариатор",
-  "description": "Спортивный гольф.",
-  "country": "JPN",
-  "engine": "1.5 турбо",
-  "power": "182 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Седан",
-  "tags": [
-    "хонда",
-    "civic",
-    "сивик"
-  ]
-},
-{
-  "id": "car_m29",
-  "brand": "Honda",
-  "model": "Pilot",
-  "price": "5 200 000 ₽",
-  "transmission": "Автомат",
-  "description": "Большой кроссовер 8 мест.",
-  "country": "JPN",
-  "engine": "3.5 л",
-  "power": "280 л.с.",
-  "fuel": "АИ-95",
-  "bodyType": "Кроссовер",
-  "tags": [
-    "хонда",
-    "pilot",
-    "пилот"
-  ]
-},
-{
-  "id": "car_m30",
-  "brand": "Skoda",
-  "model": "Rapid",
-  "price": "1 700 000 ₽",
-  "transmission": "Механика / Автомат",
-  "description": "Практичный лифтбек.",
-  "country": "CZE",
-  "engine": "1.6 л",
-  "power": "90–110 л.с.",
-  "fuel": "АИ-92",
-  "bodyType": "Седан",
-  "tags": [
-    "шкода",
-    "rapid",
-    "рапид"
-  ]
-},
+  },
+  {
+    "id": "car_n1",
+    "brand": "Chery",
+    "model": "Tiggo 7 Pro",
+    "price": "2 200 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Популярный кроссовер, богатая комплектация.",
+    "country": "CHN",
+    "engine": "1.5 турбо",
+    "power": "147 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "чери",
+      "chery",
+      "tiggo",
+      "тигго",
+      "кроссовер"
+    ]
+  },
+  {
+    "id": "car_n2",
+    "brand": "Chery",
+    "model": "Tiggo 4",
+    "price": "1 850 000 ₽",
+    "transmission": "Механика / Вариатор",
+    "description": "Компактный кроссовер для города.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "113 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "чери",
+      "chery",
+      "tiggo 4",
+      "тигго"
+    ]
+  },
+  {
+    "id": "car_n3",
+    "brand": "Chery",
+    "model": "Arrizo 8",
+    "price": "2 400 000 ₽",
+    "transmission": "Робот",
+    "description": "Бизнес-седан, просторный салон.",
+    "country": "CHN",
+    "engine": "1.6 турбо",
+    "power": "186 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Седан",
+    "tags": [
+      "чери",
+      "arrizo",
+      "аризо",
+      "седан"
+    ]
+  },
+  {
+    "id": "car_n4",
+    "brand": "Haval",
+    "model": "Jolion",
+    "price": "2 100 000 ₽",
+    "transmission": "Робот",
+    "description": "Стильный кроссовер, полный/передний привод.",
+    "country": "CHN",
+    "engine": "1.5 турбо",
+    "power": "143 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "хавал",
+      "haval",
+      "jolion",
+      "джолион"
+    ]
+  },
+  {
+    "id": "car_n5",
+    "brand": "Haval",
+    "model": "Dargo",
+    "price": "2 800 000 ₽",
+    "transmission": "Робот",
+    "description": "Рамный характер, высокий клиренс.",
+    "country": "CHN",
+    "engine": "2.0 турбо",
+    "power": "192 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "хавал",
+      "dargo",
+      "дарго"
+    ]
+  },
+  {
+    "id": "car_n6",
+    "brand": "Haval",
+    "model": "F7",
+    "price": "2 500 000 ₽",
+    "transmission": "Робот",
+    "description": "Семейный кроссовер.",
+    "country": "CHN",
+    "engine": "1.5/2.0 турбо",
+    "power": "150–190 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "хавал",
+      "f7"
+    ]
+  },
+  {
+    "id": "car_n7",
+    "brand": "Geely",
+    "model": "Coolray",
+    "price": "2 150 000 ₽",
+    "transmission": "Робот",
+    "description": "Динамичный кроссовер.",
+    "country": "CHN",
+    "engine": "1.5 турбо",
+    "power": "150 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "джили",
+      "geely",
+      "coolray",
+      "кулрей"
+    ]
+  },
+  {
+    "id": "car_n8",
+    "brand": "Geely",
+    "model": "Monjaro",
+    "price": "3 900 000 ₽",
+    "transmission": "Автомат",
+    "description": "Флагманский кроссовер Geely.",
+    "country": "CHN",
+    "engine": "2.0 турбо",
+    "power": "238 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "джили",
+      "monjaro",
+      "монжаро"
+    ]
+  },
+  {
+    "id": "car_n9",
+    "brand": "Geely",
+    "model": "Atlas Pro",
+    "price": "2 700 000 ₽",
+    "transmission": "Робот",
+    "description": "Просторный семейный кроссовер.",
+    "country": "CHN",
+    "engine": "1.5 турбо",
+    "power": "177 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "джили",
+      "atlas",
+      "атлас"
+    ]
+  },
+  {
+    "id": "car_n10",
+    "brand": "Changan",
+    "model": "UNI-V",
+    "price": "2 300 000 ₽",
+    "transmission": "Робот",
+    "description": "Спортивный лифтбек.",
+    "country": "CHN",
+    "engine": "1.5 турбо",
+    "power": "181 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Седан",
+    "tags": [
+      "чанган",
+      "changan",
+      "uni-v",
+      "юни"
+    ]
+  },
+  {
+    "id": "car_n11",
+    "brand": "Changan",
+    "model": "CS55 Plus",
+    "price": "2 200 000 ₽",
+    "transmission": "Автомат",
+    "description": "Кроссовер с ярким дизайном.",
+    "country": "CHN",
+    "engine": "1.5 турбо",
+    "power": "181 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "чанган",
+      "cs55"
+    ]
+  },
+  {
+    "id": "car_n12",
+    "brand": "Omoda",
+    "model": "C5",
+    "price": "2 250 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Стильный городской кроссовер.",
+    "country": "CHN",
+    "engine": "1.5 турбо",
+    "power": "147 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "омода",
+      "omoda",
+      "c5"
+    ]
+  },
+  {
+    "id": "car_n13",
+    "brand": "Omoda",
+    "model": "S5",
+    "price": "1 950 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Седан нового бренда.",
+    "country": "CHN",
+    "engine": "1.5 турбо",
+    "power": "147 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Седан",
+    "tags": [
+      "омода",
+      "s5"
+    ]
+  },
+  {
+    "id": "car_n14",
+    "brand": "Exeed",
+    "model": "TXL",
+    "price": "3 800 000 ₽",
+    "transmission": "Робот",
+    "description": "Премиальный кроссовер Chery Exeed.",
+    "country": "CHN",
+    "engine": "1.6/2.0 турбо",
+    "power": "186–249 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "эксид",
+      "exeed",
+      "txl"
+    ]
+  },
+  {
+    "id": "car_n15",
+    "brand": "Exeed",
+    "model": "RX",
+    "price": "4 200 000 ₽",
+    "transmission": "Робот",
+    "description": "Флагман Exeed.",
+    "country": "CHN",
+    "engine": "2.0 турбо",
+    "power": "249 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "эксид",
+      "rx"
+    ]
+  },
+  {
+    "id": "car_n16",
+    "brand": "Belgee",
+    "model": "X50",
+    "price": "1 750 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Доступный кроссовер (Geely).",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "102–150 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "белджи",
+      "belgee",
+      "x50"
+    ]
+  },
+  {
+    "id": "car_n17",
+    "brand": "Belgee",
+    "model": "X70",
+    "price": "2 100 000 ₽",
+    "transmission": "Робот",
+    "description": "Среднеразмерный кроссовер.",
+    "country": "CHN",
+    "engine": "1.5 турбо",
+    "power": "150 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "белджи",
+      "x70"
+    ]
+  },
+  {
+    "id": "car_n18",
+    "brand": "Moskvich",
+    "model": "3",
+    "price": "1 900 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Городской кроссовер.",
+    "country": "RUS",
+    "engine": "1.5 л",
+    "power": "136–150 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "москвич",
+      "moskvich",
+      "3"
+    ]
+  },
+  {
+    "id": "car_n19",
+    "brand": "Moskvich",
+    "model": "6",
+    "price": "2 400 000 ₽",
+    "transmission": "Робот",
+    "description": "Седан Москвич.",
+    "country": "RUS",
+    "engine": "1.5 турбо",
+    "power": "150 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Седан",
+    "tags": [
+      "москвич",
+      "6"
+    ]
+  },
+  {
+    "id": "car_n20",
+    "brand": "UAZ",
+    "model": "Patriot",
+    "price": "1 600 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Рамный внедорожник.",
+    "country": "RUS",
+    "engine": "2.7 л",
+    "power": "150 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "уаз",
+      "uaz",
+      "patriot",
+      "патриот"
+    ]
+  },
+  {
+    "id": "car_n21",
+    "brand": "UAZ",
+    "model": "Hunter",
+    "price": "1 250 000 ₽",
+    "transmission": "Механика",
+    "description": "Классика бездорожья.",
+    "country": "RUS",
+    "engine": "2.7 л",
+    "power": "135 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "уаз",
+      "hunter",
+      "хантер"
+    ]
+  },
+  {
+    "id": "car_n22",
+    "brand": "Toyota",
+    "model": "Camry",
+    "price": "3 800 000 ₽",
+    "transmission": "Автомат",
+    "description": "Бизнес-седан, высокий спрос.",
+    "country": "JPN",
+    "engine": "2.5 / 3.5 л",
+    "power": "181–249 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Седан",
+    "tags": [
+      "тойота",
+      "toyota",
+      "camry",
+      "камри",
+      "седан"
+    ]
+  },
+  {
+    "id": "car_n23",
+    "brand": "Toyota",
+    "model": "RAV4",
+    "price": "4 200 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Популярный кроссовер.",
+    "country": "JPN",
+    "engine": "2.0 / 2.5",
+    "power": "149–199 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "тойота",
+      "rav4",
+      "рав4"
+    ]
+  },
+  {
+    "id": "car_n24",
+    "brand": "Toyota",
+    "model": "Land Cruiser 300",
+    "price": "9 500 000 ₽",
+    "transmission": "Автомат",
+    "description": "Премиальный рамный внедорожник.",
+    "country": "JPN",
+    "engine": "3.5 турбо",
+    "power": "415 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "тойота",
+      "land cruiser",
+      "крузак",
+      "300"
+    ]
+  },
+  {
+    "id": "car_n25",
+    "brand": "Lexus",
+    "model": "RX",
+    "price": "7 500 000 ₽",
+    "transmission": "Автомат",
+    "description": "Премиальный кроссовер.",
+    "country": "JPN",
+    "engine": "2.4 турбо / hybrid",
+    "power": "299+ л.с.",
+    "fuel": "АИ-95 / гибрид",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "лексус",
+      "lexus",
+      "rx"
+    ]
+  },
+  {
+    "id": "car_n26",
+    "brand": "Lexus",
+    "model": "LX",
+    "price": "12 000 000 ₽",
+    "transmission": "Автомат",
+    "description": "Флагман Lexus.",
+    "country": "JPN",
+    "engine": "3.5 турбо",
+    "power": "415 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "лексус",
+      "lx"
+    ]
+  },
+  {
+    "id": "car_n27",
+    "brand": "Hyundai",
+    "model": "Solaris",
+    "price": "1 550 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Массовый седан.",
+    "country": "KOR",
+    "engine": "1.4 / 1.6",
+    "power": "100–123 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Седан",
+    "tags": [
+      "хендай",
+      "hyundai",
+      "solaris",
+      "солярис"
+    ]
+  },
+  {
+    "id": "car_n28",
+    "brand": "Hyundai",
+    "model": "Creta",
+    "price": "2 100 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Бестселлер-кроссовер.",
+    "country": "KOR",
+    "engine": "1.6 / 2.0",
+    "power": "123–149 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "хендай",
+      "creta",
+      "крета"
+    ]
+  },
+  {
+    "id": "car_n29",
+    "brand": "Hyundai",
+    "model": "Tucson",
+    "price": "3 200 000 ₽",
+    "transmission": "Автомат",
+    "description": "Среднеразмерный кроссовер.",
+    "country": "KOR",
+    "engine": "2.0 / 2.5",
+    "power": "150–190 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "хендай",
+      "tucson",
+      "туссан",
+      "тусон"
+    ]
+  },
+  {
+    "id": "car_n30",
+    "brand": "Kia",
+    "model": "Rio",
+    "price": "1 500 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Городской седан/хетч.",
+    "country": "KOR",
+    "engine": "1.4 / 1.6",
+    "power": "100–123 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Седан",
+    "tags": [
+      "киа",
+      "kia",
+      "rio",
+      "рио"
+    ]
+  },
+  {
+    "id": "car_n31",
+    "brand": "Kia",
+    "model": "Sportage",
+    "price": "3 100 000 ₽",
+    "transmission": "Автомат",
+    "description": "Популярный кроссовер Kia.",
+    "country": "KOR",
+    "engine": "2.0 / 2.5",
+    "power": "150–190 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "киа",
+      "sportage",
+      "спортейдж"
+    ]
+  },
+  {
+    "id": "car_n32",
+    "brand": "Kia",
+    "model": "Carnival",
+    "price": "4 500 000 ₽",
+    "transmission": "Автомат",
+    "description": "Семейный минивэн.",
+    "country": "KOR",
+    "engine": "2.2 дизель / 3.5",
+    "power": "199–249 л.с.",
+    "fuel": "ДТ / АИ-95",
+    "bodyType": "Компактвэн",
+    "tags": [
+      "киа",
+      "carnival",
+      "карнавал",
+      "минивэн"
+    ]
+  },
+  {
+    "id": "car_n33",
+    "brand": "Volkswagen",
+    "model": "Polo",
+    "price": "1 600 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Народный седан/лифтбек.",
+    "country": "DEU",
+    "engine": "1.6 л",
+    "power": "90–110 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Седан",
+    "tags": [
+      "фольксваген",
+      "vw",
+      "polo",
+      "поло"
+    ]
+  },
+  {
+    "id": "car_n34",
+    "brand": "Volkswagen",
+    "model": "Tiguan",
+    "price": "3 400 000 ₽",
+    "transmission": "Робот",
+    "description": "Кроссовер VW.",
+    "country": "DEU",
+    "engine": "1.4 / 2.0 турбо",
+    "power": "150–220 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "фольксваген",
+      "tiguan",
+      "тигуан"
+    ]
+  },
+  {
+    "id": "car_n35",
+    "brand": "Skoda",
+    "model": "Octavia",
+    "price": "2 400 000 ₽",
+    "transmission": "Робот",
+    "description": "Практичный лифтбек.",
+    "country": "CZE",
+    "engine": "1.4 / 1.8 турбо",
+    "power": "150–180 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Седан",
+    "tags": [
+      "шкода",
+      "skoda",
+      "octavia",
+      "октавия"
+    ]
+  },
+  {
+    "id": "car_n36",
+    "brand": "Skoda",
+    "model": "Kodiaq",
+    "price": "3 600 000 ₽",
+    "transmission": "Робот",
+    "description": "Семейный кроссовер 7 мест.",
+    "country": "CZE",
+    "engine": "2.0 турбо",
+    "power": "180–220 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "шкода",
+      "kodiaq",
+      "кодиак"
+    ]
+  },
+  {
+    "id": "car_n37",
+    "brand": "Nissan",
+    "model": "Qashqai",
+    "price": "2 800 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Городской кроссовер.",
+    "country": "JPN",
+    "engine": "1.2 / 2.0",
+    "power": "115–144 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "ниссан",
+      "nissan",
+      "qashqai",
+      "кашкай"
+    ]
+  },
+  {
+    "id": "car_n38",
+    "brand": "Nissan",
+    "model": "X-Trail",
+    "price": "3 300 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Семейный кроссовер.",
+    "country": "JPN",
+    "engine": "2.0 / 2.5",
+    "power": "144–171 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "ниссан",
+      "x-trail",
+      "икстрейл"
+    ]
+  },
+  {
+    "id": "car_n39",
+    "brand": "Mazda",
+    "model": "CX-5",
+    "price": "3 500 000 ₽",
+    "transmission": "Автомат",
+    "description": "Драйверский кроссовер.",
+    "country": "JPN",
+    "engine": "2.0 / 2.5",
+    "power": "150–194 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "мазда",
+      "mazda",
+      "cx-5",
+      "сикс5"
+    ]
+  },
+  {
+    "id": "car_n40",
+    "brand": "Mazda",
+    "model": "3",
+    "price": "2 400 000 ₽",
+    "transmission": "Автомат",
+    "description": "Стильный гольф-класс.",
+    "country": "JPN",
+    "engine": "1.5 / 2.0",
+    "power": "120–150 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Седан",
+    "tags": [
+      "мазда",
+      "mazda 3",
+      "тройка"
+    ]
+  },
+  {
+    "id": "car_n41",
+    "brand": "Honda",
+    "model": "CR-V",
+    "price": "3 600 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Надёжный кроссовер.",
+    "country": "JPN",
+    "engine": "1.5 турбо / 2.0",
+    "power": "150–193 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "хонда",
+      "honda",
+      "cr-v",
+      "срв"
+    ]
+  },
+  {
+    "id": "car_n42",
+    "brand": "Subaru",
+    "model": "Forester",
+    "price": "3 800 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Постоянный полный привод.",
+    "country": "JPN",
+    "engine": "2.0 / 2.5",
+    "power": "150–185 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "субару",
+      "subaru",
+      "forester",
+      "форестер"
+    ]
+  },
+  {
+    "id": "car_n43",
+    "brand": "Suzuki",
+    "model": "Vitara",
+    "price": "2 200 000 ₽",
+    "transmission": "Автомат",
+    "description": "Компактный кроссовер.",
+    "country": "JPN",
+    "engine": "1.4 / 1.6",
+    "power": "117–140 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "сузуки",
+      "suzuki",
+      "vitara",
+      "витара"
+    ]
+  },
+  {
+    "id": "car_n44",
+    "brand": "Mitsubishi",
+    "model": "Outlander",
+    "price": "3 200 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Семейный кроссовер 7 мест.",
+    "country": "JPN",
+    "engine": "2.0 / 2.4",
+    "power": "146–167 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "митсубиси",
+      "mitsubishi",
+      "outlander",
+      "аутлендер"
+    ]
+  },
+  {
+    "id": "car_n45",
+    "brand": "BMW",
+    "model": "X5",
+    "price": "8 500 000 ₽",
+    "transmission": "Автомат",
+    "description": "Премиальный SAV.",
+    "country": "DEU",
+    "engine": "3.0 турбо",
+    "power": "340+ л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "бмв",
+      "bmw",
+      "x5"
+    ]
+  },
+  {
+    "id": "car_n46",
+    "brand": "BMW",
+    "model": "3 Series",
+    "price": "4 800 000 ₽",
+    "transmission": "Автомат",
+    "description": "Спортивный бизнес-седан.",
+    "country": "DEU",
+    "engine": "2.0 турбо",
+    "power": "184–245 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Седан",
+    "tags": [
+      "бмв",
+      "3 series",
+      "тройка"
+    ]
+  },
+  {
+    "id": "car_n47",
+    "brand": "Mercedes",
+    "model": "E-Class",
+    "price": "6 500 000 ₽",
+    "transmission": "Автомат",
+    "description": "Бизнес-седан Mercedes.",
+    "country": "DEU",
+    "engine": "2.0 турбо",
+    "power": "197–258 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Седан",
+    "tags": [
+      "мерседес",
+      "mercedes",
+      "e-class",
+      "е класс"
+    ]
+  },
+  {
+    "id": "car_n48",
+    "brand": "Mercedes",
+    "model": "GLC",
+    "price": "6 200 000 ₽",
+    "transmission": "Автомат",
+    "description": "Популярный кроссовер MB.",
+    "country": "DEU",
+    "engine": "2.0 турбо",
+    "power": "197–258 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "мерседес",
+      "glc"
+    ]
+  },
+  {
+    "id": "car_n49",
+    "brand": "Audi",
+    "model": "Q5",
+    "price": "5 800 000 ₽",
+    "transmission": "Робот",
+    "description": "Премиальный кроссовер.",
+    "country": "DEU",
+    "engine": "2.0 турбо",
+    "power": "249 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "ауди",
+      "audi",
+      "q5"
+    ]
+  },
+  {
+    "id": "car_n50",
+    "brand": "Audi",
+    "model": "A6",
+    "price": "5 500 000 ₽",
+    "transmission": "Робот",
+    "description": "Бизнес-седан Audi.",
+    "country": "DEU",
+    "engine": "2.0 турбо",
+    "power": "245 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Седан",
+    "tags": [
+      "ауди",
+      "a6"
+    ]
+  },
+  {
+    "id": "car_n51",
+    "brand": "Volvo",
+    "model": "XC60",
+    "price": "5 200 000 ₽",
+    "transmission": "Автомат",
+    "description": "Безопасный кроссовер.",
+    "country": "SWE",
+    "engine": "2.0 турбо / hybrid",
+    "power": "250+ л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "вольво",
+      "volvo",
+      "xc60"
+    ]
+  },
+  {
+    "id": "car_n52",
+    "brand": "Genesis",
+    "model": "GV70",
+    "price": "6 800 000 ₽",
+    "transmission": "Автомат",
+    "description": "Премиум-кроссовер Genesis.",
+    "country": "KOR",
+    "engine": "2.5 турбо",
+    "power": "249 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "генезис",
+      "genesis",
+      "gv70"
+    ]
+  },
+  {
+    "id": "car_n53",
+    "brand": "Genesis",
+    "model": "G80",
+    "price": "6 500 000 ₽",
+    "transmission": "Автомат",
+    "description": "Бизнес-седан Genesis.",
+    "country": "KOR",
+    "engine": "2.5 турбо",
+    "power": "249 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Седан",
+    "tags": [
+      "генезис",
+      "g80"
+    ]
+  },
+  {
+    "id": "car_n54",
+    "brand": "Tesla",
+    "model": "Model 3",
+    "price": "4 500 000 ₽",
+    "transmission": "Автомат (1 передача)",
+    "description": "Электроседан.",
+    "country": "USA",
+    "engine": "Электро",
+    "power": "283–460 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Электромобили",
+    "tags": [
+      "тесла",
+      "tesla",
+      "model 3",
+      "электро"
+    ]
+  },
+  {
+    "id": "car_n55",
+    "brand": "Tesla",
+    "model": "Model Y",
+    "price": "5 200 000 ₽",
+    "transmission": "Автомат (1 передача)",
+    "description": "Электрокроссовер.",
+    "country": "USA",
+    "engine": "Электро",
+    "power": "299–534 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Электромобили",
+    "tags": [
+      "тесла",
+      "model y",
+      "электро"
+    ]
+  },
+  {
+    "id": "car_n56",
+    "brand": "Zeekr",
+    "model": "001",
+    "price": "5 800 000 ₽",
+    "transmission": "Автомат",
+    "description": "Премиальный электроуниверсал.",
+    "country": "CHN",
+    "engine": "Электро",
+    "power": "544–789 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Электромобили",
+    "tags": [
+      "зикр",
+      "zeekr",
+      "001",
+      "электро"
+    ]
+  },
+  {
+    "id": "car_n57",
+    "brand": "Lixiang",
+    "model": "L7",
+    "price": "6 200 000 ₽",
+    "transmission": "Автомат",
+    "description": "Гибридный кроссовер Li Auto.",
+    "country": "CHN",
+    "engine": "1.5 турбо + электро",
+    "power": "449 л.с.",
+    "fuel": "Гибрид",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "лисян",
+      "lixiang",
+      "li auto",
+      "l7"
+    ]
+  },
+  {
+    "id": "car_n58",
+    "brand": "Tank",
+    "model": "300",
+    "price": "3 900 000 ₽",
+    "transmission": "Автомат",
+    "description": "Рамный внедорожник в стиле ретро.",
+    "country": "CHN",
+    "engine": "2.0 турбо",
+    "power": "220 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "танк",
+      "tank",
+      "300"
+    ]
+  },
+  {
+    "id": "car_n59",
+    "brand": "Tank",
+    "model": "500",
+    "price": "5 500 000 ₽",
+    "transmission": "Автомат",
+    "description": "Крупный рамный SUV.",
+    "country": "CHN",
+    "engine": "3.0 турбо",
+    "power": "299 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "танк",
+      "500"
+    ]
+  },
+  {
+    "id": "car_n60",
+    "brand": "Jaecoo",
+    "model": "J7",
+    "price": "2 900 000 ₽",
+    "transmission": "Робот",
+    "description": "Кроссовер Jaecoo.",
+    "country": "CHN",
+    "engine": "1.6 турбо",
+    "power": "186 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "jaecoo",
+      "джику",
+      "j7"
+    ]
+  },
+  {
+    "id": "car_x1",
+    "brand": "LADA",
+    "model": "Priora",
+    "price": "—",
+    "transmission": "Механика",
+    "description": "Снята с производства. ⚠ В АЦ НЕТ: по правилам проекта это авто / сегмент обычно не проводится (заявка может уйти в «Не актуально»).",
+    "country": "RUS",
+    "engine": "1.6 л",
+    "power": "98 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Седан",
+    "tags": [
+      "лада",
+      "priora",
+      "приора"
+    ],
+    "notInAc": true
+  },
+  {
+    "id": "car_x2",
+    "brand": "Daewoo",
+    "model": "Matiz",
+    "price": "—",
+    "transmission": "Механика",
+    "description": "Городской микролитражный. ⚠ В АЦ НЕТ: по правилам проекта это авто / сегмент обычно не проводится (заявка может уйти в «Не актуально»).",
+    "country": "KOR",
+    "engine": "0.8 л",
+    "power": "51 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Хетчбэк",
+    "tags": [
+      "дэу",
+      "daewoo",
+      "matiz",
+      "матиз"
+    ],
+    "notInAc": true
+  },
+  {
+    "id": "car_x3",
+    "brand": "LADA",
+    "model": "2107",
+    "price": "—",
+    "transmission": "Механика",
+    "description": "Классика ВАЗ. ⚠ В АЦ НЕТ: по правилам проекта это авто / сегмент обычно не проводится (заявка может уйти в «Не актуально»).",
+    "country": "RUS",
+    "engine": "1.6 л",
+    "power": "74 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Седан",
+    "tags": [
+      "ваз",
+      "2107",
+      "семёрка"
+    ],
+    "notInAc": true
+  },
+  {
+    "id": "car_x4",
+    "brand": "Chevrolet",
+    "model": "Niva",
+    "price": "—",
+    "transmission": "Механика",
+    "description": "Старое поколение Niva (Chevrolet). ⚠ В АЦ НЕТ: по правилам проекта это авто / сегмент обычно не проводится (заявка может уйти в «Не актуально»).",
+    "country": "RUS",
+    "engine": "1.7 л",
+    "power": "80 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "шевроле",
+      "niva",
+      "нива"
+    ],
+    "notInAc": true
+  },
+  {
+    "id": "car_x5",
+    "brand": "LADA",
+    "model": "Kalina",
+    "price": "—",
+    "transmission": "Механика",
+    "description": "Снята с конвейера. ⚠ В АЦ НЕТ: по правилам проекта это авто / сегмент обычно не проводится (заявка может уйти в «Не актуально»).",
+    "country": "RUS",
+    "engine": "1.6 л",
+    "power": "87–106 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Хетчбэк",
+    "tags": [
+      "лада",
+      "kalina",
+      "калина"
+    ],
+    "notInAc": true
+  },
+  {
+    "id": "car_x6",
+    "brand": "Ravon",
+    "model": "R2",
+    "price": "—",
+    "transmission": "Автомат",
+    "description": "Бюджетный городской. ⚠ В АЦ НЕТ: по правилам проекта это авто / сегмент обычно не проводится (заявка может уйти в «Не актуально»).",
+    "country": "UZB",
+    "engine": "1.2 л",
+    "power": "85 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Хетчбэк",
+    "tags": [
+      "равон",
+      "ravon",
+      "r2"
+    ],
+    "notInAc": true
+  },
+  {
+    "id": "car_m1",
+    "brand": "LADA",
+    "model": "Vesta SW Cross",
+    "price": "1 650 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Универсал с увеличенным клиренсом.",
+    "country": "RUS",
+    "engine": "1.6 / 1.8",
+    "power": "106–122 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Универсал",
+    "tags": [
+      "лада",
+      "vesta",
+      "sw cross",
+      "универсал"
+    ]
+  },
+  {
+    "id": "car_m2",
+    "brand": "LADA",
+    "model": "Largus",
+    "price": "1 450 000 ₽",
+    "transmission": "Механика",
+    "description": "Семейный универсал / фургон.",
+    "country": "RUS",
+    "engine": "1.6 л",
+    "power": "90–106 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Универсал",
+    "tags": [
+      "лада",
+      "largus",
+      "ларгус"
+    ]
+  },
+  {
+    "id": "car_m3",
+    "brand": "LADA",
+    "model": "XRAY Cross",
+    "price": "1 350 000 ₽",
+    "transmission": "Механика / Робот",
+    "description": "Компактный кроссовер-хетч.",
+    "country": "RUS",
+    "engine": "1.6 / 1.8",
+    "power": "106–122 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "лада",
+      "xray",
+      "иксрей"
+    ]
+  },
+  {
+    "id": "car_m4",
+    "brand": "Renault",
+    "model": "Duster",
+    "price": "2 000 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Практичный кроссовер.",
+    "country": "FRA",
+    "engine": "1.6 / 2.0",
+    "power": "114–143 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "рено",
+      "renault",
+      "duster",
+      "дастер"
+    ]
+  },
+  {
+    "id": "car_m5",
+    "brand": "Renault",
+    "model": "Logan",
+    "price": "1 300 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Бюджетный седан.",
+    "country": "FRA",
+    "engine": "1.6 л",
+    "power": "82–113 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Седан",
+    "tags": [
+      "рено",
+      "logan",
+      "логан"
+    ]
+  },
+  {
+    "id": "car_m6",
+    "brand": "Renault",
+    "model": "Arkana",
+    "price": "2 200 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Купе-кроссовер.",
+    "country": "FRA",
+    "engine": "1.3 турбо",
+    "power": "150 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "рено",
+      "arkana",
+      "аркана"
+    ]
+  },
+  {
+    "id": "car_m7",
+    "brand": "Peugeot",
+    "model": "3008",
+    "price": "3 200 000 ₽",
+    "transmission": "Автомат",
+    "description": "Стильный кроссовер.",
+    "country": "FRA",
+    "engine": "1.6 турбо",
+    "power": "150–180 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "пежо",
+      "peugeot",
+      "3008"
+    ]
+  },
+  {
+    "id": "car_m8",
+    "brand": "Peugeot",
+    "model": "408",
+    "price": "2 600 000 ₽",
+    "transmission": "Автомат",
+    "description": "Лифтбек.",
+    "country": "FRA",
+    "engine": "1.6 турбо",
+    "power": "150 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Седан",
+    "tags": [
+      "пежо",
+      "408"
+    ]
+  },
+  {
+    "id": "car_m9",
+    "brand": "Citroen",
+    "model": "C5 Aircross",
+    "price": "2 900 000 ₽",
+    "transmission": "Автомат",
+    "description": "Комфортный кроссовер.",
+    "country": "FRA",
+    "engine": "1.6 турбо",
+    "power": "150–180 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "ситроен",
+      "citroen",
+      "c5"
+    ]
+  },
+  {
+    "id": "car_m10",
+    "brand": "Ford",
+    "model": "Kuga",
+    "price": "2 800 000 ₽",
+    "transmission": "Автомат",
+    "description": "Кроссовер Ford.",
+    "country": "USA",
+    "engine": "1.5 / 2.0",
+    "power": "150–190 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "форд",
+      "ford",
+      "kuga",
+      "куга"
+    ]
+  },
+  {
+    "id": "car_m11",
+    "brand": "Ford",
+    "model": "Focus",
+    "price": "1 800 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Гольф-класс.",
+    "country": "USA",
+    "engine": "1.5 / 1.6",
+    "power": "105–150 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Седан",
+    "tags": [
+      "форд",
+      "focus",
+      "фокус"
+    ]
+  },
+  {
+    "id": "car_m12",
+    "brand": "Chevrolet",
+    "model": "Trailblazer",
+    "price": "2 500 000 ₽",
+    "transmission": "Автомат",
+    "description": "Компактный кроссовер.",
+    "country": "USA",
+    "engine": "1.2 / 1.3 турбо",
+    "power": "137–150 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "шевроле",
+      "trailblazer"
+    ]
+  },
+  {
+    "id": "car_m13",
+    "brand": "Jetour",
+    "model": "Dashing",
+    "price": "2 400 000 ₽",
+    "transmission": "Робот",
+    "description": "Кроссовер Jetour.",
+    "country": "CHN",
+    "engine": "1.5 / 1.6 турбо",
+    "power": "147–190 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "джетур",
+      "jetour",
+      "dashing"
+    ]
+  },
+  {
+    "id": "car_m14",
+    "brand": "Jetour",
+    "model": "X70 Plus",
+    "price": "2 300 000 ₽",
+    "transmission": "Робот",
+    "description": "Семейный кроссовер 7 мест.",
+    "country": "CHN",
+    "engine": "1.5 / 1.6 турбо",
+    "power": "147–190 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "джетур",
+      "x70"
+    ]
+  },
+  {
+    "id": "car_m15",
+    "brand": "Kaiyi",
+    "model": "X3 Pro",
+    "price": "1 850 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Доступный кроссовер.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "147 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "каи",
+      "kaiyi",
+      "x3"
+    ]
+  },
+  {
+    "id": "car_m16",
+    "brand": "Kaiyi",
+    "model": "E5",
+    "price": "1 700 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Седан Kaiyi.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "147 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Седан",
+    "tags": [
+      "каи",
+      "e5"
+    ]
+  },
+  {
+    "id": "car_m17",
+    "brand": "Hongqi",
+    "model": "H5",
+    "price": "3 500 000 ₽",
+    "transmission": "Автомат",
+    "description": "Бизнес-седан Hongqi.",
+    "country": "CHN",
+    "engine": "1.5 / 2.0 турбо",
+    "power": "169–224 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Седан",
+    "tags": [
+      "хунци",
+      "hongqi",
+      "h5"
+    ]
+  },
+  {
+    "id": "car_m18",
+    "brand": "Hongqi",
+    "model": "HS5",
+    "price": "3 800 000 ₽",
+    "transmission": "Автомат",
+    "description": "Кроссовер Hongqi.",
+    "country": "CHN",
+    "engine": "2.0 турбо",
+    "power": "224 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "хунци",
+      "hs5"
+    ]
+  },
+  {
+    "id": "car_m19",
+    "brand": "Voyah",
+    "model": "Free",
+    "price": "5 500 000 ₽",
+    "transmission": "Автомат",
+    "description": "Премиальный электро/гибрид кроссовер.",
+    "country": "CHN",
+    "engine": "Электро / гибрид",
+    "power": "489 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Электромобили",
+    "tags": [
+      "voyah",
+      "воя",
+      "free"
+    ]
+  },
+  {
+    "id": "car_m20",
+    "brand": "BYD",
+    "model": "Song Plus",
+    "price": "3 800 000 ₽",
+    "transmission": "Автомат",
+    "description": "Гибридный кроссовер BYD.",
+    "country": "CHN",
+    "engine": "1.5 турбо + электро",
+    "power": "218+ л.с.",
+    "fuel": "Гибрид",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "byd",
+      "бид",
+      "song"
+    ]
+  },
+  {
+    "id": "car_m21",
+    "brand": "BYD",
+    "model": "Han",
+    "price": "4 500 000 ₽",
+    "transmission": "Автомат",
+    "description": "Электро/гибрид седан.",
+    "country": "CHN",
+    "engine": "Электро / гибрид",
+    "power": "245–509 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Электромобили",
+    "tags": [
+      "byd",
+      "han"
+    ]
+  },
+  {
+    "id": "car_m22",
+    "brand": "Changan",
+    "model": "UNI-K",
+    "price": "3 200 000 ₽",
+    "transmission": "Робот",
+    "description": "Крупный кроссовер Changan.",
+    "country": "CHN",
+    "engine": "2.0 турбо",
+    "power": "226 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "чанган",
+      "uni-k"
+    ]
+  },
+  {
+    "id": "car_m23",
+    "brand": "Haval",
+    "model": "H9",
+    "price": "4 200 000 ₽",
+    "transmission": "Автомат",
+    "description": "Рамный внедорожник.",
+    "country": "CHN",
+    "engine": "2.0 турбо",
+    "power": "218 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "хавал",
+      "h9"
+    ]
+  },
+  {
+    "id": "car_m24",
+    "brand": "Haval",
+    "model": "M6",
+    "price": "1 950 000 ₽",
+    "transmission": "Робот",
+    "description": "Доступный семейный кроссовер.",
+    "country": "CHN",
+    "engine": "1.5 турбо",
+    "power": "143 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "хавал",
+      "m6"
+    ]
+  },
+  {
+    "id": "car_m25",
+    "brand": "Chery",
+    "model": "Tiggo 8 Pro",
+    "price": "2 800 000 ₽",
+    "transmission": "Робот",
+    "description": "Семейный 7-местный кроссовер.",
+    "country": "CHN",
+    "engine": "1.6 / 2.0 турбо",
+    "power": "186–197 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "чери",
+      "tiggo 8",
+      "тигго 8"
+    ]
+  },
+  {
+    "id": "car_m26",
+    "brand": "Toyota",
+    "model": "Corolla",
+    "price": "2 600 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Надёжный гольф-класс.",
+    "country": "JPN",
+    "engine": "1.6 / 1.8",
+    "power": "122–140 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Седан",
+    "tags": [
+      "тойота",
+      "corolla",
+      "королла"
+    ]
+  },
+  {
+    "id": "car_m27",
+    "brand": "Toyota",
+    "model": "Highlander",
+    "price": "5 500 000 ₽",
+    "transmission": "Автомат",
+    "description": "Крупный семейный кроссовер.",
+    "country": "JPN",
+    "engine": "2.5 / 3.5 hybrid",
+    "power": "244–299 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "тойота",
+      "highlander",
+      "хайлендер"
+    ]
+  },
+  {
+    "id": "car_m28",
+    "brand": "Honda",
+    "model": "Civic",
+    "price": "2 800 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Спортивный гольф.",
+    "country": "JPN",
+    "engine": "1.5 турбо",
+    "power": "182 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Седан",
+    "tags": [
+      "хонда",
+      "civic",
+      "сивик"
+    ]
+  },
+  {
+    "id": "car_m29",
+    "brand": "Honda",
+    "model": "Pilot",
+    "price": "5 200 000 ₽",
+    "transmission": "Автомат",
+    "description": "Большой кроссовер 8 мест.",
+    "country": "JPN",
+    "engine": "3.5 л",
+    "power": "280 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Кроссовер",
+    "tags": [
+      "хонда",
+      "pilot",
+      "пилот"
+    ]
+  },
+  {
+    "id": "car_m30",
+    "brand": "Skoda",
+    "model": "Rapid",
+    "price": "1 700 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Практичный лифтбек.",
+    "country": "CZE",
+    "engine": "1.6 л",
+    "power": "90–110 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Седан",
+    "tags": [
+      "шкода",
+      "rapid",
+      "рапид"
+    ]
+  },
   {
     "id": "car_86",
     "brand": "Geely",
@@ -4652,7 +4651,2962 @@ const DEFAULT_CARS = [
       "hr-v",
       "hrv"
     ]
-  }];
+  },
+  {
+    "id": "car_136",
+    "brand": "Toyota",
+    "model": "Yaris Cross",
+    "price": "2 450 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Компактный кроссовер, экономичный и манёвренный.",
+    "country": "JPN",
+    "engine": "1.5 л",
+    "power": "120 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "тойота",
+      "toyota",
+      "yaris cross",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_137",
+    "brand": "Toyota",
+    "model": "C-HR",
+    "price": "2 650 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Стильный компактный кроссовер с ярким дизайном.",
+    "country": "JPN",
+    "engine": "2.0 л",
+    "power": "152 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "тойота",
+      "toyota",
+      "c hr",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_138",
+    "brand": "Toyota",
+    "model": "Fortuner",
+    "price": "4 350 000 ₽",
+    "transmission": "Автомат",
+    "description": "Рамный внедорожник, готов к бездорожью.",
+    "country": "JPN",
+    "engine": "2.8 л",
+    "power": "204 л.с.",
+    "fuel": "Дизель",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "тойота",
+      "toyota",
+      "fortuner",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_139",
+    "brand": "Toyota",
+    "model": "Alphard",
+    "price": "7 200 000 ₽",
+    "transmission": "Автомат",
+    "description": "Премиальный минивэн с высоким уровнем комфорта.",
+    "country": "JPN",
+    "engine": "2.5 л",
+    "power": "182 л.с.",
+    "fuel": "Гибрид",
+    "bodyType": "Минивэн",
+    "tags": [
+      "тойота",
+      "toyota",
+      "alphard",
+      "минивэн",
+      "minivan"
+    ]
+  },
+  {
+    "id": "car_140",
+    "brand": "Toyota",
+    "model": "Land Cruiser 70",
+    "price": "5 100 000 ₽",
+    "transmission": "Механика",
+    "description": "Классический рабочий внедорожник для тяжёлых условий.",
+    "country": "JPN",
+    "engine": "2.8 л",
+    "power": "204 л.с.",
+    "fuel": "Дизель",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "тойота",
+      "toyota",
+      "land cruiser 70",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_141",
+    "brand": "Kia",
+    "model": "Soul",
+    "price": "2 150 000 ₽",
+    "transmission": "Автомат",
+    "description": "Компактный городской кроссовер с узнаваемым силуэтом.",
+    "country": "KOR",
+    "engine": "1.6 л",
+    "power": "123 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "киа",
+      "kia",
+      "soul",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_142",
+    "brand": "Kia",
+    "model": "Stinger",
+    "price": "4 200 000 ₽",
+    "transmission": "Автомат",
+    "description": "Спортивный лифтбек с мощным характером.",
+    "country": "KOR",
+    "engine": "2.0 л",
+    "power": "247 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Лифтбек",
+    "tags": [
+      "киа",
+      "kia",
+      "stinger",
+      "лифтбек",
+      "liftback"
+    ]
+  },
+  {
+    "id": "car_143",
+    "brand": "Kia",
+    "model": "Mohave",
+    "price": "4 850 000 ₽",
+    "transmission": "Автомат",
+    "description": "Крупный внедорожник для семьи и дальних поездок.",
+    "country": "KOR",
+    "engine": "3.0 л",
+    "power": "250 л.с.",
+    "fuel": "Дизель",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "киа",
+      "kia",
+      "mohave",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_144",
+    "brand": "Kia",
+    "model": "Picanto",
+    "price": "1 350 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Компактный городской хетчбэк, экономичный в эксплуатации.",
+    "country": "KOR",
+    "engine": "1.2 л",
+    "power": "84 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Хетчбэк",
+    "tags": [
+      "киа",
+      "kia",
+      "picanto",
+      "хетчбэк",
+      "hatchback"
+    ]
+  },
+  {
+    "id": "car_145",
+    "brand": "Kia",
+    "model": "Niro",
+    "price": "3 100 000 ₽",
+    "transmission": "Робот",
+    "description": "Гибридный кроссовер с низким расходом топлива.",
+    "country": "KOR",
+    "engine": "1.6 л",
+    "power": "141 л.с.",
+    "fuel": "Гибрид",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "киа",
+      "kia",
+      "niro",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_146",
+    "brand": "Hyundai",
+    "model": "Venue",
+    "price": "1 950 000 ₽",
+    "transmission": "Автомат",
+    "description": "Доступный городской кроссовер для ежедневных поездок.",
+    "country": "KOR",
+    "engine": "1.6 л",
+    "power": "123 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "хёндай",
+      "hyundai",
+      "хендай",
+      "venue",
+      "кроссовер",
+      "suv"
+    ]
+  },
+  {
+    "id": "car_147",
+    "brand": "Hyundai",
+    "model": "Kona",
+    "price": "2 550 000 ₽",
+    "transmission": "Робот",
+    "description": "Компактный кроссовер с современным оснащением.",
+    "country": "KOR",
+    "engine": "1.6 л",
+    "power": "198 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "хёндай",
+      "hyundai",
+      "хендай",
+      "kona",
+      "кроссовер",
+      "suv"
+    ]
+  },
+  {
+    "id": "car_148",
+    "brand": "Hyundai",
+    "model": "Staria",
+    "price": "4 600 000 ₽",
+    "transmission": "Автомат",
+    "description": "Просторный минивэн с футуристичным дизайном.",
+    "country": "KOR",
+    "engine": "2.2 л",
+    "power": "177 л.с.",
+    "fuel": "Дизель",
+    "bodyType": "Минивэн",
+    "tags": [
+      "хёндай",
+      "hyundai",
+      "хендай",
+      "staria",
+      "минивэн",
+      "minivan"
+    ]
+  },
+  {
+    "id": "car_149",
+    "brand": "Hyundai",
+    "model": "Porter",
+    "price": "2 900 000 ₽",
+    "transmission": "Механика",
+    "description": "Лёгкий коммерческий грузовик для города и бизнеса.",
+    "country": "KOR",
+    "engine": "2.5 л",
+    "power": "145 л.с.",
+    "fuel": "Дизель",
+    "bodyType": "Пикап",
+    "tags": [
+      "хёндай",
+      "hyundai",
+      "хендай",
+      "porter",
+      "пикап",
+      "pickup"
+    ]
+  },
+  {
+    "id": "car_150",
+    "brand": "Hyundai",
+    "model": "Bayon",
+    "price": "2 050 000 ₽",
+    "transmission": "Робот",
+    "description": "Городской кроссовер на базе хетчбэка i20.",
+    "country": "KOR",
+    "engine": "1.0 л",
+    "power": "100 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "хёндай",
+      "hyundai",
+      "хендай",
+      "bayon",
+      "кроссовер",
+      "suv"
+    ]
+  },
+  {
+    "id": "car_151",
+    "brand": "Chery",
+    "model": "Tiggo 8 Pro Max",
+    "price": "3 350 000 ₽",
+    "transmission": "Робот",
+    "description": "Флагманский семейный кроссовер с богатым оснащением.",
+    "country": "CHN",
+    "engine": "2.0 л",
+    "power": "250 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "чери",
+      "chery",
+      "tiggo 8 pro max",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_152",
+    "brand": "Chery",
+    "model": "Tiggo 9",
+    "price": "3 850 000 ₽",
+    "transmission": "Робот",
+    "description": "Крупный кроссовер для комфортных семейных поездок.",
+    "country": "CHN",
+    "engine": "2.0 л",
+    "power": "261 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "чери",
+      "chery",
+      "tiggo 9",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_153",
+    "brand": "Chery",
+    "model": "Arrizo 6 Pro",
+    "price": "2 050 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Современный седан с просторным салоном.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "147 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Седан",
+    "tags": [
+      "чери",
+      "chery",
+      "arrizo 6 pro",
+      "седан",
+      "sedan"
+    ]
+  },
+  {
+    "id": "car_154",
+    "brand": "Chery",
+    "model": "QQ",
+    "price": "1 100 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Компактный городской автомобиль начального сегмента.",
+    "country": "CHN",
+    "engine": "1.0 л",
+    "power": "68 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Хетчбэк",
+    "tags": [
+      "чери",
+      "chery",
+      "qq",
+      "хетчбэк",
+      "hatchback"
+    ]
+  },
+  {
+    "id": "car_155",
+    "brand": "Geely",
+    "model": "Okavango",
+    "price": "3 250 000 ₽",
+    "transmission": "Робот",
+    "description": "Семиместный кроссовер для большой семьи.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "200 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "джили",
+      "geely",
+      "okavango",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_156",
+    "brand": "Geely",
+    "model": "Tugella",
+    "price": "3 450 000 ₽",
+    "transmission": "Робот",
+    "description": "Стильный купе-кроссовер с мощным мотором.",
+    "country": "CHN",
+    "engine": "2.0 л",
+    "power": "238 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "джили",
+      "geely",
+      "tugella",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_157",
+    "brand": "Geely",
+    "model": "Boyue",
+    "price": "2 750 000 ₽",
+    "transmission": "Робот",
+    "description": "Среднеразмерный кроссовер с балансом цены и оснащения.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "177 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "джили",
+      "geely",
+      "boyue",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_158",
+    "brand": "Geely",
+    "model": "Galaxy L7",
+    "price": "3 600 000 ₽",
+    "transmission": "Робот",
+    "description": "Гибридный кроссовер нового поколения.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "260 л.с.",
+    "fuel": "Гибрид",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "джили",
+      "geely",
+      "galaxy l7",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_159",
+    "brand": "Haval",
+    "model": "H3",
+    "price": "2 350 000 ₽",
+    "transmission": "Робот",
+    "description": "Компактный кроссовер с современным интерьером.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "150 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "хавал",
+      "haval",
+      "h3",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_160",
+    "brand": "Haval",
+    "model": "H5",
+    "price": "2 850 000 ₽",
+    "transmission": "Автомат",
+    "description": "Практичный среднеразмерный кроссовер.",
+    "country": "CHN",
+    "engine": "2.0 л",
+    "power": "224 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "хавал",
+      "haval",
+      "h5",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_161",
+    "brand": "Haval",
+    "model": "Big Dog",
+    "price": "3 150 000 ₽",
+    "transmission": "Робот",
+    "description": "Кроссовер с внедорожным уклоном и ярким стилем.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "184 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "хавал",
+      "haval",
+      "big dog",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_162",
+    "brand": "Haval",
+    "model": "Xiaolong Max",
+    "price": "3 750 000 ₽",
+    "transmission": "Робот",
+    "description": "Гибридный семейный кроссовер с большим запасом хода.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "240 л.с.",
+    "fuel": "Гибрид",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "хавал",
+      "haval",
+      "xiaolong max",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_163",
+    "brand": "Changan",
+    "model": "CS75 Plus",
+    "price": "2 650 000 ₽",
+    "transmission": "Робот",
+    "description": "Популярный кроссовер с богатой комплектацией.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "180 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "чанган",
+      "changan",
+      "cs75 plus",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_164",
+    "brand": "Changan",
+    "model": "CS35 Plus",
+    "price": "2 150 000 ₽",
+    "transmission": "Робот",
+    "description": "Компактный городской кроссовер.",
+    "country": "CHN",
+    "engine": "1.4 л",
+    "power": "160 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "чанган",
+      "changan",
+      "cs35 plus",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_165",
+    "brand": "Changan",
+    "model": "Deepal S7",
+    "price": "3 550 000 ₽",
+    "transmission": "Автомат",
+    "description": "Электрический кроссовер с современным салоном.",
+    "country": "CHN",
+    "engine": "Электро",
+    "power": "258 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "чанган",
+      "changan",
+      "deepal s7",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_166",
+    "brand": "Changan",
+    "model": "UNI-T",
+    "price": "2 450 000 ₽",
+    "transmission": "Робот",
+    "description": "Стильный купе-кроссовер с футуристичным дизайном.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "180 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "чанган",
+      "changan",
+      "uni t",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_167",
+    "brand": "Omoda",
+    "model": "C7",
+    "price": "2 950 000 ₽",
+    "transmission": "Робот",
+    "description": "Новый кроссовер бренда с акцентом на дизайн.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "174 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "омода",
+      "omoda",
+      "c7",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_168",
+    "brand": "Jetour",
+    "model": "X90 Plus",
+    "price": "3 050 000 ₽",
+    "transmission": "Робот",
+    "description": "Семиместный кроссовер для семьи.",
+    "country": "CHN",
+    "engine": "1.6 л",
+    "power": "190 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "джетур",
+      "jetour",
+      "x90 plus",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_169",
+    "brand": "Tank",
+    "model": "700",
+    "price": "6 500 000 ₽",
+    "transmission": "Автомат",
+    "description": "Премиальный рамный внедорожник.",
+    "country": "CHN",
+    "engine": "3.0 л",
+    "power": "354 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "танк",
+      "tank",
+      "700",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_170",
+    "brand": "Tank",
+    "model": "500 Hybrid",
+    "price": "5 800 000 ₽",
+    "transmission": "Автомат",
+    "description": "Гибридный внедорожник с высоким комфортом.",
+    "country": "CHN",
+    "engine": "2.0 л",
+    "power": "299 л.с.",
+    "fuel": "Гибрид",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "танк",
+      "tank",
+      "500 hybrid",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_171",
+    "brand": "BYD",
+    "model": "Yuan Up",
+    "price": "2 650 000 ₽",
+    "transmission": "Автомат",
+    "description": "Компактный электрический кроссовер.",
+    "country": "CHN",
+    "engine": "Электро",
+    "power": "177 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "бивайди",
+      "byd",
+      "yuan up",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_172",
+    "brand": "Zeekr",
+    "model": "X",
+    "price": "4 350 000 ₽",
+    "transmission": "Автомат",
+    "description": "Компактный премиальный электрокроссовер.",
+    "country": "CHN",
+    "engine": "Электро",
+    "power": "428 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "зикр",
+      "zeekr",
+      "x",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_173",
+    "brand": "Zeekr",
+    "model": "009",
+    "price": "8 500 000 ₽",
+    "transmission": "Автомат",
+    "description": "Роскошный электрический минивэн.",
+    "country": "CHN",
+    "engine": "Электро",
+    "power": "544 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Минивэн",
+    "tags": [
+      "зикр",
+      "zeekr",
+      "009",
+      "минивэн",
+      "minivan"
+    ]
+  },
+  {
+    "id": "car_174",
+    "brand": "Voyah",
+    "model": "Dream",
+    "price": "6 800 000 ₽",
+    "transmission": "Автомат",
+    "description": "Просторный электрический минивэн премиум-класса.",
+    "country": "CHN",
+    "engine": "Электро",
+    "power": "422 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Минивэн",
+    "tags": [
+      "воя",
+      "voyah",
+      "dream",
+      "минивэн",
+      "minivan"
+    ]
+  },
+  {
+    "id": "car_175",
+    "brand": "Lixiang",
+    "model": "L8",
+    "price": "6 400 000 ₽",
+    "transmission": "Автомат",
+    "description": "Семиместный гибридный кроссовер.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "449 л.с.",
+    "fuel": "Гибрид",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "лисян",
+      "lixiang",
+      "li auto",
+      "l8",
+      "кроссовер",
+      "suv"
+    ]
+  },
+  {
+    "id": "car_176",
+    "brand": "GAC",
+    "model": "M8",
+    "price": "4 150 000 ₽",
+    "transmission": "Автомат",
+    "description": "Комфортабельный минивэн для семьи.",
+    "country": "CHN",
+    "engine": "2.0 л",
+    "power": "231 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Минивэн",
+    "tags": [
+      "гак",
+      "gac",
+      "m8",
+      "минивэн",
+      "minivan"
+    ]
+  },
+  {
+    "id": "car_177",
+    "brand": "GAC",
+    "model": "Aion Y",
+    "price": "2 950 000 ₽",
+    "transmission": "Автомат",
+    "description": "Доступный электрический кроссовер.",
+    "country": "CHN",
+    "engine": "Электро",
+    "power": "204 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "гак",
+      "gac",
+      "aion y",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_178",
+    "brand": "JAC",
+    "model": "T6",
+    "price": "2 350 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Рамный пикап для работы и бездорожья.",
+    "country": "CHN",
+    "engine": "2.0 л",
+    "power": "136 л.с.",
+    "fuel": "Дизель",
+    "bodyType": "Пикап",
+    "tags": [
+      "джак",
+      "jac",
+      "t6",
+      "пикап",
+      "pickup"
+    ]
+  },
+  {
+    "id": "car_179",
+    "brand": "JAC",
+    "model": "J7",
+    "price": "1 950 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Комфортный седан среднего класса.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "136 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Седан",
+    "tags": [
+      "джак",
+      "jac",
+      "j7",
+      "седан",
+      "sedan"
+    ]
+  },
+  {
+    "id": "car_180",
+    "brand": "FAW",
+    "model": "Bestune B70",
+    "price": "2 350 000 ₽",
+    "transmission": "Робот",
+    "description": "Динамичный лифтбек с современным салоном.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "168 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Лифтбек",
+    "tags": [
+      "фав",
+      "faw",
+      "bestune",
+      "bestune b70",
+      "лифтбек",
+      "liftback"
+    ]
+  },
+  {
+    "id": "car_181",
+    "brand": "Moskvich",
+    "model": "3е",
+    "price": "2 050 000 ₽",
+    "transmission": "Автомат",
+    "description": "Электрическая версия городского кроссовера.",
+    "country": "RUS",
+    "engine": "Электро",
+    "power": "193 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "москвич",
+      "moskvich",
+      "3е",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_182",
+    "brand": "UAZ",
+    "model": "Pickup",
+    "price": "1 850 000 ₽",
+    "transmission": "Механика",
+    "description": "Практичный пикап на базе Патриота.",
+    "country": "RUS",
+    "engine": "2.7 л",
+    "power": "150 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Пикап",
+    "tags": [
+      "уаз",
+      "uaz",
+      "pickup",
+      "пикап",
+      "uaz"
+    ]
+  },
+  {
+    "id": "car_183",
+    "brand": "Sollers",
+    "model": "ST6",
+    "price": "2 250 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Современный пикап для работы и отдыха.",
+    "country": "RUS",
+    "engine": "2.0 л",
+    "power": "150 л.с.",
+    "fuel": "Дизель",
+    "bodyType": "Пикап",
+    "tags": [
+      "соллерс",
+      "sollers",
+      "st6",
+      "пикап",
+      "pickup"
+    ]
+  },
+  {
+    "id": "car_184",
+    "brand": "Volkswagen",
+    "model": "Teramont",
+    "price": "5 250 000 ₽",
+    "transmission": "Автомат",
+    "description": "Большой семейный кроссовер.",
+    "country": "DEU",
+    "engine": "2.0 л",
+    "power": "220 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "фольксваген",
+      "volkswagen",
+      "vw",
+      "teramont",
+      "кроссовер",
+      "suv"
+    ]
+  },
+  {
+    "id": "car_185",
+    "brand": "Nissan",
+    "model": "Murano",
+    "price": "4 250 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Комфортный кроссовер с мягкой подвеской.",
+    "country": "JPN",
+    "engine": "2.5 л",
+    "power": "249 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "ниссан",
+      "nissan",
+      "murano",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_186",
+    "brand": "Mitsubishi",
+    "model": "Eclipse Cross",
+    "price": "2 950 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Стильный компактный кроссовер.",
+    "country": "JPN",
+    "engine": "1.5 л",
+    "power": "150 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "митсубиси",
+      "mitsubishi",
+      "eclipse cross",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_187",
+    "brand": "Mitsubishi",
+    "model": "Pajero Sport",
+    "price": "4 150 000 ₽",
+    "transmission": "Автомат",
+    "description": "Рамный внедорожник для сложных дорог.",
+    "country": "JPN",
+    "engine": "2.4 л",
+    "power": "181 л.с.",
+    "fuel": "Дизель",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "митсубиси",
+      "mitsubishi",
+      "pajero sport",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_188",
+    "brand": "Subaru",
+    "model": "Outback",
+    "price": "4 250 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Универсал повышенной проходимости.",
+    "country": "JPN",
+    "engine": "2.5 л",
+    "power": "185 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Универсал",
+    "tags": [
+      "субару",
+      "subaru",
+      "outback",
+      "универсал",
+      "wagon"
+    ]
+  },
+  {
+    "id": "car_189",
+    "brand": "Subaru",
+    "model": "XV",
+    "price": "3 250 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Компактный кроссовер с симметричным полным приводом.",
+    "country": "JPN",
+    "engine": "2.0 л",
+    "power": "150 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "субару",
+      "subaru",
+      "xv",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_190",
+    "brand": "Suzuki",
+    "model": "Jimny",
+    "price": "2 650 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Маленький настоящий внедорожник.",
+    "country": "JPN",
+    "engine": "1.5 л",
+    "power": "102 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "сузуки",
+      "suzuki",
+      "jimny",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_191",
+    "brand": "Suzuki",
+    "model": "S-Cross",
+    "price": "2 550 000 ₽",
+    "transmission": "Автомат",
+    "description": "Практичный компактный кроссовер.",
+    "country": "JPN",
+    "engine": "1.4 л",
+    "power": "140 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "сузуки",
+      "suzuki",
+      "s cross",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_192",
+    "brand": "Renault",
+    "model": "Kaptur",
+    "price": "2 250 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Городской кроссовер с ярким дизайном.",
+    "country": "FRA",
+    "engine": "1.3 л",
+    "power": "150 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "рено",
+      "renault",
+      "kaptur",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_193",
+    "brand": "Peugeot",
+    "model": "2008",
+    "price": "2 550 000 ₽",
+    "transmission": "Робот",
+    "description": "Компактный модный городской кроссовер.",
+    "country": "FRA",
+    "engine": "1.2 л",
+    "power": "130 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "пежо",
+      "peugeot",
+      "2008",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_194",
+    "brand": "Citroen",
+    "model": "C3 Aircross",
+    "price": "2 250 000 ₽",
+    "transmission": "Автомат",
+    "description": "Компактный семейный кроссовер.",
+    "country": "FRA",
+    "engine": "1.2 л",
+    "power": "110 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "ситроен",
+      "citroen",
+      "c3 aircross",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_195",
+    "brand": "Audi",
+    "model": "Q3",
+    "price": "4 150 000 ₽",
+    "transmission": "Робот",
+    "description": "Компактный премиальный кроссовер.",
+    "country": "DEU",
+    "engine": "2.0 л",
+    "power": "180 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "ауди",
+      "audi",
+      "q3",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_196",
+    "brand": "Mercedes",
+    "model": "GLA",
+    "price": "4 350 000 ₽",
+    "transmission": "Робот",
+    "description": "Компактный премиальный кроссовер.",
+    "country": "DEU",
+    "engine": "1.3 л",
+    "power": "150 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "мерседес",
+      "mercedes",
+      "mercedes-benz",
+      "gla",
+      "кроссовер",
+      "suv"
+    ]
+  },
+  {
+    "id": "car_197",
+    "brand": "Lexus",
+    "model": "NX",
+    "price": "5 450 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Премиальный кроссовер с высокой надёжностью.",
+    "country": "JPN",
+    "engine": "2.5 л",
+    "power": "203 л.с.",
+    "fuel": "Гибрид",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "лексус",
+      "lexus",
+      "nx",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_198",
+    "brand": "Lexus",
+    "model": "ES",
+    "price": "5 150 000 ₽",
+    "transmission": "Автомат",
+    "description": "Тихий и комфортный бизнес-седан.",
+    "country": "JPN",
+    "engine": "2.5 л",
+    "power": "200 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Седан",
+    "tags": [
+      "лексус",
+      "lexus",
+      "es",
+      "седан",
+      "sedan"
+    ]
+  },
+  {
+    "id": "car_199",
+    "brand": "Volvo",
+    "model": "XC40",
+    "price": "4 550 000 ₽",
+    "transmission": "Автомат",
+    "description": "Компактный премиальный кроссовер.",
+    "country": "SWE",
+    "engine": "2.0 л",
+    "power": "190 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "вольво",
+      "volvo",
+      "xc40",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_200",
+    "brand": "Ford",
+    "model": "Explorer",
+    "price": "5 250 000 ₽",
+    "transmission": "Автомат",
+    "description": "Большой американский семейный кроссовер.",
+    "country": "USA",
+    "engine": "2.3 л",
+    "power": "300 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "форд",
+      "ford",
+      "explorer",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_201",
+    "brand": "Chevrolet",
+    "model": "Tahoe",
+    "price": "7 250 000 ₽",
+    "transmission": "Автомат",
+    "description": "Крупный рамный внедорожник.",
+    "country": "USA",
+    "engine": "5.3 л",
+    "power": "360 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "шевроле",
+      "chevrolet",
+      "tahoe",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_202",
+    "brand": "Chevrolet",
+    "model": "Traverse",
+    "price": "4 650 000 ₽",
+    "transmission": "Автомат",
+    "description": "Просторный семиместный кроссовер.",
+    "country": "USA",
+    "engine": "3.6 л",
+    "power": "310 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "шевроле",
+      "chevrolet",
+      "traverse",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_203",
+    "brand": "Toyota",
+    "model": "Corolla Cross",
+    "price": "2 850 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Кроссовер на базе Corolla для города и трассы.",
+    "country": "JPN",
+    "engine": "2.0 л",
+    "power": "152 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "тойота",
+      "toyota",
+      "corolla cross",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_204",
+    "brand": "Toyota",
+    "model": "Avalon",
+    "price": "3 450 000 ₽",
+    "transmission": "Автомат",
+    "description": "Просторный бизнес-седан.",
+    "country": "JPN",
+    "engine": "2.5 л",
+    "power": "209 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Седан",
+    "tags": [
+      "тойота",
+      "toyota",
+      "avalon",
+      "седан",
+      "sedan"
+    ]
+  },
+  {
+    "id": "car_205",
+    "brand": "Toyota",
+    "model": "Sequoia",
+    "price": "8 200 000 ₽",
+    "transmission": "Автомат",
+    "description": "Полноразмерный рамный внедорожник.",
+    "country": "JPN",
+    "engine": "3.5 л",
+    "power": "389 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "тойота",
+      "toyota",
+      "sequoia",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_206",
+    "brand": "Kia",
+    "model": "Telluride",
+    "price": "4 650 000 ₽",
+    "transmission": "Автомат",
+    "description": "Большой семейный кроссовер.",
+    "country": "KOR",
+    "engine": "3.8 л",
+    "power": "295 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "киа",
+      "kia",
+      "telluride",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_207",
+    "brand": "Kia",
+    "model": "Proceed",
+    "price": "2 750 000 ₽",
+    "transmission": "Робот",
+    "description": "Стильный shooting brake на базе Ceed.",
+    "country": "KOR",
+    "engine": "1.5 л",
+    "power": "160 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Универсал",
+    "tags": [
+      "киа",
+      "kia",
+      "proceed",
+      "универсал",
+      "wagon"
+    ]
+  },
+  {
+    "id": "car_208",
+    "brand": "Kia",
+    "model": "Morning",
+    "price": "1 250 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Компактный городской хетчбэк.",
+    "country": "KOR",
+    "engine": "1.0 л",
+    "power": "67 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Хетчбэк",
+    "tags": [
+      "киа",
+      "kia",
+      "morning",
+      "хетчбэк",
+      "hatchback"
+    ]
+  },
+  {
+    "id": "car_209",
+    "brand": "Hyundai",
+    "model": "Venue FL",
+    "price": "1 980 000 ₽",
+    "transmission": "Автомат",
+    "description": "Обновлённый доступный кроссовер.",
+    "country": "KOR",
+    "engine": "1.6 л",
+    "power": "123 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "хендай",
+      "hyundai",
+      "venue fl",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_210",
+    "brand": "Hyundai",
+    "model": "Ioniq 6",
+    "price": "4 550 000 ₽",
+    "transmission": "Автомат",
+    "description": "Обтекаемый электрический седан.",
+    "country": "KOR",
+    "engine": "Электро",
+    "power": "325 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Седан",
+    "tags": [
+      "хендай",
+      "hyundai",
+      "ioniq 6",
+      "седан",
+      "sedan"
+    ]
+  },
+  {
+    "id": "car_211",
+    "brand": "Hyundai",
+    "model": "Santa Cruz",
+    "price": "3 850 000 ₽",
+    "transmission": "Автомат",
+    "description": "Стильный пикап на базе Tucson.",
+    "country": "KOR",
+    "engine": "2.5 л",
+    "power": "190 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Пикап",
+    "tags": [
+      "хендай",
+      "hyundai",
+      "santa cruz",
+      "пикап",
+      "pickup"
+    ]
+  },
+  {
+    "id": "car_212",
+    "brand": "Chery",
+    "model": "Tiggo 2 Pro",
+    "price": "1 750 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Компактный доступный кроссовер.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "113 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "чери",
+      "chery",
+      "tiggo 2 pro",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_213",
+    "brand": "Chery",
+    "model": "Exeed Sterra ES",
+    "price": "4 450 000 ₽",
+    "transmission": "Автомат",
+    "description": "Электрический бизнес-седан премиум-линейки.",
+    "country": "CHN",
+    "engine": "Электро",
+    "power": "313 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Седан",
+    "tags": [
+      "чери",
+      "chery",
+      "exeed sterra es",
+      "седан",
+      "sedan"
+    ]
+  },
+  {
+    "id": "car_214",
+    "brand": "Geely",
+    "model": "Binrui",
+    "price": "2 150 000 ₽",
+    "transmission": "Робот",
+    "description": "Динамичный седан для города.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "177 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Седан",
+    "tags": [
+      "джили",
+      "geely",
+      "binrui",
+      "седан",
+      "sedan"
+    ]
+  },
+  {
+    "id": "car_215",
+    "brand": "Geely",
+    "model": "Haoyue",
+    "price": "2 950 000 ₽",
+    "transmission": "Робот",
+    "description": "Крупный семейный кроссовер.",
+    "country": "CHN",
+    "engine": "1.8 л",
+    "power": "184 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "джили",
+      "geely",
+      "haoyue",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_216",
+    "brand": "Geely",
+    "model": "Galaxy E8",
+    "price": "4 250 000 ₽",
+    "transmission": "Автомат",
+    "description": "Флагманский электрический седан.",
+    "country": "CHN",
+    "engine": "Электро",
+    "power": "442 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Седан",
+    "tags": [
+      "джили",
+      "geely",
+      "galaxy e8",
+      "седан",
+      "sedan"
+    ]
+  },
+  {
+    "id": "car_217",
+    "brand": "Haval",
+    "model": "Chitu",
+    "price": "2 450 000 ₽",
+    "transmission": "Робот",
+    "description": "Компактный кроссовер с ярким характером.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "150 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "хавал",
+      "haval",
+      "chitu",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_218",
+    "brand": "Haval",
+    "model": "Shenshou",
+    "price": "2 750 000 ₽",
+    "transmission": "Робот",
+    "description": "Стильный купе-кроссовер.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "184 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "хавал",
+      "haval",
+      "shenshou",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_219",
+    "brand": "Changan",
+    "model": "CS95",
+    "price": "3 250 000 ₽",
+    "transmission": "Автомат",
+    "description": "Большой семиместный кроссовер.",
+    "country": "CHN",
+    "engine": "2.0 л",
+    "power": "233 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "чанган",
+      "changan",
+      "cs95",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_220",
+    "brand": "Changan",
+    "model": "Eado Plus",
+    "price": "2 050 000 ₽",
+    "transmission": "Робот",
+    "description": "Современный городской седан.",
+    "country": "CHN",
+    "engine": "1.4 л",
+    "power": "160 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Седан",
+    "tags": [
+      "чанган",
+      "changan",
+      "eado plus",
+      "седан",
+      "sedan"
+    ]
+  },
+  {
+    "id": "car_221",
+    "brand": "Omoda",
+    "model": "E5",
+    "price": "2 850 000 ₽",
+    "transmission": "Автомат",
+    "description": "Электрическая версия кроссовера C5.",
+    "country": "CHN",
+    "engine": "Электро",
+    "power": "204 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "омода",
+      "omoda",
+      "e5",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_222",
+    "brand": "Jetour",
+    "model": "X70",
+    "price": "2 550 000 ₽",
+    "transmission": "Робот",
+    "description": "Практичный семейный кроссовер.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "156 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "джетур",
+      "jetour",
+      "x70",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_223",
+    "brand": "Jetour",
+    "model": "Free",
+    "price": "2 350 000 ₽",
+    "transmission": "Робот",
+    "description": "Городской кроссовер с хорошим оснащением.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "156 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "джетур",
+      "jetour",
+      "free",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_224",
+    "brand": "Exeed",
+    "model": "Yaoguang",
+    "price": "3 750 000 ₽",
+    "transmission": "Робот",
+    "description": "Новый стильный кроссовер бренда.",
+    "country": "CHN",
+    "engine": "2.0 л",
+    "power": "249 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "эксид",
+      "exeed",
+      "yaoguang",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_225",
+    "brand": "Tank",
+    "model": "300 Cyber",
+    "price": "4 350 000 ₽",
+    "transmission": "Автомат",
+    "description": "Спецверсия внедорожника в футуристичном стиле.",
+    "country": "CHN",
+    "engine": "2.0 л",
+    "power": "220 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "танк",
+      "tank",
+      "300 cyber",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_226",
+    "brand": "BYD",
+    "model": "Qin Plus",
+    "price": "2 650 000 ₽",
+    "transmission": "Автомат",
+    "description": "Гибридный седан с низким расходом.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "180 л.с.",
+    "fuel": "Гибрид",
+    "bodyType": "Седан",
+    "tags": [
+      "бивайди",
+      "byd",
+      "qin plus",
+      "седан",
+      "sedan"
+    ]
+  },
+  {
+    "id": "car_227",
+    "brand": "BYD",
+    "model": "Tang",
+    "price": "4 350 000 ₽",
+    "transmission": "Автомат",
+    "description": "Семейный гибридный кроссовер.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "272 л.с.",
+    "fuel": "Гибрид",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "бивайди",
+      "byd",
+      "tang",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_228",
+    "brand": "BYD",
+    "model": "Dolphin",
+    "price": "2 350 000 ₽",
+    "transmission": "Автомат",
+    "description": "Компактный электрический хетчбэк.",
+    "country": "CHN",
+    "engine": "Электро",
+    "power": "177 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Хетчбэк",
+    "tags": [
+      "бивайди",
+      "byd",
+      "dolphin",
+      "хетчбэк",
+      "hatchback"
+    ]
+  },
+  {
+    "id": "car_229",
+    "brand": "Voyah",
+    "model": "Passion",
+    "price": "5 250 000 ₽",
+    "transmission": "Автомат",
+    "description": "Электрический седан премиум-класса.",
+    "country": "CHN",
+    "engine": "Электро",
+    "power": "510 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Седан",
+    "tags": [
+      "воя",
+      "voyah",
+      "passion",
+      "седан",
+      "sedan"
+    ]
+  },
+  {
+    "id": "car_230",
+    "brand": "Lixiang",
+    "model": "Mega",
+    "price": "8 200 000 ₽",
+    "transmission": "Автомат",
+    "description": "Футуристичный гибридный минивэн.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "543 л.с.",
+    "fuel": "Гибрид",
+    "bodyType": "Минивэн",
+    "tags": [
+      "лисян",
+      "lixiang",
+      "mega",
+      "минивэн",
+      "minivan"
+    ]
+  },
+  {
+    "id": "car_231",
+    "brand": "Hongqi",
+    "model": "H9",
+    "price": "5 450 000 ₽",
+    "transmission": "Автомат",
+    "description": "Представительский седан.",
+    "country": "CHN",
+    "engine": "2.0 л",
+    "power": "252 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Седан",
+    "tags": [
+      "хунци",
+      "hongqi",
+      "h9",
+      "седан",
+      "sedan"
+    ]
+  },
+  {
+    "id": "car_232",
+    "brand": "Hongqi",
+    "model": "HS3",
+    "price": "2 950 000 ₽",
+    "transmission": "Автомат",
+    "description": "Компактный премиальный кроссовер.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "167 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "хунци",
+      "hongqi",
+      "hs3",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_233",
+    "brand": "GAC",
+    "model": "GS3",
+    "price": "2 150 000 ₽",
+    "transmission": "Робот",
+    "description": "Доступный городской кроссовер.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "150 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "гак",
+      "gac",
+      "gs3",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_234",
+    "brand": "GAC",
+    "model": "Aion S",
+    "price": "2 750 000 ₽",
+    "transmission": "Автомат",
+    "description": "Электрический седан для города.",
+    "country": "CHN",
+    "engine": "Электро",
+    "power": "204 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Седан",
+    "tags": [
+      "гак",
+      "gac",
+      "aion s",
+      "седан",
+      "sedan"
+    ]
+  },
+  {
+    "id": "car_235",
+    "brand": "JAC",
+    "model": "JS4",
+    "price": "1 950 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Компактный кроссовер.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "136 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "джак",
+      "jac",
+      "js4",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_236",
+    "brand": "JAC",
+    "model": "T8 Pro",
+    "price": "2 550 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Рамный пикап повышенной грузоподъёмности.",
+    "country": "CHN",
+    "engine": "2.0 л",
+    "power": "150 л.с.",
+    "fuel": "Дизель",
+    "bodyType": "Пикап",
+    "tags": [
+      "джак",
+      "jac",
+      "t8 pro",
+      "пикап",
+      "pickup"
+    ]
+  },
+  {
+    "id": "car_237",
+    "brand": "FAW",
+    "model": "Bestune T99",
+    "price": "2 850 000 ₽",
+    "transmission": "Автомат",
+    "description": "Крупный кроссовер.",
+    "country": "CHN",
+    "engine": "2.0 л",
+    "power": "224 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "фав",
+      "faw",
+      "bestune t99",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_238",
+    "brand": "Volkswagen",
+    "model": "Arteon",
+    "price": "3 850 000 ₽",
+    "transmission": "Робот",
+    "description": "Стильный лифтбек бизнес-класса.",
+    "country": "DEU",
+    "engine": "2.0 л",
+    "power": "190 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Лифтбек",
+    "tags": [
+      "фольксваген",
+      "volkswagen",
+      "arteon",
+      "лифтбек",
+      "liftback"
+    ]
+  },
+  {
+    "id": "car_239",
+    "brand": "Skoda",
+    "model": "Kamiq",
+    "price": "2 350 000 ₽",
+    "transmission": "Робот",
+    "description": "Компактный городской кроссовер.",
+    "country": "CZE",
+    "engine": "1.4 л",
+    "power": "150 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "шкода",
+      "skoda",
+      "kamiq",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_240",
+    "brand": "Nissan",
+    "model": "Note",
+    "price": "1 950 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Практичный компактный хетчбэк.",
+    "country": "JPN",
+    "engine": "1.2 л",
+    "power": "109 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Хетчбэк",
+    "tags": [
+      "ниссан",
+      "nissan",
+      "note",
+      "хетчбэк",
+      "hatchback"
+    ]
+  },
+  {
+    "id": "car_241",
+    "brand": "Nissan",
+    "model": "Terrano",
+    "price": "1 850 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Доступный кроссовер для лёгкого бездорожья.",
+    "country": "JPN",
+    "engine": "2.0 л",
+    "power": "143 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "ниссан",
+      "nissan",
+      "terrano",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_242",
+    "brand": "Nissan",
+    "model": "Almera",
+    "price": "1 650 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Бюджетный седан для такси и города.",
+    "country": "JPN",
+    "engine": "1.6 л",
+    "power": "116 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Седан",
+    "tags": [
+      "ниссан",
+      "nissan",
+      "almera",
+      "седан",
+      "sedan"
+    ]
+  },
+  {
+    "id": "car_243",
+    "brand": "Mitsubishi",
+    "model": "ASX",
+    "price": "2 250 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Компактный городской кроссовер.",
+    "country": "JPN",
+    "engine": "1.6 л",
+    "power": "117 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "митсубиси",
+      "mitsubishi",
+      "asx",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_244",
+    "brand": "Mitsubishi",
+    "model": "Delica",
+    "price": "4 250 000 ₽",
+    "transmission": "Автомат",
+    "description": "Проходимый минивэн-внедорожник.",
+    "country": "JPN",
+    "engine": "2.3 л",
+    "power": "148 л.с.",
+    "fuel": "Дизель",
+    "bodyType": "Минивэн",
+    "tags": [
+      "митсубиси",
+      "mitsubishi",
+      "delica",
+      "минивэн",
+      "minivan"
+    ]
+  },
+  {
+    "id": "car_245",
+    "brand": "Mazda",
+    "model": "CX-9",
+    "price": "4 350 000 ₽",
+    "transmission": "Автомат",
+    "description": "Семиместный семейный кроссовер.",
+    "country": "JPN",
+    "engine": "2.5 л",
+    "power": "231 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "мазда",
+      "mazda",
+      "cx 9",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_246",
+    "brand": "Subaru",
+    "model": "Legacy",
+    "price": "3 150 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Седан с постоянным полным приводом.",
+    "country": "JPN",
+    "engine": "2.5 л",
+    "power": "185 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Седан",
+    "tags": [
+      "субару",
+      "subaru",
+      "legacy",
+      "седан",
+      "sedan"
+    ]
+  },
+  {
+    "id": "car_247",
+    "brand": "Subaru",
+    "model": "Levorg",
+    "price": "3 350 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Спортивный универсал.",
+    "country": "JPN",
+    "engine": "1.8 л",
+    "power": "177 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Универсал",
+    "tags": [
+      "субару",
+      "subaru",
+      "levorg",
+      "универсал",
+      "wagon"
+    ]
+  },
+  {
+    "id": "car_248",
+    "brand": "Suzuki",
+    "model": "Swift",
+    "price": "1 750 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Лёгкий и экономичный хетчбэк.",
+    "country": "JPN",
+    "engine": "1.2 л",
+    "power": "90 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Хетчбэк",
+    "tags": [
+      "сузуки",
+      "suzuki",
+      "swift",
+      "хетчбэк",
+      "hatchback"
+    ]
+  },
+  {
+    "id": "car_249",
+    "brand": "Suzuki",
+    "model": "SX4",
+    "price": "1 950 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Практичный компактный кроссовер.",
+    "country": "JPN",
+    "engine": "1.6 л",
+    "power": "117 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "сузуки",
+      "suzuki",
+      "sx4",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_250",
+    "brand": "Peugeot",
+    "model": "5008",
+    "price": "3 450 000 ₽",
+    "transmission": "Робот",
+    "description": "Семиместный семейный кроссовер.",
+    "country": "FRA",
+    "engine": "1.6 л",
+    "power": "150 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "пежо",
+      "peugeot",
+      "5008",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_251",
+    "brand": "Citroen",
+    "model": "C4",
+    "price": "2 250 000 ₽",
+    "transmission": "Автомат",
+    "description": "Комфортный хетчбэк с мягкой подвеской.",
+    "country": "FRA",
+    "engine": "1.2 л",
+    "power": "130 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Хетчбэк",
+    "tags": [
+      "ситроен",
+      "citroen",
+      "c4",
+      "хетчбэк",
+      "hatchback"
+    ]
+  },
+  {
+    "id": "car_252",
+    "brand": "Citroen",
+    "model": "Jumpy",
+    "price": "3 150 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Коммерческий фургон для бизнеса.",
+    "country": "FRA",
+    "engine": "2.0 л",
+    "power": "150 л.с.",
+    "fuel": "Дизель",
+    "bodyType": "Минивэн",
+    "tags": [
+      "ситроен",
+      "citroen",
+      "jumpy",
+      "минивэн",
+      "minivan"
+    ]
+  },
+  {
+    "id": "car_253",
+    "brand": "Audi",
+    "model": "A3",
+    "price": "3 250 000 ₽",
+    "transmission": "Робот",
+    "description": "Компактный премиальный хетчбэк и седан.",
+    "country": "DEU",
+    "engine": "1.4 л",
+    "power": "150 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Хетчбэк",
+    "tags": [
+      "ауди",
+      "audi",
+      "a3",
+      "хетчбэк",
+      "hatchback"
+    ]
+  },
+  {
+    "id": "car_254",
+    "brand": "BMW",
+    "model": "3 Series GT",
+    "price": "3 950 000 ₽",
+    "transmission": "Автомат",
+    "description": "Практичный лифтбек на базе 3 Series.",
+    "country": "DEU",
+    "engine": "2.0 л",
+    "power": "184 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Лифтбек",
+    "tags": [
+      "бмв",
+      "bmw",
+      "3 series gt",
+      "лифтбек",
+      "liftback"
+    ]
+  },
+  {
+    "id": "car_255",
+    "brand": "BMW",
+    "model": "X7",
+    "price": "9 250 000 ₽",
+    "transmission": "Автомат",
+    "description": "Флагманский большой премиум-SUV.",
+    "country": "DEU",
+    "engine": "3.0 л",
+    "power": "340 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "бмв",
+      "bmw",
+      "x7",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_256",
+    "brand": "Mercedes",
+    "model": "V-Class",
+    "price": "7 850 000 ₽",
+    "transmission": "Автомат",
+    "description": "Премиальный минивэн.",
+    "country": "DEU",
+    "engine": "2.0 л",
+    "power": "190 л.с.",
+    "fuel": "Дизель",
+    "bodyType": "Минивэн",
+    "tags": [
+      "мерседес",
+      "mercedes",
+      "v class",
+      "минивэн",
+      "minivan"
+    ]
+  },
+  {
+    "id": "car_257",
+    "brand": "Lexus",
+    "model": "GX",
+    "price": "8 450 000 ₽",
+    "transmission": "Автомат",
+    "description": "Рамный премиальный внедорожник.",
+    "country": "JPN",
+    "engine": "3.5 л",
+    "power": "349 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "лексус",
+      "lexus",
+      "gx",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_258",
+    "brand": "Lexus",
+    "model": "UX",
+    "price": "3 950 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Компактный премиальный кроссовер.",
+    "country": "JPN",
+    "engine": "2.0 л",
+    "power": "171 л.с.",
+    "fuel": "Гибрид",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "лексус",
+      "lexus",
+      "ux",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_259",
+    "brand": "Volvo",
+    "model": "V60",
+    "price": "4 150 000 ₽",
+    "transmission": "Автомат",
+    "description": "Премиальный универсал.",
+    "country": "SWE",
+    "engine": "2.0 л",
+    "power": "190 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Универсал",
+    "tags": [
+      "вольво",
+      "volvo",
+      "v60",
+      "универсал",
+      "wagon"
+    ]
+  },
+  {
+    "id": "car_260",
+    "brand": "Genesis",
+    "model": "GV80",
+    "price": "6 450 000 ₽",
+    "transmission": "Автомат",
+    "description": "Флагманский премиальный кроссовер.",
+    "country": "KOR",
+    "engine": "2.5 л",
+    "power": "304 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "генезис",
+      "genesis",
+      "gv80",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_261",
+    "brand": "Genesis",
+    "model": "G70",
+    "price": "4 250 000 ₽",
+    "transmission": "Автомат",
+    "description": "Спортивный премиальный седан.",
+    "country": "KOR",
+    "engine": "2.0 л",
+    "power": "247 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Седан",
+    "tags": [
+      "генезис",
+      "genesis",
+      "g70",
+      "седан",
+      "sedan"
+    ]
+  },
+  {
+    "id": "car_262",
+    "brand": "Tesla",
+    "model": "Model S",
+    "price": "8 450 000 ₽",
+    "transmission": "Автомат",
+    "description": "Флагманский электрический лифтбек.",
+    "country": "USA",
+    "engine": "Электро",
+    "power": "670 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Лифтбек",
+    "tags": [
+      "тесла",
+      "tesla",
+      "model s",
+      "лифтбек",
+      "liftback"
+    ]
+  },
+  {
+    "id": "car_263",
+    "brand": "Ford",
+    "model": "Mustang Mach-E",
+    "price": "5 450 000 ₽",
+    "transmission": "Автомат",
+    "description": "Электрический кроссовер в стиле Mustang.",
+    "country": "USA",
+    "engine": "Электро",
+    "power": "294 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "форд",
+      "ford",
+      "mustang mach e",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_264",
+    "brand": "Chevrolet",
+    "model": "Equinox",
+    "price": "3 150 000 ₽",
+    "transmission": "Автомат",
+    "description": "Среднеразмерный семейный кроссовер.",
+    "country": "USA",
+    "engine": "1.5 л",
+    "power": "155 л.с.",
+    "fuel": "АИ-95",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "шевроле",
+      "chevrolet",
+      "equinox",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_265",
+    "brand": "LADA",
+    "model": "Vesta NG",
+    "price": "1 450 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Обновлённый седан Vesta нового поколения.",
+    "country": "RUS",
+    "engine": "1.6 л",
+    "power": "113 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Седан",
+    "tags": [
+      "лада",
+      "lada",
+      "vesta ng",
+      "седан",
+      "sedan"
+    ]
+  },
+  {
+    "id": "car_266",
+    "brand": "Kaiyi",
+    "model": "X3",
+    "price": "1 850 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Доступный компактный кроссовер.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "116 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "каи",
+      "kaiyi",
+      "x3",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_267",
+    "brand": "Evolute",
+    "model": "i-Joy",
+    "price": "2 450 000 ₽",
+    "transmission": "Автомат",
+    "description": "Электрический кроссовер.",
+    "country": "RUS",
+    "engine": "Электро",
+    "power": "163 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "эволют",
+      "evolute",
+      "i joy",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_268",
+    "brand": "Evolute",
+    "model": "i-Jet",
+    "price": "2 850 000 ₽",
+    "transmission": "Автомат",
+    "description": "Электрический кроссовер с увеличенным запасом хода.",
+    "country": "RUS",
+    "engine": "Электро",
+    "power": "204 л.с.",
+    "fuel": "Электро",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "эволют",
+      "evolute",
+      "i jet",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_269",
+    "brand": "Knewstar",
+    "model": "001",
+    "price": "2 350 000 ₽",
+    "transmission": "Робот",
+    "description": "Новый кроссовер на российском рынке.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "147 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "ньюстар",
+      "knewstar",
+      "001",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_270",
+    "brand": "Knewstar",
+    "model": "001 Plus",
+    "price": "2 550 000 ₽",
+    "transmission": "Робот",
+    "description": "Расширенная версия кроссовера Knewstar.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "147 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "ньюстар",
+      "knewstar",
+      "001 plus",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_271",
+    "brand": "Solaris",
+    "model": "HS",
+    "price": "1 950 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Кроссовер под брендом Solaris.",
+    "country": "RUS",
+    "engine": "1.6 л",
+    "power": "123 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "солярис",
+      "solaris",
+      "hs",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_272",
+    "brand": "Solaris",
+    "model": "KRS",
+    "price": "1 750 000 ₽",
+    "transmission": "Механика / Автомат",
+    "description": "Седан под брендом Solaris.",
+    "country": "RUS",
+    "engine": "1.6 л",
+    "power": "123 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Седан",
+    "tags": [
+      "солярис",
+      "solaris",
+      "krs",
+      "седан",
+      "sedan"
+    ]
+  },
+  {
+    "id": "car_273",
+    "brand": "BAIC",
+    "model": "X35",
+    "price": "1 850 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Компактный городской кроссовер.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "150 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "баик",
+      "baic",
+      "x35",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_274",
+    "brand": "BAIC",
+    "model": "U5 Plus",
+    "price": "1 650 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Доступный седан.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "116 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Седан",
+    "tags": [
+      "баик",
+      "baic",
+      "u5 plus",
+      "седан",
+      "sedan"
+    ]
+  },
+  {
+    "id": "car_275",
+    "brand": "Dongfeng",
+    "model": "Shine Max",
+    "price": "2 050 000 ₽",
+    "transmission": "Робот",
+    "description": "Современный седан.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "168 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Седан",
+    "tags": [
+      "дунфэн",
+      "dongfeng",
+      "shine max",
+      "седан",
+      "sedan"
+    ]
+  },
+  {
+    "id": "car_276",
+    "brand": "Dongfeng",
+    "model": "Mage",
+    "price": "2 350 000 ₽",
+    "transmission": "Робот",
+    "description": "Стильный кроссовер.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "168 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "дунфэн",
+      "dongfeng",
+      "mage",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_277",
+    "brand": "SWM",
+    "model": "G01",
+    "price": "2 050 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Практичный кроссовер.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "156 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "свм",
+      "swm",
+      "g01",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  },
+  {
+    "id": "car_278",
+    "brand": "SWM",
+    "model": "G05 Pro",
+    "price": "2 250 000 ₽",
+    "transmission": "Вариатор",
+    "description": "Семиместный кроссовер.",
+    "country": "CHN",
+    "engine": "1.5 л",
+    "power": "156 л.с.",
+    "fuel": "АИ-92",
+    "bodyType": "Внедорожник / SUV",
+    "tags": [
+      "свм",
+      "swm",
+      "g05 pro",
+      "кроссовер",
+      "suv",
+      "внедорожник"
+    ]
+  }
+];
 
 const STORAGE_KEY = 'ect_scripts_data_v1';
 const SETTINGS_KEY = 'ect_scripts_settings_v1';
