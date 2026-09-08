@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.6.3 — автозавершение недели целей (вт–пн) + итоги
+ * ЕЦТ Скрипты v2.6.4 — удобный выбор отработок/скриптов по категориям
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -19232,52 +19232,130 @@ function showPickOtabotkaModal(scriptId) {
   if (!script) return;
   ensureOtabotkiModel();
   const attached = new Set(script.otabotkiIds || []);
-  const cat = (script.category || '').toLowerCase();
-  let list = (state.sharedOtabotki || []).slice();
-  // Сначала из той же категории
-  list.sort((a, b) => {
-    const ac = (a.categories || []).some(c => c.toLowerCase() === cat) ? 0 : 1;
-    const bc = (b.categories || []).some(c => c.toLowerCase() === cat) ? 0 : 1;
-    if (ac !== bc) return ac - bc;
-    return (a.title || '').localeCompare(b.title || '', 'ru');
+  const scriptCat = (script.category || '').trim();
+  const list = (state.sharedOtabotki || []).slice();
+
+  // категории отработок
+  const catSet = new Set();
+  list.forEach(o => {
+    const cats = (o.categories && o.categories.length) ? o.categories : ['Без категории'];
+    cats.forEach(c => catSet.add(String(c || 'Без категории')));
   });
+  const categories = Array.from(catSet).sort((a, b) => {
+    if (scriptCat && a.toLowerCase() === scriptCat.toLowerCase()) return -1;
+    if (scriptCat && b.toLowerCase() === scriptCat.toLowerCase()) return 1;
+    return a.localeCompare(b, 'ru');
+  });
+
+  const renderRows = (filterCat, q) => {
+    const qq = (q || '').toLowerCase().trim();
+    const words = qq ? qq.split(/\s+/).filter(Boolean) : [];
+    // group
+    const groups = new Map();
+    list.forEach(o => {
+      const cats = (o.categories && o.categories.length) ? o.categories : ['Без категории'];
+      const primary = cats[0] || 'Без категории';
+      // filter by chip category: match any of otabotka categories
+      if (filterCat && filterCat !== '__all__') {
+        const okCat = cats.some(c => String(c).toLowerCase() === filterCat.toLowerCase());
+        if (!okCat) return;
+      }
+      const hay = ((o.title || '') + ' ' + (o.text || '') + ' ' + cats.join(' ')).toLowerCase();
+      if (words.length && !words.every(w => hay.includes(w))) return;
+      if (!groups.has(primary)) groups.set(primary, []);
+      groups.get(primary).push(o);
+    });
+    // sort groups: script category first
+    const keys = Array.from(groups.keys()).sort((a, b) => {
+      if (scriptCat && a.toLowerCase() === scriptCat.toLowerCase()) return -1;
+      if (scriptCat && b.toLowerCase() === scriptCat.toLowerCase()) return 1;
+      return a.localeCompare(b, 'ru');
+    });
+    if (!keys.length) {
+      return '<p style="color:var(--text-muted);padding:12px 4px">Ничего не найдено</p>';
+    }
+    return keys.map(cat => {
+      const items = groups.get(cat).slice().sort((a, b) => (a.title || '').localeCompare(b.title || '', 'ru'));
+      const same = scriptCat && cat.toLowerCase() === scriptCat.toLowerCase();
+      return `<div class="pick-ota-group" data-group="${escapeAttr(cat)}" style="margin-bottom:12px">
+        <div style="position:sticky;top:0;z-index:1;background:var(--bg-elevated,var(--card-bg,#1e2433));padding:8px 4px 6px;display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border)">
+          <strong style="font-size:0.9rem">${same ? '⭐ ' : ''}${escapeHtml(cat)} <span style="color:var(--text-muted);font-weight:500">(${items.length})</span></strong>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
+          ${items.map(o => {
+            const on = attached.has(o.id);
+            const cats = (o.categories || []).join(', ');
+            const preview = (o.text || '').replace(/\s+/g, ' ').trim();
+            return `<div class="card" data-pick-row style="padding:10px 12px;margin:0;${on ? 'opacity:0.65' : ''}" data-title="${escapeAttr(((o.title || '') + ' ' + preview + ' ' + cats).toLowerCase())}" data-cats="${escapeAttr(cats.toLowerCase())}">
+              <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+                <div style="min-width:0;flex:1">
+                  <div style="font-weight:600;line-height:1.35">${escapeHtml(o.title || 'Без названия')}</div>
+                  ${cats ? `<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px">${(o.categories || []).map(c => `<span class="badge" style="font-size:0.72rem">${escapeHtml(c)}</span>`).join('')}</div>` : ''}
+                  ${preview ? `<div style="font-size:0.8rem;color:var(--text-muted);margin-top:6px;line-height:1.4">${escapeHtml(preview.slice(0, 140))}${preview.length > 140 ? '…' : ''}</div>` : ''}
+                </div>
+                <div style="flex-shrink:0">
+                  ${on
+                    ? '<span class="badge badge-teal">уже есть</span>'
+                    : `<button class="btn btn-primary btn-sm" data-action="attach-otabotka" data-sid="${scriptId}" data-oid="${o.id}">Добавить</button>`}
+                </div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  };
 
   openModal(
     'Добавить отработку из списка',
-    `<p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:10px">Скрипт: <b>${escapeHtml(script.title)}</b>${script.category ? ' · ' + escapeHtml(script.category) : ''}</p>
-     <div class="form-group"><input type="search" id="pickOtabotkaSearch" placeholder="Фильтр по названию / тексту..." class="search-input"></div>
-     <div id="pickOtabotkaList" style="max-height:360px;overflow:auto;display:flex;flex-direction:column;gap:8px">
-       ${list.length === 0 ? '<p style="color:var(--text-muted)">Список пуст — создайте отработку (+)</p>' :
-         list.map(o => {
-           const on = attached.has(o.id);
-           const cats = (o.categories || []).join(', ');
-           return `<div class="card" data-pick-row style="padding:10px 12px;margin:0" data-title="${escapeAttr((o.title + ' ' + (o.text || '') + ' ' + cats).toLowerCase())}">
-             <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
-               <div style="min-width:0">
-                 <div style="font-weight:600">${escapeHtml(o.title)}</div>
-                 ${cats ? `<div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px">${escapeHtml(cats)}</div>` : ''}
-                 ${o.text ? `<div style="font-size:0.82rem;color:var(--text-muted);margin-top:4px;white-space:pre-wrap">${escapeHtml(o.text.slice(0, 120))}${o.text.length > 120 ? '…' : ''}</div>` : ''}
-               </div>
-               ${on
-                 ? '<span class="badge badge-teal">уже в скрипте</span>'
-                 : `<button class="btn btn-primary btn-sm" data-action="attach-otabotka" data-sid="${scriptId}" data-oid="${o.id}">Добавить</button>`}
-             </div>
-           </div>`;
-         }).join('')}
+    `<p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:10px">Скрипт: <b>${escapeHtml(script.title)}</b>${script.category ? ' · категория <b>' + escapeHtml(script.category) + '</b>' : ''}</p>
+     <div class="form-group" style="margin-bottom:8px">
+       <input type="search" id="pickOtabotkaSearch" placeholder="Поиск: название, текст, категория…" class="search-input" autocomplete="off">
+     </div>
+     <div id="pickOtabotkaCats" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+       <button type="button" class="btn btn-sm btn-primary pick-ota-cat" data-cat="__all__">Все</button>
+       ${categories.map(c => {
+         const active = scriptCat && c.toLowerCase() === scriptCat.toLowerCase();
+         return `<button type="button" class="btn btn-sm ${active ? 'btn-primary' : 'btn-outline'} pick-ota-cat" data-cat="${escapeAttr(c)}">${escapeHtml(c)}</button>`;
+       }).join('')}
+     </div>
+     <div id="pickOtabotkaList" style="max-height:380px;overflow:auto;padding-right:2px">
+       ${renderRows(scriptCat || '__all__', '')}
      </div>`,
     `<button class="btn btn-outline" data-action="close-modal">Закрыть</button>`
   );
+
   setTimeout(() => {
+    let activeCat = scriptCat || '__all__';
+    const listEl = document.getElementById('pickOtabotkaList');
     const inp = document.getElementById('pickOtabotkaSearch');
-    inp?.addEventListener('input', () => {
-      const q = (inp.value || '').toLowerCase().trim();
-      document.querySelectorAll('[data-pick-row]').forEach(row => {
-        const t = row.getAttribute('data-title') || '';
-        row.style.display = !q || q.split(/\s+/).every(w => t.includes(w)) ? '' : 'none';
+    const refresh = () => {
+      if (listEl) listEl.innerHTML = renderRows(activeCat, inp ? inp.value : '');
+    };
+    document.querySelectorAll('.pick-ota-cat').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeCat = btn.getAttribute('data-cat') || '__all__';
+        document.querySelectorAll('.pick-ota-cat').forEach(b => {
+          const on = (b.getAttribute('data-cat') || '') === activeCat;
+          b.classList.toggle('btn-primary', on);
+          b.classList.toggle('btn-outline', !on);
+        });
+        refresh();
       });
     });
+    // если есть категория скрипта — сразу подсветить её
+    if (scriptCat) {
+      document.querySelectorAll('.pick-ota-cat').forEach(b => {
+        const on = (b.getAttribute('data-cat') || '').toLowerCase() === scriptCat.toLowerCase();
+        b.classList.toggle('btn-primary', on);
+        b.classList.toggle('btn-outline', !on);
+        if (on) activeCat = b.getAttribute('data-cat') || activeCat;
+      });
+      refresh();
+    }
+    inp?.addEventListener('input', refresh);
     inp?.focus();
-  }, 50);
+  }, 40);
 }
 
 async function attachOtabotkaToScript(scriptId, otId) {
@@ -19308,22 +19386,181 @@ function promptAttachOtabotka(otId) {
   if (isCommonAccount()) return;
   const item = getLibOtabotka(otId);
   if (!item) return;
-  const options = state.scripts
-    .slice()
-    .sort((a, b) => a.title.localeCompare(b.title, 'ru'))
-    .map(s => {
-      const has = (s.otabotkiIds || []).includes(otId);
-      return `<label style="display:flex;align-items:center;gap:8px;margin:4px 0;cursor:pointer;opacity:${has ? 0.5 : 1}">
-        <input type="checkbox" class="attach-script-cb" value="${s.id}" ${has ? 'checked disabled' : ''}>
-        <span>${escapeHtml(s.title)}${s.category ? ' <span style="color:var(--text-muted)">[' + escapeHtml(s.category) + ']</span>' : ''}${has ? ' — уже есть' : ''}</span>
-      </label>`;
+
+  const scripts = (state.scripts || []).slice().sort((a, b) => {
+    const ca = (a.category || 'Без категории').localeCompare(b.category || 'Без категории', 'ru');
+    if (ca !== 0) return ca;
+    return (a.title || '').localeCompare(b.title || '', 'ru');
+  });
+
+  const catSet = new Set();
+  scripts.forEach(s => catSet.add((s.category || '').trim() || 'Без категории'));
+  // приоритет категориям отработки
+  const otCats = (item.categories || []).map(c => String(c).toLowerCase());
+  const categories = Array.from(catSet).sort((a, b) => {
+    const ai = otCats.indexOf(a.toLowerCase());
+    const bi = otCats.indexOf(b.toLowerCase());
+    if (ai >= 0 && bi < 0) return -1;
+    if (bi >= 0 && ai < 0) return 1;
+    if (ai >= 0 && bi >= 0) return ai - bi;
+    return a.localeCompare(b, 'ru');
+  });
+
+  const preferredCat = categories.find(c => otCats.includes(c.toLowerCase())) || '__all__';
+
+  const renderList = (filterCat, q) => {
+    const qq = (q || '').toLowerCase().trim();
+    const words = qq ? qq.split(/\s+/).filter(Boolean) : [];
+    const groups = new Map();
+    scripts.forEach(s => {
+      const cat = (s.category || '').trim() || 'Без категории';
+      if (filterCat && filterCat !== '__all__' && cat.toLowerCase() !== filterCat.toLowerCase()) return;
+      const hay = ((s.title || '') + ' ' + cat).toLowerCase();
+      if (words.length && !words.every(w => hay.includes(w))) return;
+      if (!groups.has(cat)) groups.set(cat, []);
+      groups.get(cat).push(s);
+    });
+    const keys = Array.from(groups.keys()).sort((a, b) => {
+      const ai = otCats.indexOf(a.toLowerCase());
+      const bi = otCats.indexOf(b.toLowerCase());
+      if (ai >= 0 && bi < 0) return -1;
+      if (bi >= 0 && ai < 0) return 1;
+      return a.localeCompare(b, 'ru');
+    });
+    if (!keys.length) return '<p style="color:var(--text-muted);padding:12px 4px">Нет скриптов по фильтру</p>';
+
+    return keys.map(cat => {
+      const items = groups.get(cat);
+      const available = items.filter(s => !(s.otabotkiIds || []).includes(otId));
+      const catId = 'ac_' + cat.replace(/[^\wа-яё]+/gi, '_').slice(0, 40);
+      return `<div class="attach-script-group" data-group-cat="${escapeAttr(cat)}" style="margin-bottom:12px">
+        <div style="position:sticky;top:0;z-index:1;background:var(--bg-elevated,var(--card-bg,#1e2433));padding:8px 4px 6px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+          <strong style="font-size:0.9rem">${escapeHtml(cat)} <span style="color:var(--text-muted);font-weight:500">(${items.length})</span></strong>
+          <span style="display:flex;gap:6px">
+            <button type="button" class="btn btn-outline btn-sm attach-cat-all" data-cat="${escapeAttr(cat)}" ${available.length ? '' : 'disabled'}>Выбрать все</button>
+            <button type="button" class="btn btn-outline btn-sm attach-cat-none" data-cat="${escapeAttr(cat)}">Снять</button>
+          </span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;margin-top:8px">
+          ${items.map(s => {
+            const has = (s.otabotkiIds || []).includes(otId);
+            return `<label class="attach-script-row" data-cat="${escapeAttr(cat)}" data-title="${escapeAttr(((s.title || '') + ' ' + cat).toLowerCase())}"
+              style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:10px;cursor:${has ? 'default' : 'pointer'};opacity:${has ? 0.55 : 1};border:1px solid var(--border);background:var(--bg-soft,transparent)">
+              <input type="checkbox" class="attach-script-cb" value="${s.id}" ${has ? 'checked disabled' : ''} style="margin-top:3px;flex-shrink:0">
+              <span style="min-width:0;line-height:1.35">
+                <span style="font-weight:600">${escapeHtml(s.title || 'Без названия')}</span>
+                ${has ? ' <span class="badge badge-teal" style="font-size:0.7rem">уже есть</span>' : ''}
+              </span>
+            </label>`;
+          }).join('')}
+        </div>
+      </div>`;
     }).join('');
+  };
+
   openModal(
-    'Добавить в скрипты: ' + item.title,
-    `<div style="max-height:360px;overflow:auto">${options || '<p>Нет скриптов</p>'}</div>`,
+    'Добавить в скрипты: ' + (item.title || ''),
+    `<p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 10px">Отметьте скрипты, в которые добавить отработку. Удобнее сначала выбрать категорию.</p>
+     <div class="form-group" style="margin-bottom:8px">
+       <input type="search" id="attachScriptSearch" class="search-input" placeholder="Поиск по названию скрипта…" autocomplete="off">
+     </div>
+     <div id="attachScriptCats" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+       <button type="button" class="btn btn-sm btn-outline attach-script-cat" data-cat="__all__">Все</button>
+       ${categories.map(c => {
+         const pref = preferredCat !== '__all__' && c.toLowerCase() === preferredCat.toLowerCase();
+         return `<button type="button" class="btn btn-sm ${pref ? 'btn-primary' : 'btn-outline'} attach-script-cat" data-cat="${escapeAttr(c)}">${escapeHtml(c)}</button>`;
+       }).join('')}
+     </div>
+     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap">
+       <span id="attachScriptCounter" style="font-size:0.85rem;color:var(--text-muted)">Выбрано: 0</span>
+       <span style="display:flex;gap:6px">
+         <button type="button" class="btn btn-outline btn-sm" id="attachScriptSelectVisible">Выбрать видимые</button>
+         <button type="button" class="btn btn-outline btn-sm" id="attachScriptClear">Сбросить</button>
+       </span>
+     </div>
+     <div id="attachScriptList" style="max-height:360px;overflow:auto;padding-right:2px">
+       ${renderList(preferredCat, '')}
+     </div>`,
     `<button class="btn btn-outline" data-action="close-modal">Отмена</button>
      <button class="btn btn-primary" data-action="confirm-attach-otabotka" data-id="${otId}">Добавить</button>`
   );
+
+  setTimeout(() => {
+    let activeCat = preferredCat;
+    const listEl = document.getElementById('attachScriptList');
+    const inp = document.getElementById('attachScriptSearch');
+    const counter = document.getElementById('attachScriptCounter');
+
+    const updateCounter = () => {
+      const n = document.querySelectorAll('.attach-script-cb:checked:not(:disabled)').length;
+      if (counter) counter.textContent = 'Выбрано: ' + n;
+    };
+
+    const paintCatButtons = () => {
+      document.querySelectorAll('.attach-script-cat').forEach(b => {
+        const on = (b.getAttribute('data-cat') || '') === activeCat;
+        b.classList.toggle('btn-primary', on);
+        b.classList.toggle('btn-outline', !on);
+      });
+    };
+
+    const refresh = () => {
+      if (listEl) listEl.innerHTML = renderList(activeCat, inp ? inp.value : '');
+      bindGroupButtons();
+      updateCounter();
+    };
+
+    const bindGroupButtons = () => {
+      listEl?.querySelectorAll('.attach-cat-all').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const cat = btn.getAttribute('data-cat') || '';
+          listEl.querySelectorAll('.attach-script-row').forEach(row => {
+            if ((row.getAttribute('data-cat') || '') !== cat) return;
+            const cb = row.querySelector('.attach-script-cb');
+            if (cb && !cb.disabled) cb.checked = true;
+          });
+          updateCounter();
+        });
+      });
+      listEl?.querySelectorAll('.attach-cat-none').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const cat = btn.getAttribute('data-cat') || '';
+          listEl.querySelectorAll('.attach-script-row').forEach(row => {
+            if ((row.getAttribute('data-cat') || '') !== cat) return;
+            const cb = row.querySelector('.attach-script-cb');
+            if (cb && !cb.disabled) cb.checked = false;
+          });
+          updateCounter();
+        });
+      });
+      listEl?.querySelectorAll('.attach-script-cb').forEach(cb => {
+        cb.addEventListener('change', updateCounter);
+      });
+    };
+
+    document.querySelectorAll('.attach-script-cat').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeCat = btn.getAttribute('data-cat') || '__all__';
+        paintCatButtons();
+        refresh();
+      });
+    });
+
+    document.getElementById('attachScriptSelectVisible')?.addEventListener('click', () => {
+      listEl?.querySelectorAll('.attach-script-cb:not(:disabled)').forEach(cb => { cb.checked = true; });
+      updateCounter();
+    });
+    document.getElementById('attachScriptClear')?.addEventListener('click', () => {
+      listEl?.querySelectorAll('.attach-script-cb:not(:disabled)').forEach(cb => { cb.checked = false; });
+      updateCounter();
+    });
+
+    inp?.addEventListener('input', refresh);
+    paintCatButtons();
+    bindGroupButtons();
+    updateCounter();
+    inp?.focus();
+  }, 40);
 }
 
 async function confirmAttachOtabotka(otId) {
