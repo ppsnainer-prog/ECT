@@ -6180,6 +6180,9 @@ function applyCloudRecord(remote) {
   if (Array.isArray(ex.announcements)) {
     state.announcements = ex.announcements;
     try { renderAnnouncementsBanner(); } catch (_) {}
+  } else if (Array.isArray(remote.announcements)) {
+    state.announcements = remote.announcements;
+    try { renderAnnouncementsBanner(); } catch (_) {}
   }
   if (ex.ruleItemTags && typeof ex.ruleItemTags === 'object') {
     state.ruleItemTags = ex.ruleItemTags;
@@ -6250,6 +6253,46 @@ function applyCloudRecord(remote) {
 
 
 /** Быстро сохранить только extras (цели, авто, справка, …) без полной перезаписи скриптов */
+
+async function forceCloudExtrasSave(reason) {
+  try {
+    if (typeof loadLocalSettings === 'function') loadLocalSettings();
+  } catch (_) {}
+  if (!state.cloud || !state.cloud.enabled) {
+    try {
+      if (typeof DEFAULT_SHEETS_URL === 'string' && DEFAULT_SHEETS_URL) {
+        state.cloud.provider = 'sheets';
+        state.cloud.sheetsUrl = state.cloud.sheetsUrl || DEFAULT_SHEETS_URL;
+        state.cloud.enabled = true;
+      }
+    } catch (_) {}
+  }
+  if (!state.cloud || !state.cloud.enabled) {
+    console.warn('forceCloudExtrasSave: cloud disabled', reason);
+    return false;
+  }
+  if (typeof isCommonAccount === 'function' && isCommonAccount()) {
+    // гости/общая не пишут
+    return false;
+  }
+  try {
+    if (typeof cloudSaveExtrasOnly === 'function') {
+      const ok = await cloudSaveExtrasOnly();
+      if (ok) return true;
+    }
+  } catch (e) {
+    console.warn('forceCloudExtrasSave extras', e);
+  }
+  try {
+    if (typeof cloudSave === 'function') {
+      return !!(await cloudSave());
+    }
+  } catch (e2) {
+    console.warn('forceCloudExtrasSave full', e2);
+  }
+  return false;
+}
+
 async function cloudSaveExtrasOnly() {
   if (typeof isCommonAccount === 'function' && isCommonAccount()) return false;
   if (!state.cloud || !state.cloud.enabled) return false;
@@ -6979,11 +7022,11 @@ function publishAnnouncement(title, body) {
     state.announcements = state.announcements.slice(0, ANN_MAX);
   }
   renderAnnouncementsBanner();
-  try {
-    if (typeof scheduleCloudExtrasSave === 'function') scheduleCloudExtrasSave();
-    if (typeof cloudSave === 'function') Promise.resolve(cloudSave()).catch(() => {});
-  } catch (_) {}
-  toast('Уведомление опубликовано');
+  toast('Публикация в облако…');
+  Promise.resolve(forceCloudExtrasSave('announcement')).then((ok) => {
+    if (ok) toast('Уведомление опубликовано — увидят все после обновления');
+    else toast('Не удалось записать в облако. Проверьте URL Apps Script и синхронизацию.', 'error');
+  });
   return true;
 }
 
@@ -6991,11 +7034,9 @@ function deleteAnnouncement(id) {
   if (!isAdminUser()) return;
   state.announcements = (state.announcements || []).filter(a => a && a.id !== id);
   renderAnnouncementsBanner();
-  try {
-    if (typeof scheduleCloudExtrasSave === 'function') scheduleCloudExtrasSave();
-    if (typeof cloudSave === 'function') Promise.resolve(cloudSave()).catch(() => {});
-  } catch (_) {}
-  toast('Уведомление удалено');
+  Promise.resolve(forceCloudExtrasSave('announcement-delete')).then(() => {
+    toast('Уведомление удалено');
+  });
 }
 
 function renderAnnouncementsAdminCard() {
@@ -11019,11 +11060,7 @@ function renderCalls() {
   const st = state.callsStatus || '';
   const canChange = canEdit();
   let list = [...(state.calls || [])];
-  // Каждый видит только свои записи; Александр — все
-  if (!isAdminUser()) {
-    const me = state.currentUser || '';
-    list = list.filter(c => !c.operator || c.operator === me);
-  }
+  // Общая библиотека записей — видят все (гости и операторы)
   if (st) list = list.filter(c => c.status === st);
   if (q) {
     list = list.filter(c => {
@@ -11038,7 +11075,7 @@ function renderCalls() {
       <div class="catalog-toolbar-row">
         <div>
           <strong>📞 Звонки</strong>
-          <p class="catalog-hint">Записи в формате WAV. Можно назвать, отметить статус и добавить комментарий. Аудио сохраняется локально и на Google Drive (синхронизация).</p>
+          <p class="catalog-hint">Общая библиотека WAV-записей. Видят все пользователи и гости. Аудио — на Google Drive (нужно облако).</p>
         </div>
         ${canChange ? `<label class="btn btn-primary btn-sm calls-upload-btn">
           + WAV
@@ -11126,6 +11163,7 @@ async function saveCallMeta(id) {
   closeModal();
   toast('Сохранено');
   render();
+  try { await forceCloudExtrasSave('call-meta'); } catch (_) {}
 }
 
 async function handleCallWavUpload(file) {
@@ -11205,8 +11243,15 @@ async function handleCallWavUpload(file) {
     updatedAt: Date.now()
   });
   persistCallsMeta();
-  toast(driveId ? 'Запись добавлена и на Drive' : 'Запись добавлена (локально)');
+  toast(driveId ? 'Запись добавлена и на Drive…' : 'Запись добавлена локально, грузим в облако…');
   render();
+  try {
+    const ok = await forceCloudExtrasSave('call-upload');
+    if (ok) toast('Звонок сохранён в облаке — виден всем');
+    else toast('Метаданные звонка могут не дойти до облака. Нажмите «Синхронизировать».', 'error');
+  } catch (e) {
+    console.warn(e);
+  }
   // open edit modal to set title/status
   setTimeout(() => showCallModal(id), 50);
 }
@@ -11229,6 +11274,7 @@ async function deleteCall(id) {
   }
   toast('Удалено');
   render();
+  try { await forceCloudExtrasSave('call-delete'); } catch (_) {}
 }
 
 async function ensureCallAudioLoaded(id, audioEl) {
