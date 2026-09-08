@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.6.1 — единый список отработок + привязка к скриптам
+ * ЕЦТ Скрипты v2.6.3 — автозавершение недели целей (вт–пн) + итоги
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -8055,11 +8055,12 @@ function defaultPermsFor(name) {
   if (name && String(name).indexOf('Гость:') === 0) {
     const pages = {};
     PAGE_PERM_DEFS.forEach(p => {
-      pages[p.key] = ['home','scripts','otabotki','catalog','calls','rules','refinfo','games','newbie'].includes(p.key);
+      pages[p.key] = ['home','scripts','otabotki','catalog','calls','rules','refinfo','games','newbie','settings'].includes(p.key);
     });
+    // гостю: настройки (тема + синхронизация), без целей и лидерборда
     pages.goals = false;
     pages.leaderboard = false;
-    pages.settings = true; // тема
+    pages.settings = true;
     pages.admin = false;
     const actions = {};
     ACTION_PERM_DEFS.forEach(a => { actions[a.key] = false; });
@@ -8161,6 +8162,11 @@ function canViewPage(page) {
   const key = page === 'script' ? 'scripts' : page;
   if (key === 'admin') return isAdminUser();
   if (state.currentUser === 'Александр') return true;
+  // гость: настройки можно, цели и лидерборд — нет
+  if (typeof isGuestUser === 'function' && isGuestUser()) {
+    if (key === 'goals' || key === 'leaderboard' || key === 'admin') return false;
+    if (key === 'settings') return true;
+  }
   const perms = getUserPerms(state.currentUser);
   if (key === 'games') return !!perms.pages.games;
   // Памятку видят по флагу страницы; редакторы с editNewbie тоже (чтобы править)
@@ -8200,11 +8206,24 @@ function canSeeLeaderboard() {
 function applyAccountPermissions() {
   const user = state.currentUser || '';
   const adminOnly = isAdminUser();
+  const guest = typeof isGuestSession === 'function' && isGuestSession();
   PAGE_PERM_DEFS.forEach(p => {
     document.querySelectorAll('.nav-item[data-page="' + p.key + '"]').forEach(el => {
       let ok = canViewPage(p.key);
       if (p.key === 'admin') ok = adminOnly;
+      // гостю принудительно скрываем цели и лидерборд
+      if (guest && (p.key === 'goals' || p.key === 'leaderboard')) ok = false;
+      // гостю показываем настройки (синхронизация + тема)
+      if (guest && p.key === 'settings') ok = true;
       el.hidden = !ok;
+      if (!ok) {
+        el.style.display = 'none';
+        el.setAttribute('hidden', '');
+      } else {
+        el.style.display = '';
+        el.removeAttribute('hidden');
+        el.hidden = false;
+      }
       if (p.key === 'admin' && !adminOnly) {
         el.style.display = 'none';
         el.setAttribute('hidden', '');
@@ -8277,7 +8296,14 @@ function showAppAfterLogin(user) {
     appRoot.style.display = 'flex';
   }
   applyAccountPermissions();
-  if (isCommonAccount() && (state.currentPage === 'goals' || state.currentPage === 'settings')) {
+  // не пускать в цели/лидерборд без прав; настройки гостю разрешены (синхронизация)
+  if (state.currentPage === 'goals' && !canViewPage('goals') && !canDo('useGoals') && !canDo('useDiary')) {
+    state.currentPage = 'home';
+  }
+  if (state.currentPage === 'leaderboard' && !canSeeLeaderboard()) {
+    state.currentPage = 'home';
+  }
+  if (state.currentPage === 'settings' && !canViewPage('settings')) {
     state.currentPage = 'home';
   }
   // сразу подтянуть облако (гости и все пользователи) + уведомления
@@ -10204,7 +10230,7 @@ function render() {
     case 'catalog': content.innerHTML = renderCatalog(); break;
     case 'calls': content.innerHTML = renderCalls(); break;
     case 'leaderboard': content.innerHTML = renderLeaderboard(); break;
-    case 'goals': content.innerHTML = renderGoals(); break;
+    case 'goals': try { if (state.currentUser) maybeFinalizeUserGoal(state.currentUser); } catch (_) {} content.innerHTML = renderGoals(); break;
     case 'rules': content.innerHTML = renderRules(); break;
     case 'refinfo': content.innerHTML = renderRefInfo(); break;
     case 'newbie': content.innerHTML = renderNewbieGuide(); break;
@@ -14965,7 +14991,132 @@ function buildGoalPlan(goal) {
   };
 }
 
+
+/** Сумма earnings по объекту */
+function sumEarningsMap(earnings) {
+  let t = 0;
+  if (!earnings || typeof earnings !== 'object') return 0;
+  Object.keys(earnings).forEach(k => { t += Number(earnings[k]) || 0; });
+  return t;
+}
+
+/**
+ * Неделя/период готов к закрытию:
+ * - прошла дата конца периода, ИЛИ
+ * - внесён заработок за последний рабочий день периода (и этот день уже сегодня/в прошлом)
+ */
+function isGoalPeriodReadyToClose(goal) {
+  if (!goal || !goal.endDate) return false;
+  if (goal.status === 'completed') return false;
+  const today = toISODate(new Date());
+  const workDates = getGoalWorkDates(goal);
+  if (!workDates.length) {
+    return goal.endDate < today;
+  }
+  const lastWork = workDates[workDates.length - 1];
+  const earnings = goal.earnings || {};
+  const lastFilled = Object.prototype.hasOwnProperty.call(earnings, lastWork);
+  // последний рабочий день закрыт записью
+  if (lastFilled && lastWork <= today) return true;
+  // период уже закончился (например открыли цели во вторник) — закрываем даже с пропусками
+  if (goal.endDate < today) return true;
+  return false;
+}
+
+/** Снимок завершённого периода в history + перевод цели на следующий цикл (для недели) */
+function finalizeGoalPeriod(goal, opts) {
+  if (!goal) return { closed: false };
+  opts = opts || {};
+  if (!isGoalPeriodReadyToClose(goal) && !opts.force) return { closed: false };
+
+  const workDates = getGoalWorkDates(goal);
+  const earnings = Object.assign({}, goal.earnings || {});
+  const earnedTotal = sumEarningsMap(earnings);
+  const target = Number(goal.targetAmount) || 0;
+  const payday = paydayForDate(parseISODate(goal.endDate));
+  const snapshot = {
+    id: 'ghist_' + Date.now(),
+    period: goal.period || 'week',
+    targetAmount: target,
+    startDate: goal.startDate,
+    endDate: goal.endDate,
+    mainShifts: (goal.mainShifts || []).slice(),
+    extraShifts: (goal.extraShifts || []).slice(),
+    skippedShifts: (goal.skippedShifts || []).slice(),
+    earnings: earnings,
+    workDates: workDates.slice(),
+    earnedTotal: earnedTotal,
+    progress: target > 0 ? Math.min(100, (earnedTotal / target) * 100) : 0,
+    reached: earnedTotal >= target,
+    paydayIso: toISODate(payday),
+    completedAt: Date.now()
+  };
+
+  if (!Array.isArray(goal.history)) goal.history = [];
+  // не дублировать тот же период
+  const dup = goal.history.some(h => h && h.startDate === snapshot.startDate && h.endDate === snapshot.endDate);
+  if (!dup) {
+    goal.history.unshift(snapshot);
+    goal.history = goal.history.slice(0, 16);
+  }
+
+  goal.lastCompleted = {
+    startDate: snapshot.startDate,
+    endDate: snapshot.endDate,
+    earnedTotal: snapshot.earnedTotal,
+    targetAmount: snapshot.targetAmount,
+    reached: snapshot.reached,
+    paydayIso: snapshot.paydayIso,
+    completedAt: snapshot.completedAt
+  };
+
+  // Автоперенос только для недельной цели
+  if ((goal.period || 'week') === 'week') {
+    const end = parseISODate(goal.endDate);
+    const nextProbe = new Date(end);
+    nextProbe.setDate(nextProbe.getDate() + 1); // вторник следующей недели
+    const ns = startOfAccrualWeek(nextProbe);
+    const ne = endOfAccrualWeek(nextProbe);
+    goal.startDate = toISODate(ns);
+    goal.endDate = toISODate(ne);
+    goal.earnings = {};
+    goal.extraShifts = [];
+    goal.skippedShifts = [];
+    goal.status = 'active';
+  } else if ((goal.period || '') === 'month') {
+    // месяц: старт следующего календарного месяца
+    const end = parseISODate(goal.endDate);
+    const ns = new Date(end.getFullYear(), end.getMonth() + 1, 1, 12, 0, 0, 0);
+    const ne = endOfMonth(ns);
+    goal.startDate = toISODate(ns);
+    goal.endDate = toISODate(ne);
+    goal.earnings = {};
+    goal.extraShifts = [];
+    goal.skippedShifts = [];
+    goal.status = 'active';
+  } else {
+    goal.status = 'completed';
+  }
+
+  goal.updatedAt = Date.now();
+  return { closed: true, snapshot: snapshot };
+}
+
+/** Проверить и закрыть период при необходимости (при сохранении дня / открытии раздела) */
+function maybeFinalizeUserGoal(userName, opts) {
+  loadGoalsStore();
+  const goal = getUserGoal(userName);
+  if (!goal) return null;
+  const res = finalizeGoalPeriod(goal, opts);
+  if (res && res.closed) {
+    setUserGoal(userName, goal);
+    return res;
+  }
+  return null;
+}
+
 function defaultGoalDates(period) {
+
   const now = new Date();
   if (period === 'month') {
     return { startDate: toISODate(startOfMonth(now)), endDate: toISODate(endOfMonth(now)) };
@@ -16469,6 +16620,36 @@ function renderGoalDetail(userName, goal, plan, canEditEarnings, showDiary) {
       <p class="catalog-hint" style="margin-top:8px">Прогресс: <b>${plan.progress.toFixed(1)}%</b></p>
     </div>
 
+    ${Array.isArray(goal.history) && goal.history.length ? `
+    <div class="card" style="padding:14px 16px;margin-bottom:14px">
+      <strong>Итоги прошлых периодов</strong>
+      <div class="goal-history-list" style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+        ${goal.history.slice(0, 8).map(h => {
+          const ok = !!h.reached;
+          const p = (h.progress != null ? Number(h.progress) : (h.targetAmount ? (100 * (h.earnedTotal || 0) / h.targetAmount) : 0));
+          return `<div class="goal-history-item" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid var(--border);border-radius:10px">
+            <div>
+              <b>${escapeHtml((h.startDate || '').slice(5).replace('-', '.') + ' – ' + (h.endDate || '').slice(5).replace('-', '.'))}</b>
+              <span class="catalog-hint"> · выплата ср ${(h.paydayIso || '').slice(5).replace('-', '.')}</span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <span class="badge ${ok ? 'badge-teal' : 'badge'}">${formatMoney(h.earnedTotal || 0)} / ${formatMoney(h.targetAmount || 0)}</span>
+              <span class="badge ${ok ? 'badge-teal' : ''}">${ok ? '✓ выполнено' : 'не выполнено'} · ${p.toFixed(0)}%</span>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : (goal.lastCompleted ? `
+    <div class="card" style="padding:14px 16px;margin-bottom:14px">
+      <strong>Последний закрытый период</strong>
+      <p class="catalog-hint" style="margin-top:8px">
+        ${(goal.lastCompleted.startDate || '').slice(5).replace('-', '.')} – ${(goal.lastCompleted.endDate || '').slice(5).replace('-', '.')}
+        · ${formatMoney(goal.lastCompleted.earnedTotal || 0)} из ${formatMoney(goal.lastCompleted.targetAmount || 0)}
+        · ${goal.lastCompleted.reached ? '✓ цель достигнута' : 'цель не достигнута'}
+        · выплата ср ${(goal.lastCompleted.paydayIso || '').slice(5).replace('-', '.')}
+      </p>
+    </div>` : '')}
+
     ${canEditEarnings ? `
     <div class="card" style="padding:14px 16px;margin-bottom:14px">
       <strong>Заработок за день</strong>
@@ -16728,7 +16909,33 @@ function saveGoalEarn(userName) {
   goal.earnings[date] = amount;
   goal.updatedAt = Date.now();
   setUserGoal(who, goal);
-  toast('День сохранён — план пересчитан');
+
+  // Итог дня
+  const planAfter = buildGoalPlan(goal);
+  const dayLabel = (date || '').slice(5).replace('-', '.');
+  let dayMsg = 'День ' + dayLabel + ': ' + formatMoney(amount)
+    + ' · всего ' + formatMoney(planAfter ? planAfter.earnedTotal : amount)
+    + ' из ' + formatMoney(planAfter ? planAfter.target : (goal.targetAmount || 0));
+  if (planAfter && planAfter.remainingDays > 0) {
+    dayMsg += ' · осталось ' + formatMoney(planAfter.remainingMoney)
+      + ' / ' + planAfter.remainingDays + ' ' + pluralRu(planAfter.remainingDays, 'день', 'дня', 'дней');
+  }
+
+  // Закрытие недели/периода после последнего дня
+  const fin = maybeFinalizeUserGoal(who);
+  if (fin && fin.closed && fin.snapshot) {
+    const s = fin.snapshot;
+    const mark = s.reached ? '✓ цель достигнута' : 'цель не достигнута';
+    toast(
+      'Неделя закрыта (' + (s.startDate || '').slice(5).replace('-', '.') + '–' + (s.endDate || '').slice(5).replace('-', '.')
+      + '): ' + formatMoney(s.earnedTotal) + ' из ' + formatMoney(s.targetAmount)
+      + ' (' + mark + '). К выплате в ср ' + (s.paydayIso || '').slice(5).replace('-', '.')
+      + '. Новая неделя началась.',
+      s.reached ? undefined : 'error'
+    );
+  } else {
+    toast(dayMsg);
+  }
   render();
 }
 
@@ -18593,8 +18800,16 @@ function handleClick(e) {
     return;
   }
 
-  if (isCommonAccount() && action === 'nav' && el.dataset.page === 'settings') {
-    toast('Для аккаунта «Общая» настройки недоступны.', 'error');
+  if (action === 'nav' && el.dataset.page === 'settings' && !canViewPage('settings')) {
+    toast('Настройки недоступны для вашего аккаунта.', 'error');
+    return;
+  }
+  if (action === 'nav' && el.dataset.page === 'goals' && !canViewPage('goals') && !canDo('useGoals') && !canDo('useDiary')) {
+    toast('Цели недоступны для вашего аккаунта.', 'error');
+    return;
+  }
+  if (action === 'nav' && el.dataset.page === 'leaderboard' && !canSeeLeaderboard()) {
+    toast('Лидерборд недоступен для вашего аккаунта.', 'error');
     return;
   }
 
