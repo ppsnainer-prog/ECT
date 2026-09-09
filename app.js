@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.6.4 — удобный выбор отработок/скриптов по категориям
+ * ЕЦТ Скрипты v2.6.5 — статусы звонков + красивый выбор статуса
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -10441,17 +10441,60 @@ function persistCallsMeta() {
 }
 
 const CALL_STATUSES = [
-  { id: 'success', label: 'Успешный', badge: 'badge-teal' },
-  { id: 'penalty', label: 'Штраф', badge: 'badge-danger' },
-  { id: 'success_penalty', label: 'Успешный со штрафом', badge: 'badge-primary' },
-  { id: 'funny', label: 'Смешные', badge: 'badge-warning' }
+  { id: 'success', label: 'Успешный', badge: 'badge-teal', group: 'ok', icon: '✓', desc: 'Заявка передана без замечаний' },
+  { id: 'success_penalty_50', label: 'Успешный со штрафом 50%', badge: 'badge-primary', group: 'mixed', icon: '50%', desc: 'Успех, штраф 50%' },
+  { id: 'success_penalty_75', label: 'Успешный со штрафом 75%', badge: 'badge-primary', group: 'mixed', icon: '75%', desc: 'Успех, штраф 75%' },
+  { id: 'success_penalty_0', label: 'Успешный со штрафом 0%', badge: 'badge-primary', group: 'mixed', icon: '0%', desc: 'Успех, штраф до 0%' },
+  // legacy id — оставляем для старых записей
+  { id: 'success_penalty', label: 'Успешный со штрафом', badge: 'badge-primary', group: 'mixed', icon: '⚠', desc: 'Успех со штрафом (старый статус)', hidden: true },
+  { id: 'penalty', label: 'Штраф', badge: 'badge-danger', group: 'bad', icon: '!', desc: 'Штраф без успешной передачи' },
+  { id: 'not_relevant', label: 'Не актуально', badge: 'badge', group: 'neutral', icon: '∅', desc: 'Клиенту не актуально / отказ' },
+  { id: 'crm_problems', label: 'Проблемы CRM', badge: 'badge-warning', group: 'warn', icon: 'CRM', desc: 'Сбой или ошибка в CRM' },
+  { id: 'funny', label: 'Смешные', badge: 'badge-warning', group: 'fun', icon: '☺', desc: 'Забавный звонок' }
 ];
 
+function callStatusMeta(id) {
+  return CALL_STATUSES.find(s => s.id === id) || null;
+}
 function callStatusLabel(id) {
-  return (CALL_STATUSES.find(s => s.id === id) || {}).label || id || '—';
+  return (callStatusMeta(id) || {}).label || id || '—';
 }
 function callStatusBadge(id) {
-  return (CALL_STATUSES.find(s => s.id === id) || {}).badge || 'badge';
+  return (callStatusMeta(id) || {}).badge || 'badge';
+}
+/** Успешные статусы (для лидерборда) */
+function isCallSuccessStatus(id) {
+  return id === 'success' || id === 'success_penalty' || id === 'success_penalty_50'
+    || id === 'success_penalty_75' || id === 'success_penalty_0';
+}
+/** Статусы со штрафом */
+function isCallPenaltyStatus(id) {
+  return id === 'penalty' || id === 'success_penalty' || id === 'success_penalty_50'
+    || id === 'success_penalty_75' || id === 'success_penalty_0';
+}
+function callStatusesForPicker() {
+  return CALL_STATUSES.filter(s => !s.hidden);
+}
+function renderCallStatusPicker(selectedId) {
+  const cur = selectedId || 'success';
+  const items = callStatusesForPicker();
+  return `
+    <input type="hidden" id="fCallStatus" value="${escapeAttr(cur)}">
+    <div class="call-status-picker" role="listbox" aria-label="Статус звонка" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px">
+      ${items.map(s => {
+        const on = s.id === cur;
+        const border = on ? '2px solid var(--primary, #5b8def)' : '1px solid var(--border)';
+        const bg = on ? 'rgba(91,141,239,0.12)' : 'var(--bg-soft, transparent)';
+        return `<button type="button" class="call-status-option" data-status="${s.id}" role="option" aria-selected="${on ? 'true' : 'false'}"
+          style="text-align:left;cursor:pointer;padding:10px 12px;border-radius:12px;border:${border};background:${bg};color:inherit;font:inherit;transition:border-color .15s,background .15s">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span class="badge ${s.badge}" style="min-width:2.4em;justify-content:center">${escapeHtml(s.icon || '•')}</span>
+            <span style="font-weight:600;font-size:0.88rem;line-height:1.25">${escapeHtml(s.label)}</span>
+          </div>
+          <div style="font-size:0.75rem;color:var(--text-muted);line-height:1.3">${escapeHtml(s.desc || '')}</div>
+        </button>`;
+      }).join('')}
+    </div>`;
 }
 
 function pluralRu(n, one, few, many) {
@@ -14095,7 +14138,7 @@ function renderCalls() {
           value="${escapeAttr(state.callsQuery || '')}" style="flex:1;min-width:180px">
         <select class="search-input" id="callsStatusFilter" style="flex:0 0 200px;cursor:pointer">
           <option value="">Все статусы</option>
-          ${CALL_STATUSES.map(s => `<option value="${s.id}" ${st === s.id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}
+          ${callStatusesForPicker().map(s => `<option value="${s.id}" ${st === s.id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}
         </select>
       </div>
       <p class="catalog-count">Записей: <b>${list.length}</b></p>
@@ -14143,9 +14186,7 @@ function showCallModal(id) {
     `<div class="form-group"><label>Название</label>
        <input type="text" id="fCallTitle" value="${escapeAttr(item ? item.title : '')}" placeholder="Например: Клиент Иванов — Toyota Camry"></div>
      <div class="form-group"><label>Статус</label>
-       <select id="fCallStatus" class="search-input" style="width:100%">
-         ${CALL_STATUSES.map(s => `<option value="${s.id}" ${item && item.status === s.id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}
-       </select>
+       ${renderCallStatusPicker(item ? item.status : 'success')}
      </div>
      <div class="form-group"><label>Комментарий</label>
        <textarea id="fCallComment" rows="4" placeholder="Заметки по звонку…">${escapeHtml(item ? (item.comment || '') : '')}</textarea>
@@ -14153,6 +14194,23 @@ function showCallModal(id) {
     `<button class="btn btn-outline" data-action="close-modal">Отмена</button>
      <button class="btn btn-primary" data-action="save-call" ${item ? `data-id="${item.id}"` : ''}>Сохранить</button>`
   );
+  setTimeout(() => {
+    const root = document.querySelector('.call-status-picker');
+    if (!root) return;
+    root.addEventListener('click', (e) => {
+      const btn = e.target && e.target.closest && e.target.closest('.call-status-option');
+      if (!btn) return;
+      const id = btn.getAttribute('data-status') || 'success';
+      const hidden = document.getElementById('fCallStatus');
+      if (hidden) hidden.value = id;
+      root.querySelectorAll('.call-status-option').forEach(el => {
+        const on = el.getAttribute('data-status') === id;
+        el.setAttribute('aria-selected', on ? 'true' : 'false');
+        el.style.border = on ? '2px solid var(--primary, #5b8def)' : '1px solid var(--border)';
+        el.style.background = on ? 'rgba(91,141,239,0.12)' : 'var(--bg-soft, transparent)';
+      });
+    });
+  }, 30);
 }
 
 async function saveCallMeta(id) {
@@ -14501,12 +14559,14 @@ function buildLeaderboard(period) {
     const row = ensure(name);
     row.calls += 1;
     row.lastAt = Math.max(row.lastAt, ts);
-    if (c.status === 'success' || c.status === 'success_penalty') {
+    if (isCallSuccessStatus(c.status)) {
       row.successes += 1;
       row.lastSuccessAt = Math.max(row.lastSuccessAt, ts);
     }
-    if (c.status === 'penalty' || c.status === 'success_penalty') row.penalties += 1;
+    if (isCallPenaltyStatus(c.status)) row.penalties += 1;
     if (c.status === 'funny') row.funny += 1;
+    if (c.status === 'not_relevant') row.notRelevant = (row.notRelevant || 0) + 1;
+    if (c.status === 'crm_problems') row.crmProblems = (row.crmProblems || 0) + 1;
   });
 
   // manual adjustments: filter by date if set
