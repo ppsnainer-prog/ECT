@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.6.6 — мягкие анимации и полировка UI
+ * ЕЦТ Скрипты v2.6.7 — без прыжков: отработки и переходы без full-refresh
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -10135,15 +10135,7 @@ function escapeAttr(str) {
 }
 
 
-function animatePageContent() {
-  try {
-    const el = document.getElementById('content');
-    if (!el) return;
-    el.classList.remove('page-enter');
-    void el.offsetWidth;
-    el.classList.add('page-enter');
-  } catch (_) {}
-}
+/* animatePageContent убран — вызывал рябь и прыжки при любом render() */
 
 /* ========== Navigation ========== */
 function navigate(page, scriptId = null) {
@@ -10250,13 +10242,8 @@ function render() {
     default: content.innerHTML = '<p>Страница не найдена</p>';
   }
   updateSyncBadge();
-  // Мягкое появление контента (не мешаем, если пользователь печатает в поиске)
-  if (!savedFocus) {
-    try { animatePageContent(); } catch (_) {}
-  }
   // Восстанавливаем фокус и позицию курсора после полной перерисовки
   if (savedFocus) {
-    // requestAnimationFrame — после вставки DOM
     requestAnimationFrame(() => restoreSearchFocus(savedFocus));
   }
 }
@@ -18438,15 +18425,66 @@ async function syncNow() {
 }
 
 function toggleBlock(key) {
-  state.collapsedBlocks[key] = state.collapsedBlocks[key] === true ? false : true;
-  saveLocalSettings();
+  const next = state.collapsedBlocks[key] !== true; // true = collapsed
+  state.collapsedBlocks[key] = next;
+  try { saveLocalSettings(); } catch (_) {}
+
+  // Без полной перерисовки — иначе страница «прыгает» вверх
+  const head = document.querySelector('.crm-block-head[data-key="' + key + '"], [data-action="toggle-block"][data-key="' + key + '"]');
+  if (head) {
+    const block = head.closest('.crm-block') || head.parentElement;
+    const body = block ? block.querySelector('.crm-block-body') : null;
+    const icon = head.querySelector('.expand-icon');
+    if (body) {
+      if (next) body.classList.add('collapsed');
+      else body.classList.remove('collapsed');
+    }
+    if (icon) {
+      if (next) {
+        icon.classList.remove('open');
+        icon.textContent = '▼';
+      } else {
+        icon.classList.add('open');
+        icon.textContent = '▲';
+      }
+    }
+    return;
+  }
+  // fallback
   render();
 }
 
 function toggleItemText(id) {
-  state.collapsedBlocks[id] = state.collapsedBlocks[id] === true ? false : true;
-  saveLocalSettings();
-  render();
+  // collapsedBlocks[id] === true значит текст скрыт; по умолчанию (undefined) — открыт (isOpen = !== true)
+  const currentlyOpen = state.collapsedBlocks[id] !== true;
+  const nextOpen = !currentlyOpen;
+  state.collapsedBlocks[id] = nextOpen ? false : true;
+  try { saveLocalSettings(); } catch (_) {}
+
+  // Точечно в DOM — без render() и сброса скролла
+  const roots = document.querySelectorAll('[data-action="toggle-item-text"][data-id="' + id + '"]');
+  let touched = false;
+  roots.forEach(el => {
+    const hint = el.closest('.crm-hint') || el;
+    const text = hint.querySelector('.crm-hint-text');
+    const icon = hint.querySelector('.expand-icon');
+    if (text) {
+      if (nextOpen) text.classList.add('open');
+      else text.classList.remove('open');
+      touched = true;
+    }
+    if (icon) {
+      if (nextOpen) {
+        icon.classList.add('open');
+        icon.textContent = '▲';
+      } else {
+        icon.classList.remove('open');
+        icon.textContent = '▼';
+      }
+      touched = true;
+    }
+  });
+  if (!touched) render();
 }
 
 
@@ -19124,7 +19162,12 @@ function handleClick(e) {
     case 'toggle-node': {
       const k = el.dataset.key;
       state.expandedNodes[k] = state.expandedNodes[k] === false ? true : false;
+      const scroller = document.querySelector('.content') || document.getElementById('content');
+      const scrollY = scroller ? scroller.scrollTop : 0;
       render();
+      if (scroller) {
+        requestAnimationFrame(() => { scroller.scrollTop = scrollY; });
+      }
       break;
     }
     case 'save-edit-item': saveEditItem(el.dataset.sid, el.dataset.type, el.dataset.iid); break;

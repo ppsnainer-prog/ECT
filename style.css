@@ -3677,12 +3677,13 @@ body.light .ann-banner {
 }
 
 /* Плавное появление контента страницы */
+/* page-enter отключён: полная перерисовка + анимация давали рябь и прыжок скролла */
 .content.page-enter {
-  animation: pageEnter 0.28s ease both;
+  animation: none;
 }
 @keyframes pageEnter {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 1; }
+  to { opacity: 1; }
 }
 
 /* Кнопки: лёгкий отклик */
@@ -3710,7 +3711,6 @@ body.light .ann-banner {
 .car-card:hover,
 .ot-card:hover,
 .item-card:hover {
-  transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
 }
 
@@ -3818,7 +3818,7 @@ textarea:focus {
 
 /* Логин */
 .login-card {
-  animation: pageEnter 0.4s ease both;
+  /* без анимации появления — стабильнее на слабых ПК */
 }
 .login-button {
   transition: transform 0.15s ease, box-shadow var(--transition), background var(--transition);
