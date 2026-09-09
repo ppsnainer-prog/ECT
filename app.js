@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.6.5 — статусы звонков + красивый выбор статуса
+ * ЕЦТ Скрипты v2.6.6 — мягкие анимации и полировка UI
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -10134,6 +10134,17 @@ function escapeAttr(str) {
   return escapeHtml(str).replace(/'/g, '&#39;');
 }
 
+
+function animatePageContent() {
+  try {
+    const el = document.getElementById('content');
+    if (!el) return;
+    el.classList.remove('page-enter');
+    void el.offsetWidth;
+    el.classList.add('page-enter');
+  } catch (_) {}
+}
+
 /* ========== Navigation ========== */
 function navigate(page, scriptId = null) {
   if (page === 'leaderboard' && !canSeeLeaderboard()) {
@@ -10239,6 +10250,10 @@ function render() {
     default: content.innerHTML = '<p>Страница не найдена</p>';
   }
   updateSyncBadge();
+  // Мягкое появление контента (не мешаем, если пользователь печатает в поиске)
+  if (!savedFocus) {
+    try { animatePageContent(); } catch (_) {}
+  }
   // Восстанавливаем фокус и позицию курсора после полной перерисовки
   if (savedFocus) {
     // requestAnimationFrame — после вставки DOM

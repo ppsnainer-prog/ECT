@@ -3664,3 +3664,204 @@ body.light .ann-banner {
   border-color: #e2e8f0;
   box-shadow: 0 12px 32px rgba(15,23,42,0.12);
 }
+
+
+/* ========== Мягкие анимации и полировка (v2.6.6) ========== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Плавное появление контента страницы */
+.content.page-enter {
+  animation: pageEnter 0.28s ease both;
+}
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Кнопки: лёгкий отклик */
+.btn {
+  transition: background var(--transition), border-color var(--transition),
+    color var(--transition), box-shadow var(--transition), transform 0.15s ease, filter var(--transition);
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.btn-primary {
+  box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset;
+}
+.btn-primary:hover {
+  box-shadow: 0 4px 14px rgba(91, 141, 239, 0.25);
+}
+
+/* Карточки: мягче тень при наведении */
+.card {
+  transition: border-color var(--transition), box-shadow var(--transition), transform 0.2s ease, background var(--transition);
+}
+.card-interactive:hover,
+.script-card:hover,
+.call-card:hover,
+.car-card:hover,
+.ot-card:hover,
+.item-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Навигация сайдбара */
+.nav-item {
+  transition: background var(--transition), color var(--transition), transform 0.15s ease;
+}
+.nav-item:active {
+  transform: scale(0.98);
+}
+.nav-item.active {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+/* Бейджи */
+.badge {
+  transition: background var(--transition), color var(--transition), transform 0.15s ease;
+}
+.badge:hover {
+  transform: translateY(-0.5px);
+}
+
+/* Поля ввода — мягкий фокус */
+input.search-input,
+input[type="text"],
+input[type="search"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+select.search-input,
+textarea {
+  transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+}
+input.search-input:focus,
+input[type="text"]:focus,
+input[type="search"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+input[type="date"]:focus,
+select.search-input:focus,
+textarea:focus {
+  outline: none;
+  border-color: rgba(91, 141, 239, 0.55);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+/* Модалка уже есть — чуть мягче */
+.modal-overlay {
+  animation: fadeOverlay 0.22s ease;
+}
+.modal-card,
+.modal {
+  animation: modalIn 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Тосты — появление и лёгкий уход */
+.toast {
+  animation: toastIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.toast.toast-out {
+  animation: toastOut 0.22s ease forwards;
+}
+@keyframes toastOut {
+  to { opacity: 0; transform: translateY(8px) scale(0.96); }
+}
+
+/* Выбор статуса звонка */
+.call-status-option {
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease !important;
+}
+.call-status-option:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+.call-status-option:active {
+  transform: scale(0.98);
+}
+
+/* Прогресс целей */
+.goal-progress-fill {
+  transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.goal-day {
+  transition: border-color var(--transition), background var(--transition), transform 0.15s ease;
+}
+.goal-day:hover {
+  transform: translateY(-1px);
+}
+
+/* Синк-бейдж */
+.sync-badge {
+  transition: background var(--transition), color var(--transition), opacity var(--transition);
+}
+.sync-badge.syncing {
+  animation: softPulse 1.4s ease-in-out infinite;
+}
+@keyframes softPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
+
+/* Логин */
+.login-card {
+  animation: pageEnter 0.4s ease both;
+}
+.login-button {
+  transition: transform 0.15s ease, box-shadow var(--transition), background var(--transition);
+}
+.login-button:hover {
+  box-shadow: 0 6px 20px rgba(91, 141, 239, 0.28);
+}
+.login-button:active {
+  transform: scale(0.98);
+}
+
+/* Скроллбар чуть приятнее */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 146, 168, 0.35);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 146, 168, 0.55);
+}
+
+/* Список отработок/скриптов в модалке */
+.attach-script-row,
+[data-pick-row] {
+  transition: border-color var(--transition), background var(--transition), transform 0.15s ease;
+}
+.attach-script-row:hover,
+[data-pick-row]:hover {
+  border-color: rgba(91, 141, 239, 0.35) !important;
+}
+
+/* Табы / чипы фильтров */
+.lb-period-tab,
+.pick-ota-cat,
+.attach-script-cat,
+.layout-option {
+  transition: background var(--transition), border-color var(--transition), color var(--transition), transform 0.15s ease;
+}
+.lb-period-tab:active,
+.pick-ota-cat:active,
+.attach-script-cat:active {
+  transform: scale(0.97);
+}
