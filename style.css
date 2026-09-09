@@ -3910,3 +3910,49 @@ textarea:focus {
 .car-trim-features li {
   margin: 2px 0;
 }
+
+/* Редактор комплектаций */
+.car-trims-edit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 360px;
+  overflow: auto;
+  padding-right: 2px;
+}
+.car-trim-edit-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--bg-elevated, var(--bg-card));
+}
+.car-trim-edit-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.car-trims-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 4px 0 8px;
+  font: inherit;
+  text-align: left;
+}
+.car-trims-toggle:hover .view-label {
+  color: var(--primary);
+}
+.car-trims-toggle-icon {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+#viewCarTrimsBody.collapsed {
+  display: none;
+}

@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.6.8 — комплектации авто + заполненные карточки
+ * ЕЦТ Скрипты v2.6.9 — сворачиваемые комплектации + удобный редактор
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -29922,6 +29922,83 @@ function renderCatalog() {
   `;
 }
 
+
+function carTrimRowHtml(trim, idx) {
+  const t = trim || {};
+  const feats = Array.isArray(t.features) ? t.features.join('\n') : '';
+  return `<div class="car-trim-edit-card" data-trim-row="${idx}">
+    <div class="car-trim-edit-head">
+      <strong>Комплектация ${idx + 1}</strong>
+      <button type="button" class="btn btn-danger btn-sm" data-action="remove-car-trim-row" data-idx="${idx}" title="Удалить">🗑</button>
+    </div>
+    <div class="form-row-2" style="margin-top:8px">
+      <div class="form-group" style="margin:0">
+        <label>Название</label>
+        <input type="text" class="search-input f-trim-name" value="${escapeAttr(t.name || '')}" placeholder="Classic / Comfort / Luxe">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Цена</label>
+        <input type="text" class="search-input f-trim-price" value="${escapeAttr(t.price || '')}" placeholder="1 450 000 ₽">
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:8px;margin-bottom:0">
+      <label>Что входит (каждый пункт с новой строки)</label>
+      <textarea class="search-input f-trim-features" rows="4" placeholder="Климат-контроль">${escapeHtml(feats)}</textarea>
+    </div>
+  </div>`;
+}
+
+function renderCarTrimEditor(trims) {
+  const host = document.getElementById('fCarTrimsList');
+  if (!host) return;
+  const list = Array.isArray(trims) && trims.length ? trims : [{ name: '', price: '', features: [] }];
+  host.innerHTML = list.map((t, i) => carTrimRowHtml(t, i)).join('');
+}
+
+function collectCarTrimsFromEditor() {
+  const host = document.getElementById('fCarTrimsList');
+  if (!host) return [];
+  const out = [];
+  host.querySelectorAll('.car-trim-edit-card').forEach(row => {
+    const name = row.querySelector('.f-trim-name')?.value.trim() || '';
+    const price = row.querySelector('.f-trim-price')?.value.trim() || '';
+    const featsRaw = row.querySelector('.f-trim-features')?.value || '';
+    const features = featsRaw.split(/\n+/).map(s => s.trim()).filter(Boolean);
+    if (name || price || features.length) out.push({ name, price, features });
+  });
+  return out;
+}
+
+function addCarTrimRow() {
+  const host = document.getElementById('fCarTrimsList');
+  if (!host) return;
+  const current = collectCarTrimsFromEditor();
+  current.push({ name: '', price: '', features: [] });
+  renderCarTrimEditor(current);
+  const cards = host.querySelectorAll('.car-trim-edit-card');
+  const last = cards[cards.length - 1];
+  last?.querySelector('.f-trim-name')?.focus();
+  last?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function removeCarTrimRow(idx) {
+  const current = collectCarTrimsFromEditor();
+  const i = Number(idx);
+  if (!isFinite(i) || i < 0 || i >= current.length) return;
+  current.splice(i, 1);
+  renderCarTrimEditor(current.length ? current : [{ name: '', price: '', features: [] }]);
+}
+
+function toggleViewTrims() {
+  const body = document.getElementById('viewCarTrimsBody');
+  const btn = document.querySelector('.car-trims-toggle');
+  if (!body || !btn) return;
+  const isCollapsed = body.classList.toggle('collapsed');
+  btn.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+  const icon = btn.querySelector('.car-trims-toggle-icon');
+  if (icon) icon.textContent = isCollapsed ? '▼' : '▲';
+}
+
 function showCarModal(id) {
   if (isCommonAccount()) { toast('Только просмотр', 'error'); return; }
   ensureCarsModel();
@@ -29956,15 +30033,13 @@ function showCarModal(id) {
          <input type="text" id="fCarCountryCustom" class="search-input" style="width:100%;margin-top:8px;display:none" placeholder="Название страны">
        </div>
      </div>
-     <div class="form-group"><label>Комплектации</label>
-       <p class="field-hint">Каждая строка — одна комплектация: <b>Название | Цена | опция1; опция2; опция3</b></p>
-       <textarea id="fCarTrims" rows="6" class="search-input" style="width:100%;font-family:inherit" placeholder="Classic | 1 200 000 ₽ | ABS; Кондиционер; Эл. зеркала&#10;Comfort | 1 450 000 ₽ | Климат; Камера; Подогрев сидений&#10;Luxe | 1 700 000 ₽ | Кожа; Люк; Ассистенты">${escapeHtml((function(){
-         const tr = (item && Array.isArray(item.trims)) ? item.trims : [];
-         return tr.map(t => {
-           const feats = Array.isArray(t.features) ? t.features.join('; ') : '';
-           return [t.name || '', t.price || '', feats].join(' | ');
-         }).join('\n');
-       })())}</textarea>
+     <div class="form-group car-trims-editor">
+       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+         <label style="margin:0">Комплектации</label>
+         <button type="button" class="btn btn-outline btn-sm" data-action="add-car-trim-row">+ Комплектация</button>
+       </div>
+       <p class="field-hint" style="margin-bottom:8px">Добавьте блоки: название, цена и что входит (каждый пункт с новой строки).</p>
+       <div id="fCarTrimsList" class="car-trims-edit-list"></div>
      </div>
      <div class="form-group"><label>Описание</label><textarea id="fCarDesc" rows="3">${escapeHtml(item ? (item.description || '') : '')}</textarea></div>
      <div class="form-group">
@@ -29984,13 +30059,18 @@ function showCarModal(id) {
   setTimeout(() => {
     const sel = document.getElementById('fCarCountry');
     const custom = document.getElementById('fCarCountryCustom');
-    if (!sel || !custom) return;
-    const sync = () => {
-      custom.style.display = sel.value === '__custom__' ? 'block' : 'none';
-      if (sel.value === '__custom__') custom.focus();
-    };
-    sel.addEventListener('change', sync);
-    sync();
+    if (sel && custom) {
+      const sync = () => {
+        custom.style.display = sel.value === '__custom__' ? 'block' : 'none';
+        if (sel.value === '__custom__') custom.focus();
+      };
+      sel.addEventListener('change', sync);
+      sync();
+    }
+    const seed = (item && Array.isArray(item.trims) && item.trims.length)
+      ? item.trims
+      : [{ name: '', price: '', features: [] }];
+    renderCarTrimEditor(seed);
   }, 50);
 }
 
@@ -30033,16 +30113,7 @@ async function saveCar(id) {
       if (!flag) d = d.replace(/\s*⚠ В АЦ НЕТ:[^.]*\./g, '').trim();
       return d;
     })(),
-    trims: (function() {
-      const raw = document.getElementById('fCarTrims')?.value || '';
-      return raw.split(/\n+/).map(line => line.trim()).filter(Boolean).map(line => {
-        const parts = line.split('|').map(s => s.trim());
-        const name = parts[0] || '';
-        const price = parts[1] || '';
-        const feats = (parts[2] || '').split(/[;，,]/).map(s => s.trim()).filter(Boolean);
-        return { name, price, features: feats };
-      }).filter(t => t.name || t.price || (t.features && t.features.length));
-    })(),
+trims: collectCarTrimsFromEditor(),
     tags
   };
 
@@ -33061,9 +33132,12 @@ function showViewCarModal(id) {
       ${c.fuel ? `<div class="view-row"><span class="view-label">Топливо</span><span class="view-value">${escapeHtml(c.fuel)}</span></div>` : ''}
       ${c.country ? `<div class="view-row"><span class="view-label">Страна</span><span class="view-value">${escapeHtml(countryMeta(c.country).flag + ' ' + countryMeta(c.country).name)}</span></div>` : ''}
       ${c.description ? `<div class="view-block"><span class="view-label">Описание</span><p class="view-text ${c.notInAc ? 'text-danger-note' : ''}">${escapeHtml(c.description)}</p></div>` : ''}
-      ${(Array.isArray(c.trims) && c.trims.length) ? `<div class="view-block">
-        <span class="view-label">Комплектации</span>
-        <div class="car-trims">
+      ${(Array.isArray(c.trims) && c.trims.length) ? `<div class="view-block car-trims-view-block">
+        <button type="button" class="car-trims-toggle" data-action="toggle-view-trims" aria-expanded="true">
+          <span class="view-label" style="margin:0">Комплектации <span class="badge">${c.trims.length}</span></span>
+          <span class="car-trims-toggle-icon">▲</span>
+        </button>
+        <div class="car-trims" id="viewCarTrimsBody">
           ${c.trims.map(t => `
             <div class="car-trim-card">
               <div class="car-trim-head">
@@ -34916,6 +34990,9 @@ function handleClick(e) {
     case 'edit-script': showEditScriptModal(el.dataset.id); break;
     case 'add-car': showCarModal(null); break;
     case 'edit-car': showCarModal(el.dataset.id); break;
+    case 'add-car-trim-row': addCarTrimRow(); break;
+    case 'remove-car-trim-row': removeCarTrimRow(el.dataset.idx); break;
+    case 'toggle-view-trims': toggleViewTrims(); break;
     case 'delete-car': deleteCar(el.dataset.id); break;
     case 'save-car': saveCar(el.dataset.id || null); break;
     case 'open-car': {
