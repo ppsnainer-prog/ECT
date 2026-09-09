@@ -3865,3 +3865,48 @@ textarea:focus {
 .attach-script-cat:active {
   transform: scale(0.97);
 }
+
+/* Комплектации авто */
+.car-trim-preview {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 4px 0 6px;
+  line-height: 1.35;
+}
+.car-trims {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+.car-trim-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--bg-elevated, var(--bg-card));
+}
+.car-trim-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.car-trim-name {
+  font-size: 0.95rem;
+}
+.car-trim-price {
+  font-weight: 700;
+  color: var(--primary);
+  white-space: nowrap;
+}
+.car-trim-features {
+  margin: 0;
+  padding-left: 1.1em;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+.car-trim-features li {
+  margin: 2px 0;
+}
