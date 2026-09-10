@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.7.4 — смена пароля системным пользователям + права
+ * ЕЦТ Скрипты v2.7.5 — вход учитывает смену пароля (overrides)
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -21166,44 +21166,43 @@ function persistExtraUsers() {
 
 /** Подтянуть extraUsers из облака (для списка входа на любом ПК) */
 async function pullExtraUsersFromCloud() {
-  try {
-    if (typeof loadLocalSettings === 'function') loadLocalSettings();
-    try { loadBirthdays(); } catch (_) {}
-    try { loadTeamPassOverrides(); } catch (_) {}
-    try { startShiftTimerTicker(); } catch (_) {}
-  } catch (_) {}
   const url = (typeof getCloudExecUrl === 'function' ? getCloudExecUrl() : (state.cloud && state.cloud.sheetsUrl || '')).trim();
   if (!url || !url.includes('script.google.com')) return false;
   try {
-    const res = await fetchWithTimeout(url + (url.includes('?') ? '&' : '?') + 'op=meta', { method: 'GET' }, 12000);
-    // meta не содержит extraUsers — полный GET только если meta живой
-    if (!res.ok) return false;
-  } catch (_) { return false; }
-  try {
-    const res = await fetchWithTimeout(url, { method: 'GET' }, 20000);
+    const res = await fetchWithTimeout(url, { method: 'GET' }, 25000);
     if (!res.ok) return false;
     const json = await res.json();
     const record = (json && (json.record || json)) || {};
     const ex = (record.extras && typeof record.extras === 'object') ? record.extras : record;
+
+    // пароли системных аккаунтов (переопределения)
+    if (ex.teamPassOverrides && typeof ex.teamPassOverrides === 'object') {
+      try {
+        loadTeamPassOverrides();
+        teamPassOverrides = { ...(teamPassOverrides || {}), ...ex.teamPassOverrides };
+        localStorage.setItem(TEAM_PASS_OVERRIDES_KEY, JSON.stringify(teamPassOverrides));
+      } catch (e) { console.warn('pull teamPassOverrides', e); }
+    }
+
     const list = ex.extraUsers || record.extraUsers;
-    if (!Array.isArray(list)) return false;
-    loadExtraUsers();
-    // мерж: облако — источник правды по именам; локальные только если в облаке пусто
-    const byName = new Map();
-    list.forEach(u => {
-      if (u && u.name) byName.set(u.name, {
-        name: u.name,
-        passwordHash: u.passwordHash || '',
-        role: u.role === 'view' ? 'view' : 'edit',
-        createdAt: u.createdAt || Date.now()
+    if (Array.isArray(list)) {
+      loadExtraUsers();
+      const byName = new Map();
+      list.forEach(u => {
+        if (u && u.name) byName.set(u.name, {
+          name: u.name,
+          passwordHash: u.passwordHash || '',
+          role: u.role === 'view' ? 'view' : 'edit',
+          createdAt: u.createdAt || Date.now()
+        });
       });
-    });
-    // не затираем локальных, которых ещё не успели залить (нет сети при сохранении)
-    extraUsers.forEach(u => {
-      if (u && u.name && !byName.has(u.name)) byName.set(u.name, u);
-    });
-    extraUsers = Array.from(byName.values());
-    try { localStorage.setItem(EXTRA_USERS_KEY, JSON.stringify(extraUsers)); } catch (_) {}
+      extraUsers.forEach(u => {
+        if (u && u.name && !byName.has(u.name)) byName.set(u.name, u);
+      });
+      extraUsers = Array.from(byName.values());
+      try { localStorage.setItem(EXTRA_USERS_KEY, JSON.stringify(extraUsers)); } catch (_) {}
+    }
+
     if (typeof window.__ECT_REFRESH_USERS === 'function') window.__ECT_REFRESH_USERS();
     return true;
   } catch (e) {
@@ -21212,6 +21211,7 @@ async function pullExtraUsersFromCloud() {
   }
 }
 window.__ECT_PULL_EXTRA_USERS = pullExtraUsersFromCloud;
+try { window.sha256Hex = sha256Hex; } catch (_) {}
 
 
 function isAdminUser() {
@@ -21402,6 +21402,7 @@ async function findUserPasswordHash(name) {
 
 
 async function sha256Hex(value) {
+  // window.sha256Hex выставляется ниже
   // Web Crypto работает только в secure context (HTTPS/localhost).
   // На GitHub Pages это нормально, но при открытии index.html напрямую
   // crypto.subtle может отсутствовать. Поэтому есть JS-fallback.
@@ -21458,6 +21459,8 @@ async function sha256Hex(value) {
   }
   return H.map(x => x.toString(16).padStart(8,'0')).join('');
 }
+try { window.sha256Hex = sha256Hex; } catch (_) {}
+
 
 /* ========== Гибкие права пользователей ========== */
 const PAGE_PERM_DEFS = [

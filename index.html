@@ -101,6 +101,14 @@
           <span class="nav-icon">🎯</span>
           <span class="nav-label">Цель</span>
         </button>
+        <button class="nav-item" data-page="shift">
+          <span class="nav-icon">⏱</span>
+          <span class="nav-label">Смена</span>
+        </button>
+        <button class="nav-item" data-page="birthdays">
+          <span class="nav-icon">🎂</span>
+          <span class="nav-label">Дни рождения</span>
+        </button>
         <button class="nav-item" data-page="leaderboard">
           <span class="nav-icon">🏆</span>
           <span class="nav-label">Лидерборд</span>
@@ -328,30 +336,61 @@
         return;
       }
 
-      // Системные пользователи (пароль в открытом виде) + доп. из localStorage (sha256)
+      // Проверка пароля: 1) override hash 2) plain USERS (если нет override) 3) extraUsers hash
       async function sha256Hex(value) {
         if (window.crypto && window.crypto.subtle) {
           const data = new TextEncoder().encode(value);
           const hash = await window.crypto.subtle.digest("SHA-256", data);
           return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
         }
-        // fallback без WebCrypto
+        // простой fallback не нужен на HTTPS; пробуем app.js
+        if (typeof window.sha256Hex === "function") {
+          try { return await window.sha256Hex(value); } catch (_) {}
+        }
         return null;
       }
 
-      const expectedPlain = USERS[user];
+      const passTry = (password || "").trim() || password;
+      const hash = await sha256Hex(passTry);
       let ok = false;
-      if (expectedPlain && (password.trim() === expectedPlain || password === expectedPlain)) {
-        ok = true;
-      } else {
+
+      // 1) Смена пароля админом (sha256) — приоритетнее встроенного
+      try {
+        let overrides = {};
+        try { overrides = JSON.parse(localStorage.getItem("ect_team_pass_overrides_v1") || "{}"); } catch (_) {}
+        if (overrides && typeof overrides === "object" && overrides[user] && hash && hash === overrides[user]) {
+          ok = true;
+        }
+      } catch (e) { console.warn(e); }
+
+      // 2) Встроенный пароль (только если override НЕ задан)
+      if (!ok) {
+        let hasOverride = false;
+        try {
+          const overrides = JSON.parse(localStorage.getItem("ect_team_pass_overrides_v1") || "{}");
+          hasOverride = !!(overrides && overrides[user]);
+        } catch (_) {}
+        const expectedPlain = USERS[user];
+        if (!hasOverride && expectedPlain && (passTry === expectedPlain || password === expectedPlain)) {
+          ok = true;
+        }
+      }
+
+      // 3) Доп. участники (extraUsers)
+      if (!ok) {
         try {
           let extra = [];
           try { extra = JSON.parse(localStorage.getItem("ect_extra_users_v1") || "[]"); } catch (_) {}
           const row = Array.isArray(extra) ? extra.find(u => u && u.name === user) : null;
-          if (row && row.passwordHash) {
-            const hash = await sha256Hex(password.trim() || password);
-            if (hash && hash === row.passwordHash) ok = true;
-          }
+          if (row && row.passwordHash && hash && hash === row.passwordHash) ok = true;
+        } catch (e) { console.warn(e); }
+      }
+
+      // 4) app.js findUserPasswordHash (если доступен)
+      if (!ok && typeof findUserPasswordHash === "function" && hash) {
+        try {
+          const expected = await findUserPasswordHash(user);
+          if (expected && expected === hash) ok = true;
         } catch (e) { console.warn(e); }
       }
 

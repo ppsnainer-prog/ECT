@@ -7,7 +7,12 @@
  *  - лист data    — только короткая сводка в A1 (не весь JSON)
  *
  * GET  → { scripts:[...], updatedAt, version }
+ * GET  ?op=meta → лёгкая проверка изменений (с коротким кэшем)
  * POST → полный JSON или порции: begin / upsert / chunk / commit / replace
+ *
+ * Оптимизация (совместимо с текущим клиентом):
+ *  - meta кэшируется ~20 сек через CacheService (сбрасывается при записи)
+ *  - формат данных и все op без изменений — данные не теряются
  *
  * После правок: Развернуть → Управление развёртываниями → карандаш
  * → Новая версия → Развернуть (URL тот же).
@@ -18,6 +23,31 @@ var CHUNK_MARK = '__CHUNKS__:';
 var SCRIPT_HEADERS = ['id', 'title', 'category', 'content', 'plainContent', 'otabotki', 'shtrafy', 'opens', 'createdAt', 'updatedAt', 'extra'];
 var CHUNK_HEADERS = ['id', 'field', 'part', 'text'];
 var LONG_FIELDS = ['content', 'plainContent', 'otabotki', 'shtrafy', 'extra'];
+
+/** Короткий кэш meta, чтобы не читать таблицу на каждый poll */
+var META_CACHE_KEY = 'ect_meta_v1';
+var META_CACHE_SEC = 20;
+
+function clearMetaCache_() {
+  try {
+    CacheService.getScriptCache().remove(META_CACHE_KEY);
+  } catch (e) {}
+}
+
+function getMetaCached_() {
+  try {
+    var raw = CacheService.getScriptCache().get(META_CACHE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return null;
+}
+
+function putMetaCache_(obj) {
+  try {
+    CacheService.getScriptCache().put(META_CACHE_KEY, JSON.stringify(obj), META_CACHE_SEC);
+  } catch (e) {}
+}
+
 
 function jsonOut_(obj) {
   return ContentService
@@ -57,6 +87,7 @@ function dataSheet_() {
 }
 
 function writeMeta_(info) {
+  clearMetaCache_();
   var sheet = dataSheet_();
   var meta = {
     storage: 'rows',
@@ -359,6 +390,7 @@ function flattenExtrasOnto_(out, extras) {
   if (extras.sharedPenalties) out.sharedPenalties = extras.sharedPenalties;
   if (extras.ruleItemTags) out.ruleItemTags = extras.ruleItemTags;
   if (extras.extraUsers) out.extraUsers = extras.extraUsers;
+  if (extras.teamPassOverrides) out.teamPassOverrides = extras.teamPassOverrides;
   if (extras.flappyScores) out.flappyScores = extras.flappyScores;
   if (extras.presence) out.presence = extras.presence;
   if (extras.userPerms) out.userPerms = extras.userPerms;
@@ -396,6 +428,7 @@ function readAll_() {
       if (extras.sharedPenalties) out.sharedPenalties = extras.sharedPenalties;
       if (extras.ruleItemTags) out.ruleItemTags = extras.ruleItemTags;
       if (extras.extraUsers) out.extraUsers = extras.extraUsers;
+  if (extras.teamPassOverrides) out.teamPassOverrides = extras.teamPassOverrides;
   if (extras.flappyScores) out.flappyScores = extras.flappyScores;
   if (extras.presence) out.presence = extras.presence;
   if (extras.userPerms) out.userPerms = extras.userPerms;
@@ -879,6 +912,10 @@ function doGet(e) {
     }
     // Лёгкая проверка «есть ли изменения» без чтения всех скриптов
     if (e && e.parameter && e.parameter.op === 'meta') {
+      var cachedMeta = getMetaCached_();
+      if (cachedMeta) {
+        return jsonOut_(cachedMeta);
+      }
       var meta = {};
       try {
         meta = JSON.parse(String(dataSheet_().getRange('A1').getValue() || '{}'));
@@ -886,20 +923,20 @@ function doGet(e) {
       var stamp = '';
       try { stamp = String(dataSheet_().getRange('C1').getValue() || ''); } catch (e2) {}
       var guestOn = true;
-      if (typeof meta.guestLoginEnabled === 'boolean') {
-        guestOn = meta.guestLoginEnabled;
-      } else {
-        try {
-          var exMeta = readExtras_() || {};
-          if (typeof exMeta.guestLoginEnabled === 'boolean') guestOn = exMeta.guestLoginEnabled;
-        } catch (e3) {}
-      }
       var blockedMeta = [];
+      // один раз читаем extras (раньше было два вызова)
       try {
-        var exB = readExtras_() || {};
-        if (Array.isArray(exB.blockedIps)) blockedMeta = exB.blockedIps;
-      } catch (eB) {}
-      return jsonOut_({
+        var exMeta = readExtras_() || {};
+        if (typeof meta.guestLoginEnabled === 'boolean') {
+          guestOn = meta.guestLoginEnabled;
+        } else if (typeof exMeta.guestLoginEnabled === 'boolean') {
+          guestOn = exMeta.guestLoginEnabled;
+        }
+        if (Array.isArray(exMeta.blockedIps)) blockedMeta = exMeta.blockedIps;
+      } catch (e3) {
+        if (typeof meta.guestLoginEnabled === 'boolean') guestOn = meta.guestLoginEnabled;
+      }
+      var payload = {
         ok: true,
         op: 'meta',
         updatedAt: meta.updatedAt || 0,
@@ -907,7 +944,9 @@ function doGet(e) {
         extrasStamp: stamp,
         guestLoginEnabled: guestOn,
         blockedIps: blockedMeta
-      });
+      };
+      putMetaCache_(payload);
+      return jsonOut_(payload);
     }
     return jsonOut_(readAll_());
   } catch (err) {
@@ -1221,10 +1260,12 @@ function doPost(e) {
 
     // Только extras (цели, авто, справка, звонки-мета, лидерборд) — без перезаписи скриптов
     if (op === 'setGuestFlag') {
+      clearMetaCache_();
       return jsonOut_(setGuestLoginEnabled_(parsed.enabled));
     }
 
     if (op === 'saveExtras') {
+      clearMetaCache_();
       var existingEx = {};
       try { existingEx = readExtras_() || {}; } catch (eEx) { existingEx = {}; }
       var ex = parsed.extras || {
@@ -1273,6 +1314,7 @@ function doPost(e) {
     }
 
     if (op === 'replace') {
+      clearMetaCache_();
       if (!Array.isArray(parsed.scripts)) parsed.scripts = [];
       parsed.updatedAt = parsed.updatedAt || Date.now();
       parsed.version = 1;
@@ -1280,6 +1322,7 @@ function doPost(e) {
       return jsonOut_({ ok: true, op: op, count: parsed.scripts.length, updatedAt: parsed.updatedAt });
     }
     if (op === 'begin') {
+      clearMetaCache_();
       handleBegin_(parsed);
       return jsonOut_({ ok: true, op: op });
     }
@@ -1292,6 +1335,7 @@ function doPost(e) {
       return jsonOut_({ ok: true, op: op, id: parsed.id, field: parsed.field, part: parsed.part });
     }
     if (op === 'commit') {
+      clearMetaCache_();
       handleCommit_(parsed);
       var all = readAll_();
       return jsonOut_({ ok: true, op: op, count: (all.scripts || []).length, updatedAt: all.updatedAt });
