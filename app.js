@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.7.0 — таймер смены, дни рождения, адаптив
+ * ЕЦТ Скрипты v2.7.1 — меню Смена/ДР с иконками; ДР скрыты для гостя
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -21482,7 +21482,7 @@ function defaultPermsFor(name) {
   if (name && String(name).indexOf('Гость:') === 0) {
     const pages = {};
     PAGE_PERM_DEFS.forEach(p => {
-      pages[p.key] = ['home','scripts','otabotki','catalog','calls','rules','refinfo','games','newbie','settings','shift','birthdays'].includes(p.key);
+      pages[p.key] = ['home','scripts','otabotki','catalog','calls','rules','refinfo','games','newbie','settings','shift'].includes(p.key);
     });
     // гостю: настройки (тема + синхронизация), без целей и лидерборда
     pages.goals = false;
@@ -21591,8 +21591,8 @@ function canViewPage(page) {
   if (state.currentUser === 'Александр') return true;
   // гость: настройки можно, цели и лидерборд — нет
   if (typeof isGuestUser === 'function' && isGuestUser()) {
-    if (key === 'goals' || key === 'leaderboard' || key === 'admin') return false;
-    if (key === 'settings') return true;
+    if (key === 'goals' || key === 'leaderboard' || key === 'admin' || key === 'birthdays') return false;
+    if (key === 'settings' || key === 'shift') return true;
   }
   const perms = getUserPerms(state.currentUser);
   if (key === 'games') return !!perms.pages.games;
@@ -21638,10 +21638,10 @@ function applyAccountPermissions() {
     document.querySelectorAll('.nav-item[data-page="' + p.key + '"]').forEach(el => {
       let ok = canViewPage(p.key);
       if (p.key === 'admin') ok = adminOnly;
-      // гостю принудительно скрываем цели и лидерборд
-      if (guest && (p.key === 'goals' || p.key === 'leaderboard')) ok = false;
-      // гостю показываем настройки (синхронизация + тема)
-      if (guest && p.key === 'settings') ok = true;
+      // гостю принудительно скрываем цели, лидерборд и дни рождения
+      if (guest && (p.key === 'goals' || p.key === 'leaderboard' || p.key === 'birthdays')) ok = false;
+      // гостю: настройки и таймер смены
+      if (guest && (p.key === 'settings' || p.key === 'shift')) ok = true;
       el.hidden = !ok;
       if (!ok) {
         el.style.display = 'none';
@@ -23588,6 +23588,10 @@ function navigate(page, scriptId = null) {
     toast('Нет доступа к целям и дневнику', 'error');
     page = 'home';
   }
+  if (page === 'birthdays' && (typeof isGuestUser === 'function' && isGuestUser())) {
+    toast('Дни рождения недоступны для гостя', 'error');
+    page = 'home';
+  }
   state.currentPage = page;
   state.currentScriptId = scriptId;
   if (page !== 'script') state.currentTab = 'content';
@@ -24188,22 +24192,56 @@ function deleteBirthday(id) {
 function ensureExtraNavItems() {
   const nav = document.querySelector('.sidebar-nav') || document.querySelector('nav.sidebar-nav') || document.querySelector('.sidebar nav');
   if (!nav) return;
+  const guest = typeof isGuestSession === 'function' && isGuestSession();
   const items = [
-    { page: 'shift', label: '⏱ Смена', after: 'goals' },
-    { page: 'birthdays', label: '🎂 ДР', after: 'shift' }
+    { page: 'shift', icon: '⏱', label: 'Смена', after: 'goals' },
+    { page: 'birthdays', icon: '🎂', label: 'Дни рождения', after: 'shift', hideForGuest: true }
   ];
   items.forEach(it => {
-    if (nav.querySelector('[data-page="' + it.page + '"]')) return;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'nav-item';
-    btn.setAttribute('data-action', 'nav');
-    btn.setAttribute('data-page', it.page);
-    btn.innerHTML = '<span class="nav-icon"></span><span class="nav-label">' + it.label + '</span>';
-    const afterEl = nav.querySelector('[data-page="' + it.after + '"]');
-    if (afterEl && afterEl.nextSibling) afterEl.parentNode.insertBefore(btn, afterEl.nextSibling);
-    else if (afterEl) afterEl.parentNode.appendChild(btn);
-    else nav.appendChild(btn);
+    let btn = nav.querySelector('.nav-item[data-page="' + it.page + '"]');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'nav-item';
+      btn.setAttribute('data-page', it.page);
+      btn.innerHTML = '<span class="nav-icon">' + it.icon + '</span><span class="nav-label">' + it.label + '</span>';
+      // важно: как у остальных пунктов меню — прямой click → navigate
+      btn.addEventListener('click', function () {
+        try {
+          if (typeof navigate === 'function') navigate(it.page);
+        } catch (e) { console.warn(e); }
+      });
+      const afterEl = nav.querySelector('.nav-item[data-page="' + it.after + '"]');
+      if (afterEl && afterEl.parentNode) {
+        if (afterEl.nextSibling) afterEl.parentNode.insertBefore(btn, afterEl.nextSibling);
+        else afterEl.parentNode.appendChild(btn);
+      } else {
+        nav.appendChild(btn);
+      }
+    } else {
+      // обновить иконку, если была пустая
+      const icon = btn.querySelector('.nav-icon');
+      if (icon && !String(icon.textContent || '').trim()) icon.textContent = it.icon;
+      if (!btn._ectNavBound) {
+        btn.addEventListener('click', function () {
+          try { if (typeof navigate === 'function') navigate(it.page); } catch (e) { console.warn(e); }
+        });
+        btn._ectNavBound = true;
+      }
+    }
+    // гость не видит дни рождения
+    if (it.hideForGuest && guest) {
+      btn.hidden = true;
+      btn.style.display = 'none';
+      btn.setAttribute('hidden', '');
+    } else if (it.page === 'birthdays' && !guest) {
+      // видимость дальше решит applyAccountPermissions / canViewPage
+      if (typeof canViewPage === 'function' && canViewPage('birthdays')) {
+        btn.hidden = false;
+        btn.style.display = '';
+        btn.removeAttribute('hidden');
+      }
+    }
   });
 }
 
