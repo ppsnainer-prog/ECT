@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.7.11 — удаление ДР не откатывается шаблоном
+ * ЕЦТ Скрипты v2.7.12 — отработки: merge + защита от отката облаком
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -22352,7 +22352,7 @@ async function cloudFetch(opts) {
   const force = opts && opts.force;
   // Не перетираем локальные правки, которые только что ушли в облако
   // (ручной «Синхронизировать» с force — всегда читаем)
-  if (!force && state.cloud.lastLocalWrite && Date.now() - state.cloud.lastLocalWrite < 15000) {
+  if (!force && state.cloud.lastLocalWrite && Date.now() - state.cloud.lastLocalWrite < 90000) {
     return { _skipped: 'local_write' };
   }
   if (!quiet) {
@@ -22611,13 +22611,28 @@ function applyCloudRecord(remote) {
     }
   }
   if (Array.isArray(remote.sharedOtabotki)) {
-    const next = preferRemoteArray(state.sharedOtabotki, remote.sharedOtabotki);
-    const remoteHaveTitles = (remote.sharedOtabotki || []).some(o => o && String(o.title || '').trim());
-    const localHaveTitles = (state.sharedOtabotki || []).some(o => o && String(o.title || '').trim());
-    if (remote.sharedOtabotki.length && (!remoteHaveTitles && localHaveTitles)) {
-      /* keep local otabotki */
+    const localWrite = Number(state.cloud && state.cloud.lastLocalWrite) || 0;
+    const recentLocal = localWrite && (Date.now() - localWrite < 120000);
+    // недавняя локальная правка — не откатываем отработки облаком
+    if (recentLocal && Array.isArray(state.sharedOtabotki) && state.sharedOtabotki.length) {
+      /* keep local */
     } else {
-      state.sharedOtabotki = next;
+      // merge по id: берём более свежий updatedAt; локальные новые id сохраняем
+      const byId = new Map();
+      (remote.sharedOtabotki || []).forEach(o => {
+        if (o && o.id) byId.set(o.id, o);
+      });
+      (state.sharedOtabotki || []).forEach(o => {
+        if (!o || !o.id) return;
+        const r = byId.get(o.id);
+        if (!r) byId.set(o.id, o);
+        else {
+          const rt = Number(r.updatedAt) || 0;
+          const lt = Number(o.updatedAt) || 0;
+          if (lt >= rt) byId.set(o.id, o);
+        }
+      });
+      state.sharedOtabotki = Array.from(byId.values());
       try { seedMetodichkaOtabotki(); } catch (_) {}
     }
   }
@@ -34246,10 +34261,24 @@ async function saveSharedOtabotka(id) {
       updatedAt: Date.now()
     });
   }
-  const saved = await saveData();
+  try { saveLocalScripts(); } catch (_) {}
+  if (state.cloud) state.cloud.lastLocalWrite = Date.now();
   closeModal();
-  toast(saved ? 'Отработка сохранена' : 'Сохранено локально', saved ? undefined : 'error');
+  toast('Сохранено локально, отправляем в облако…');
   render();
+  // сразу extras+shared, не ждать полный debounce
+  let ok = false;
+  try {
+    if (typeof enqueueCloud === 'function' && typeof cloudSaveExtrasOnly === 'function') {
+      await enqueueCloud(async () => {
+        ok = await cloudSaveExtrasOnly();
+        if (!ok && typeof cloudSave === 'function') ok = await cloudSave();
+      });
+    } else if (typeof cloudSaveExtrasOnly === 'function') {
+      ok = await cloudSaveExtrasOnly();
+    }
+  } catch (e) { console.warn(e); }
+  toast(ok ? 'Отработка в облаке' : 'Локально ок, облако не ответило — не обновляйте страницу', ok ? undefined : 'error');
 }
 
 async function deleteSharedOtabotka(id) {
@@ -34259,9 +34288,19 @@ async function deleteSharedOtabotka(id) {
   for (const s of state.scripts) {
     if (s.otabotkiIds) s.otabotkiIds = s.otabotkiIds.filter(x => x !== id);
   }
-  await saveData();
-  toast('Удалено');
+  try { saveLocalScripts(); } catch (_) {}
+  if (state.cloud) state.cloud.lastLocalWrite = Date.now();
+  toast('Удалено локально, синхронизируем…');
   render();
+  try {
+    if (typeof enqueueCloud === 'function' && typeof cloudSaveExtrasOnly === 'function') {
+      await enqueueCloud(async () => {
+        let ok = await cloudSaveExtrasOnly();
+        if (!ok && typeof cloudSave === 'function') await cloudSave();
+      });
+    }
+  } catch (e) { console.warn(e); }
+  toast('Готово');
 }
 
 function showPickOtabotkaModal(scriptId) {
