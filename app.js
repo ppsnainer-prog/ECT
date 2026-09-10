@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.7.1 — меню Смена/ДР с иконками; ДР скрыты для гостя
+ * ЕЦТ Скрипты v2.7.2 — дни рождения из таблицы команды
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -23977,14 +23977,356 @@ function renderShiftTimer() {
 const BIRTHDAYS_KEY = 'ect_birthdays_v1';
 
 const DEFAULT_BIRTHDAYS = [
-  { id: 'bd_1', name: 'Александр', birthDate: '1995-03-12', city: 'Москва' },
-  { id: 'bd_2', name: 'Мария', birthDate: '1998-07-21', city: 'Санкт-Петербург' },
-  { id: 'bd_3', name: 'Дмитрий', birthDate: '1993-11-03', city: 'Казань' },
-  { id: 'bd_4', name: 'Елена', birthDate: '1996-01-18', city: 'Новосибирск' },
-  { id: 'bd_5', name: 'Иван', birthDate: '1994-09-09', city: 'Екатеринбург' },
-  { id: 'bd_6', name: 'Анна', birthDate: '1999-05-25', city: 'Краснодар' },
-  { id: 'bd_7', name: 'Сергей', birthDate: '1992-12-14', city: 'Москва' },
-  { id: 'bd_8', name: 'Ольга', birthDate: '1997-08-30', city: 'Ростов-на-Дону' }
+  {
+    "id": "bd_1",
+    "name": "Остапец Даниил",
+    "birthDate": "2000-01-27",
+    "city": "",
+    "tag": ""
+  },
+  {
+    "id": "bd_2",
+    "name": "Настя",
+    "birthDate": "2000-08-03",
+    "city": "Нижний Тагил",
+    "tag": ""
+  },
+  {
+    "id": "bd_3",
+    "name": "Антонян Марине",
+    "birthDate": "2000-08-02",
+    "city": "Гродно. Беларусь",
+    "tag": "antmarisun"
+  },
+  {
+    "id": "bd_4",
+    "name": "Нунушян Аник",
+    "birthDate": "",
+    "city": "",
+    "tag": "Ani070710"
+  },
+  {
+    "id": "bd_5",
+    "name": "Арутюнян Анушик",
+    "birthDate": "",
+    "city": "",
+    "tag": "Anushik_Armenovna"
+  },
+  {
+    "id": "bd_6",
+    "name": "Градыкина Алина",
+    "birthDate": "",
+    "city": "",
+    "tag": "Agradykina"
+  },
+  {
+    "id": "bd_7",
+    "name": "Евдокимова Анастасия",
+    "birthDate": "",
+    "city": "",
+    "tag": "nastyaEvdokimova0310"
+  },
+  {
+    "id": "bd_8",
+    "name": "Казакова Татьяна",
+    "birthDate": "",
+    "city": "",
+    "tag": "Purzza"
+  },
+  {
+    "id": "bd_9",
+    "name": "Соколова Валентина",
+    "birthDate": "2000-02-16",
+    "city": "Калининград",
+    "tag": "vallisokol"
+  },
+  {
+    "id": "bd_10",
+    "name": "Вотинцева Екатерина",
+    "birthDate": "2000-06-26",
+    "city": "Екатеринбург",
+    "tag": "KaterinaVotinseva"
+  },
+  {
+    "id": "bd_11",
+    "name": "Швед Татьяна",
+    "birthDate": "",
+    "city": "",
+    "tag": "tatyanashvv"
+  },
+  {
+    "id": "bd_12",
+    "name": "Гурова Ольга",
+    "birthDate": "2000-04-16",
+    "city": "Магнитогорск",
+    "tag": "OlgaGurova1604"
+  },
+  {
+    "id": "bd_13",
+    "name": "Зимина Виктория",
+    "birthDate": "",
+    "city": "",
+    "tag": "v_i_k_t_o_r_i_a_a"
+  },
+  {
+    "id": "bd_14",
+    "name": "Агаева Алина",
+    "birthDate": "2000-03-10",
+    "city": "",
+    "tag": "AlinaAgusha"
+  },
+  {
+    "id": "bd_15",
+    "name": "Юдович Сергей",
+    "birthDate": "",
+    "city": "",
+    "tag": "unfunny13"
+  },
+  {
+    "id": "bd_16",
+    "name": "Проскурко Анастасия",
+    "birthDate": "",
+    "city": "",
+    "tag": "kayytinhasahat"
+  },
+  {
+    "id": "bd_17",
+    "name": "Васильева Екатерина",
+    "birthDate": "",
+    "city": "",
+    "tag": "katrin_vas91"
+  },
+  {
+    "id": "bd_18",
+    "name": "Невара Анна",
+    "birthDate": "",
+    "city": "",
+    "tag": "AnN_Ve02"
+  },
+  {
+    "id": "bd_19",
+    "name": "Шавель Александра",
+    "birthDate": "",
+    "city": "",
+    "tag": "AlexZv164"
+  },
+  {
+    "id": "bd_20",
+    "name": "Нефедьева Екатерина",
+    "birthDate": "",
+    "city": "",
+    "tag": "kitty_keet"
+  },
+  {
+    "id": "bd_21",
+    "name": "Шилова Елена",
+    "birthDate": "",
+    "city": "",
+    "tag": "lenwwwru"
+  },
+  {
+    "id": "bd_22",
+    "name": "Степаненко Полина",
+    "birthDate": "",
+    "city": "",
+    "tag": "wxsspolli"
+  },
+  {
+    "id": "bd_23",
+    "name": "Донцева Алина",
+    "birthDate": "",
+    "city": "",
+    "tag": "dntsvlina"
+  },
+  {
+    "id": "bd_24",
+    "name": "Бадиров Камал",
+    "birthDate": "",
+    "city": "",
+    "tag": "Kanka222"
+  },
+  {
+    "id": "bd_25",
+    "name": "Рочев Георгий",
+    "birthDate": "2000-01-28",
+    "city": "Москва",
+    "tag": "xbsjakaknsnznjsa"
+  },
+  {
+    "id": "bd_26",
+    "name": "Хуснияров Айнур",
+    "birthDate": "2000-10-29",
+    "city": "Стерлитамак",
+    "tag": "caro_cari"
+  },
+  {
+    "id": "bd_27",
+    "name": "Букина Элла",
+    "birthDate": "2000-08-24",
+    "city": "Калининградская область",
+    "tag": "Ella_91l"
+  },
+  {
+    "id": "bd_28",
+    "name": "Борисенко Илья",
+    "birthDate": "2000-04-01",
+    "city": "Вышний Волочёк Тверская область",
+    "tag": "QWExit1"
+  },
+  {
+    "id": "bd_29",
+    "name": "Волкова Александра",
+    "birthDate": "2000-06-11",
+    "city": "Ставрополь",
+    "tag": "aliva135"
+  },
+  {
+    "id": "bd_30",
+    "name": "Соколов Александр",
+    "birthDate": "2000-12-12",
+    "city": "Дальнегорск",
+    "tag": "Alekssandr991"
+  },
+  {
+    "id": "bd_31",
+    "name": "Кузнецова Виктория",
+    "birthDate": "",
+    "city": "",
+    "tag": "Kyznetsova20"
+  },
+  {
+    "id": "bd_32",
+    "name": "Мясин Сергей",
+    "birthDate": "",
+    "city": "",
+    "tag": "sbermarketoperator"
+  },
+  {
+    "id": "bd_33",
+    "name": "Кошманов Степан",
+    "birthDate": "",
+    "city": "",
+    "tag": "rastoman4ik2"
+  },
+  {
+    "id": "bd_34",
+    "name": "Кечкина Ксения",
+    "birthDate": "",
+    "city": "",
+    "tag": "kseniakechkina"
+  },
+  {
+    "id": "bd_35",
+    "name": "Антаков Константин",
+    "birthDate": "",
+    "city": "",
+    "tag": "MetallLord"
+  },
+  {
+    "id": "bd_36",
+    "name": "Чагин Арсений",
+    "birthDate": "",
+    "city": "",
+    "tag": "bolt1qe"
+  },
+  {
+    "id": "bd_37",
+    "name": "Холопова Ольга",
+    "birthDate": "",
+    "city": "",
+    "tag": "Olenka_cat33"
+  },
+  {
+    "id": "bd_38",
+    "name": "Битюгова Анастасия",
+    "birthDate": "",
+    "city": "",
+    "tag": "bxbdbebeushzvsvhsusubsbd"
+  },
+  {
+    "id": "bd_39",
+    "name": "Юнусов Руслан",
+    "birthDate": "",
+    "city": "",
+    "tag": "rusunu"
+  },
+  {
+    "id": "bd_40",
+    "name": "Аветян Армен",
+    "birthDate": "",
+    "city": "",
+    "tag": "Armenianmen"
+  },
+  {
+    "id": "bd_41",
+    "name": "Галиченков Никита",
+    "birthDate": "",
+    "city": "",
+    "tag": "nckval"
+  },
+  {
+    "id": "bd_42",
+    "name": "Иванова Лаура",
+    "birthDate": "",
+    "city": "",
+    "tag": "everything_is_in_your_hands01"
+  },
+  {
+    "id": "bd_43",
+    "name": "Дорожкин Павел",
+    "birthDate": "",
+    "city": "",
+    "tag": "Paylus217"
+  },
+  {
+    "id": "bd_44",
+    "name": "Золотарев Дмитрий",
+    "birthDate": "",
+    "city": "",
+    "tag": "et3rnaldance"
+  },
+  {
+    "id": "bd_45",
+    "name": "Крюкова Анастасия",
+    "birthDate": "",
+    "city": "",
+    "tag": "nliut"
+  },
+  {
+    "id": "bd_46",
+    "name": "Кечкин Евгений",
+    "birthDate": "",
+    "city": "",
+    "tag": "fantasmagoric"
+  },
+  {
+    "id": "bd_47",
+    "name": "Романова Кристина",
+    "birthDate": "",
+    "city": "",
+    "tag": "K_Naplekovaa"
+  },
+  {
+    "id": "bd_48",
+    "name": "Семенова Анастасия",
+    "birthDate": "",
+    "city": "",
+    "tag": "as_vasileva97"
+  },
+  {
+    "id": "bd_49",
+    "name": "Ларионов Максим",
+    "birthDate": "",
+    "city": "",
+    "tag": "Maxxximchik"
+  },
+  {
+    "id": "bd_50",
+    "name": "Мавлеев Самат",
+    "birthDate": "",
+    "city": "",
+    "tag": "dissappo1nt"
+  }
 ];
 
 function loadBirthdays() {
@@ -23992,16 +24334,51 @@ function loadBirthdays() {
     const raw = localStorage.getItem(BIRTHDAYS_KEY);
     if (raw) {
       const p = JSON.parse(raw);
-      if (Array.isArray(p)) {
-        state.birthdays = p;
-        return;
-      }
+      if (Array.isArray(p)) state.birthdays = p;
     }
   } catch (_) {}
-  if (!Array.isArray(state.birthdays) || !state.birthdays.length) {
+  if (!Array.isArray(state.birthdays)) state.birthdays = [];
+
+  // подтянуть людей из списка по умолчанию, которых ещё нет (по ФИ)
+  const have = new Set((state.birthdays || []).map(b => String(b.name || '').trim().toLowerCase()).filter(Boolean));
+  let changed = false;
+  DEFAULT_BIRTHDAYS.forEach(d => {
+    const key = String(d.name || '').trim().toLowerCase();
+    if (!key || have.has(key)) return;
+    state.birthdays.push({
+      id: d.id || ('bd_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)),
+      name: d.name || '',
+      birthDate: d.birthDate || '',
+      city: d.city || '',
+      tag: d.tag || ''
+    });
+    have.add(key);
+    changed = true;
+  });
+  // обновить пустые даты/города из шаблона, если локально пусто
+  const defByName = new Map(DEFAULT_BIRTHDAYS.map(d => [String(d.name || '').trim().toLowerCase(), d]));
+  state.birthdays.forEach(b => {
+    const d = defByName.get(String(b.name || '').trim().toLowerCase());
+    if (!d) return;
+    if (!(b.birthDate || '').trim() && d.birthDate) { b.birthDate = d.birthDate; changed = true; }
+    if (!(b.city || '').trim() && d.city) { b.city = d.city; changed = true; }
+    if (!(b.tag || '').trim() && d.tag) { b.tag = d.tag; changed = true; }
+  });
+  // убрать старые демо-записи
+  const demoNames = new Set(['александр','мария','дмитрий','елена','иван','анна','сергей','ольга']);
+  const before = state.birthdays.length;
+  state.birthdays = state.birthdays.filter(b => {
+    const n = String(b.name || '').trim().toLowerCase();
+    if (demoNames.has(n) && !defByName.has(n) && String(b.id || '').startsWith('bd_')) return false;
+    return true;
+  });
+  if (state.birthdays.length !== before) changed = true;
+
+  if (!state.birthdays.length) {
     state.birthdays = DEFAULT_BIRTHDAYS.map(x => ({ ...x }));
-    persistBirthdays(false);
+    changed = true;
   }
+  if (changed) persistBirthdays(false);
 }
 
 function persistBirthdays(syncCloud) {
@@ -24130,7 +24507,8 @@ function renderBirthdays() {
                 <span class="badge badge-primary">${escapeHtml((d || '') + '.' + (m || ''))}</span>
                 <span class="badge">${age != null ? age + ' лет' : '—'}</span>
                 ${b.city ? `<span class="badge">${escapeHtml(b.city)}</span>` : ''}
-                <span class="badge badge-teal">${inDays === 0 ? 'сегодня' : 'через ' + inDays + ' дн.'}</span>
+                ${b.tag ? `<span class="badge">@${escapeHtml(b.tag)}</span>` : ''}
+                <span class="badge badge-teal">${!b.birthDate ? 'дата не указана' : (inDays === 0 ? 'сегодня' : 'через ' + inDays + ' дн.')}</span>
               </div>
             </div>
             ${canEditBd ? `<div class="call-actions">
