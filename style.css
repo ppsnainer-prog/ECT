@@ -4199,3 +4199,46 @@ textarea:focus {
   margin-top: 6px;
 }
 .site-guide-card li { margin: 4px 0; }
+
+
+/* Выравнивание главной — без горизонтальной прокрутки */
+.home-quick {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+.home-results,
+.home-results-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  align-items: stretch;
+}
+.home-col { min-width: 0; display: flex; flex-direction: column; }
+.home-list { min-width: 0; }
+.home-row { max-width: 100%; overflow: hidden; }
+.home-row-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.site-guide-banner-bottom { margin-top: 2px; }
+.site-guide-banner-head { align-items: center; }
+.site-guide-grid {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  align-items: stretch;
+}
+.site-guide-card { min-width: 0; height: 100%; }
+.sidebar-nav { overflow-x: hidden; }
+.content { overflow-x: hidden; max-width: 100%; }
+@media (max-width: 1100px) {
+  .home-results,
+  .home-results-3 { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+  .site-guide-banner-head { flex-direction: column; align-items: stretch; }
+}

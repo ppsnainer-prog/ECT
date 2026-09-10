@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.7.7 — инструкция по сайту для новичков
+ * ЕЦТ Скрипты v2.7.8 — инструкция внизу главной, выравнивание
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -24676,9 +24676,9 @@ function ensureExtraNavItems() {
   if (!nav) return;
   const guest = typeof isGuestSession === 'function' && isGuestSession();
   const items = [
-    { page: 'help', icon: '📘', label: 'Инструкция', after: 'home' },
     { page: 'shift', icon: '⏱', label: 'Смена', after: 'goals' },
-    { page: 'birthdays', icon: '🎂', label: 'Дни рождения', after: 'shift', hideForGuest: true }
+    { page: 'birthdays', icon: '🎂', label: 'Дни рождения', after: 'shift', hideForGuest: true },
+    { page: 'help', icon: '📘', label: 'Инструкция', after: 'settings' }
   ];
   items.forEach(it => {
     let btn = nav.querySelector('.nav-item[data-page="' + it.page + '"]');
@@ -28128,25 +28128,6 @@ function renderHome() {
   const guideDismissed = (() => { try { return localStorage.getItem('ect_guide_home_dismissed_v1') === '1'; } catch (_) { return false; } })();
   return `
     <div class="home-quick">
-      ${guideDismissed ? '' : `<div class="card site-guide-banner">
-        <div class="site-guide-banner-head">
-          <div>
-            <strong>📘 Как пользоваться сайтом</strong>
-            <p class="catalog-hint" style="margin:4px 0 0">Коротко для новых участников. Сайт регулярно обновляется — появляются новые разделы и удобства.</p>
-          </div>
-          <div class="actions-row">
-            <button type="button" class="btn btn-primary btn-sm" data-action="nav" data-page="help">Открыть инструкцию</button>
-            <button type="button" class="btn btn-outline btn-sm" data-action="dismiss-home-guide">Скрыть</button>
-          </div>
-        </div>
-        <ul class="site-guide-mini">
-          <li><b>📜 Скрипты</b> — тексты разговоров по сценариям</li>
-          <li><b>🔄 Отработки</b> — готовые ответы на возражения</li>
-          <li><b>🚗 Автокаталог</b> — марки, модели, комплектации</li>
-          <li><b>⏱ Смена</b> — таймер выхода, перерывов и конца смены</li>
-          <li><b>🎯 Цель</b> — личные цели и дневник (если доступ открыт)</li>
-        </ul>
-      </div>`}
       <div class="home-search-wrap card">
         <label class="home-search-label" for="homeSearch">Быстрый поиск</label>
         <input type="search" class="home-search-input" id="homeSearch"
@@ -28231,6 +28212,22 @@ function renderHome() {
           }
         </section>
       </div>
+
+      ${guideDismissed ? '' : `<div class="card site-guide-banner site-guide-banner-bottom">
+        <div class="site-guide-banner-head">
+          <div>
+            <strong>📘 Инструкция по сайту</strong>
+            <p class="catalog-hint" style="margin:6px 0 0">
+              Чтобы ознакомиться с сайтом, перейдите в раздел <b>«Инструкция»</b> (📘 в меню слева)
+              для более детального ознакомления. Сайт часто обновляется — появляются новые возможности.
+            </p>
+          </div>
+          <div class="actions-row">
+            <button type="button" class="btn btn-primary btn-sm" data-action="nav" data-page="help">Открыть инструкцию</button>
+            <button type="button" class="btn btn-outline btn-sm" data-action="dismiss-home-guide">Скрыть</button>
+          </div>
+        </div>
+      </div>`}
     </div>
   `;
 }
