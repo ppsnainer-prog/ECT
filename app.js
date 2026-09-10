@@ -24041,7 +24041,7 @@ function renderBirthdays() {
   const q = (state.birthdaysQuery || '').toLowerCase().trim();
   const monthFilter = state.birthdaysMonth || '';
   const sort = state.birthdaysSort || 'soon';
-  const canEdit = canEdit() || isAdminUser();
+  const canEditBd = (typeof canEdit === 'function' && canEdit()) || isAdminUser();
 
   let list = [...(state.birthdays || [])];
   if (monthFilter) {
@@ -24083,7 +24083,7 @@ function renderBirthdays() {
         <strong>🎂 Дни рождения</strong>
         <p class="catalog-hint">ФИО, дата рождения и город. Сортировка и фильтр по месяцу.</p>
       </div>
-      ${canEdit ? `<button class="btn btn-primary btn-sm" data-action="add-birthday">+ Добавить</button>` : ''}
+      ${canEditBd ? `<button class="btn btn-primary btn-sm" data-action="add-birthday">+ Добавить</button>` : ''}
     </div>
     <div class="catalog-filters">
       <input type="search" class="search-input" id="birthdaysSearch" placeholder="Поиск: имя, город…"
@@ -24133,7 +24133,7 @@ function renderBirthdays() {
                 <span class="badge badge-teal">${inDays === 0 ? 'сегодня' : 'через ' + inDays + ' дн.'}</span>
               </div>
             </div>
-            ${canEdit ? `<div class="call-actions">
+            ${canEditBd ? `<div class="call-actions">
               <button class="btn btn-outline btn-sm" data-action="edit-birthday" data-id="${escapeAttr(b.id)}">✏️</button>
               <button class="btn btn-danger btn-sm" data-action="delete-birthday" data-id="${escapeAttr(b.id)}">🗑</button>
             </div>` : ''}
