@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.7.2 — дни рождения из таблицы команды
+ * ЕЦТ Скрипты v2.7.3 — ДР без фиктивного года, город/возраст неизвестны, тег в форме
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -23980,21 +23980,21 @@ const DEFAULT_BIRTHDAYS = [
   {
     "id": "bd_1",
     "name": "Остапец Даниил",
-    "birthDate": "2000-01-27",
+    "birthDate": "01-27",
     "city": "",
     "tag": ""
   },
   {
     "id": "bd_2",
     "name": "Настя",
-    "birthDate": "2000-08-03",
+    "birthDate": "08-03",
     "city": "Нижний Тагил",
     "tag": ""
   },
   {
     "id": "bd_3",
     "name": "Антонян Марине",
-    "birthDate": "2000-08-02",
+    "birthDate": "08-02",
     "city": "Гродно. Беларусь",
     "tag": "antmarisun"
   },
@@ -24036,14 +24036,14 @@ const DEFAULT_BIRTHDAYS = [
   {
     "id": "bd_9",
     "name": "Соколова Валентина",
-    "birthDate": "2000-02-16",
+    "birthDate": "02-16",
     "city": "Калининград",
     "tag": "vallisokol"
   },
   {
     "id": "bd_10",
     "name": "Вотинцева Екатерина",
-    "birthDate": "2000-06-26",
+    "birthDate": "06-26",
     "city": "Екатеринбург",
     "tag": "KaterinaVotinseva"
   },
@@ -24057,7 +24057,7 @@ const DEFAULT_BIRTHDAYS = [
   {
     "id": "bd_12",
     "name": "Гурова Ольга",
-    "birthDate": "2000-04-16",
+    "birthDate": "04-16",
     "city": "Магнитогорск",
     "tag": "OlgaGurova1604"
   },
@@ -24071,7 +24071,7 @@ const DEFAULT_BIRTHDAYS = [
   {
     "id": "bd_14",
     "name": "Агаева Алина",
-    "birthDate": "2000-03-10",
+    "birthDate": "03-10",
     "city": "",
     "tag": "AlinaAgusha"
   },
@@ -24148,42 +24148,42 @@ const DEFAULT_BIRTHDAYS = [
   {
     "id": "bd_25",
     "name": "Рочев Георгий",
-    "birthDate": "2000-01-28",
+    "birthDate": "01-28",
     "city": "Москва",
     "tag": "xbsjakaknsnznjsa"
   },
   {
     "id": "bd_26",
     "name": "Хуснияров Айнур",
-    "birthDate": "2000-10-29",
+    "birthDate": "10-29",
     "city": "Стерлитамак",
     "tag": "caro_cari"
   },
   {
     "id": "bd_27",
     "name": "Букина Элла",
-    "birthDate": "2000-08-24",
+    "birthDate": "08-24",
     "city": "Калининградская область",
     "tag": "Ella_91l"
   },
   {
     "id": "bd_28",
     "name": "Борисенко Илья",
-    "birthDate": "2000-04-01",
+    "birthDate": "04-01",
     "city": "Вышний Волочёк Тверская область",
     "tag": "QWExit1"
   },
   {
     "id": "bd_29",
     "name": "Волкова Александра",
-    "birthDate": "2000-06-11",
+    "birthDate": "06-11",
     "city": "Ставрополь",
     "tag": "aliva135"
   },
   {
     "id": "bd_30",
     "name": "Соколов Александр",
-    "birthDate": "2000-12-12",
+    "birthDate": "12-12",
     "city": "Дальнегорск",
     "tag": "Alekssandr991"
   },
@@ -24359,8 +24359,14 @@ function loadBirthdays() {
   const defByName = new Map(DEFAULT_BIRTHDAYS.map(d => [String(d.name || '').trim().toLowerCase(), d]));
   state.birthdays.forEach(b => {
     const d = defByName.get(String(b.name || '').trim().toLowerCase());
+    const bd = String(b.birthDate || '').trim();
+    const fake = bd.match(/^2000-(\d{2})-(\d{2})$/);
+    if (fake) { b.birthDate = fake[1] + '-' + fake[2]; changed = true; }
     if (!d) return;
     if (!(b.birthDate || '').trim() && d.birthDate) { b.birthDate = d.birthDate; changed = true; }
+    if (d.birthDate && /^2000-/.test(String(b.birthDate || '')) && !/^2000-/.test(String(d.birthDate || ''))) {
+      b.birthDate = d.birthDate; changed = true;
+    }
     if (!(b.city || '').trim() && d.city) { b.city = d.city; changed = true; }
     if (!(b.tag || '').trim() && d.tag) { b.tag = d.tag; changed = true; }
   });
@@ -24388,24 +24394,51 @@ function persistBirthdays(syncCloud) {
   }
 }
 
-function birthdayAge(iso, onDate) {
-  if (!iso) return null;
-  const [y, m, d] = String(iso).split('-').map(Number);
-  const now = onDate || new Date();
-  let age = now.getFullYear() - y;
-  const md = (now.getMonth() + 1) * 100 + now.getDate();
-  const bd = m * 100 + d;
-  if (md < bd) age -= 1;
-  return age;
+/** Разбор даты ДР: YYYY-MM-DD (год есть) или MM-DD / DD.MM (год неизвестен) */
+function parseBirthdayParts(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return null;
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) {
+    const y = Number(m[1]);
+    return { year: y >= 1900 ? y : null, month: Number(m[2]), day: Number(m[3]), hasYear: y >= 1900 };
+  }
+  m = s.match(/^(\d{1,2})-(\d{1,2})$/);
+  if (m) return { year: null, month: Number(m[1]), day: Number(m[2]), hasYear: false };
+  m = s.match(/^(\d{1,2})\.(\d{1,2})(?:\.(\d{4}))?$/);
+  if (m) {
+    const y = m[3] ? Number(m[3]) : null;
+    return { year: (y && y >= 1900) ? y : null, month: Number(m[2]), day: Number(m[1]), hasYear: !!(y && y >= 1900) };
+  }
+  return null;
 }
 
-function daysUntilBirthday(iso) {
-  if (!iso) return 9999;
-  const [, m, d] = String(iso).split('-').map(Number);
+function formatBirthdayDisplay(raw) {
+  const p = parseBirthdayParts(raw);
+  if (!p) return '—';
+  const dd = String(p.day).padStart(2, '0');
+  const mm = String(p.month).padStart(2, '0');
+  return p.hasYear ? (dd + '.' + mm + '.' + p.year) : (dd + '.' + mm);
+}
+
+function birthdayAge(raw) {
+  const p = parseBirthdayParts(raw);
+  if (!p || !p.hasYear) return null;
   const now = new Date();
-  now.setHours(0,0,0,0);
-  let next = new Date(now.getFullYear(), m - 1, d);
-  if (next < now) next = new Date(now.getFullYear() + 1, m - 1, d);
+  let age = now.getFullYear() - p.year;
+  const md = (now.getMonth() + 1) * 100 + now.getDate();
+  const bd = p.month * 100 + p.day;
+  if (md < bd) age -= 1;
+  return (age >= 0 && age < 130) ? age : null;
+}
+
+function daysUntilBirthday(raw) {
+  const p = parseBirthdayParts(raw);
+  if (!p) return 9999;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  let next = new Date(now.getFullYear(), p.month - 1, p.day);
+  if (next < now) next = new Date(now.getFullYear() + 1, p.month - 1, p.day);
   return Math.round((next - now) / 86400000);
 }
 
@@ -24422,7 +24455,10 @@ function renderBirthdays() {
 
   let list = [...(state.birthdays || [])];
   if (monthFilter) {
-    list = list.filter(b => String(Number(String(b.birthDate || '').split('-')[1])) === String(Number(monthFilter)));
+    list = list.filter(b => {
+      const p = parseBirthdayParts(b.birthDate);
+      return p && String(p.month) === String(Number(monthFilter));
+    });
   }
   if (q) {
     list = list.filter(b => {
@@ -24434,14 +24470,12 @@ function renderBirthdays() {
   list.sort((a, b) => {
     if (sort === 'name') return (a.name || '').localeCompare(b.name || '', 'ru');
     if (sort === 'city') return (a.city || '').localeCompare(b.city || '', 'ru') || (a.name || '').localeCompare(b.name || '', 'ru');
-    if (sort === 'age') return (birthdayAge(a.birthDate) || 0) - (birthdayAge(b.birthDate) || 0);
+    if (sort === 'age') { const aa = birthdayAge(a.birthDate); const bb = birthdayAge(b.birthDate); if (aa == null && bb == null) return 0; if (aa == null) return 1; if (bb == null) return -1; return aa - bb; }
     if (sort === 'month') {
-      const ma = Number(String(a.birthDate || '').split('-')[1]) || 0;
-      const mb = Number(String(b.birthDate || '').split('-')[1]) || 0;
-      if (ma !== mb) return ma - mb;
-      const da = Number(String(a.birthDate || '').split('-')[2]) || 0;
-      const db = Number(String(b.birthDate || '').split('-')[2]) || 0;
-      return da - db;
+      const pa = parseBirthdayParts(a.birthDate) || { month: 0, day: 0 };
+      const pb = parseBirthdayParts(b.birthDate) || { month: 0, day: 0 };
+      if ((pa.month || 0) !== (pb.month || 0)) return (pa.month || 0) - (pb.month || 0);
+      return (pa.day || 0) - (pb.day || 0);
     }
     // soon
     return daysUntilBirthday(a.birthDate) - daysUntilBirthday(b.birthDate);
@@ -24498,15 +24532,16 @@ function renderBirthdays() {
       list.map(b => {
         const age = birthdayAge(b.birthDate);
         const inDays = daysUntilBirthday(b.birthDate);
-        const [, m, d] = String(b.birthDate || '').split('-');
+        const dateLabel = formatBirthdayDisplay(b.birthDate);
+        const cityLabel = (b.city || '').trim() || 'неизвестно';
         return `<article class="card bd-card">
           <div class="bd-card-main">
             <div>
               <h3 class="call-title">${escapeHtml(b.name || '—')}</h3>
               <div class="call-meta">
-                <span class="badge badge-primary">${escapeHtml((d || '') + '.' + (m || ''))}</span>
-                <span class="badge">${age != null ? age + ' лет' : '—'}</span>
-                ${b.city ? `<span class="badge">${escapeHtml(b.city)}</span>` : ''}
+                <span class="badge badge-primary">${escapeHtml(dateLabel)}</span>
+                <span class="badge">${age != null ? age + ' лет' : 'возраст неизвестен'}</span>
+                <span class="badge">${escapeHtml(cityLabel)}</span>
                 ${b.tag ? `<span class="badge">@${escapeHtml(b.tag)}</span>` : ''}
                 <span class="badge badge-teal">${!b.birthDate ? 'дата не указана' : (inDays === 0 ? 'сегодня' : 'через ' + inDays + ' дн.')}</span>
               </div>
@@ -24525,14 +24560,28 @@ function showBirthdayModal(id) {
   if (!(canEdit() || isAdminUser())) { toast('Нет прав', 'error'); return; }
   loadBirthdays();
   const item = id ? (state.birthdays || []).find(x => x.id === id) : null;
+  const parts = parseBirthdayParts(item ? item.birthDate : '') || { day: '', month: '', year: null, hasYear: false };
+  const dayVal = parts.day ? String(parts.day).padStart(2, '0') : '';
+  const monVal = parts.month ? String(parts.month).padStart(2, '0') : '';
+  const yearVal = parts.hasYear && parts.year ? String(parts.year) : '';
   openModal(
     item ? 'Редактировать' : 'Новый день рождения',
     `<div class="form-group"><label>ФИО</label>
        <input type="text" id="fBdName" value="${escapeAttr(item ? item.name : '')}" placeholder="Иванов Иван Иванович"></div>
      <div class="form-group"><label>Дата рождения</label>
-       <input type="date" id="fBdDate" class="search-input" style="width:100%" value="${escapeAttr(item ? item.birthDate : '')}"></div>
+       <div class="form-row-2" style="grid-template-columns:1fr 1fr 1fr;gap:8px">
+         <div><input type="number" id="fBdDay" class="search-input" style="width:100%" min="1" max="31" placeholder="День" value="${escapeAttr(dayVal)}"></div>
+         <div><input type="number" id="fBdMonth" class="search-input" style="width:100%" min="1" max="12" placeholder="Месяц" value="${escapeAttr(monVal)}"></div>
+         <div><input type="number" id="fBdYear" class="search-input" style="width:100%" min="1940" max="2020" placeholder="Год (необяз.)" value="${escapeAttr(yearVal)}"></div>
+       </div>
+       <p class="field-hint">Год можно не указывать — тогда будет «возраст неизвестен».</p>
+     </div>
      <div class="form-group"><label>Город</label>
-       <input type="text" id="fBdCity" value="${escapeAttr(item ? item.city : '')}" placeholder="Москва"></div>`,
+       <input type="text" id="fBdCity" value="${escapeAttr(item ? (item.city || '') : '')}" placeholder="Если неизвестен — оставьте пустым"></div>
+     <div class="form-group"><label>Telegram</label>
+       <input type="text" id="fBdTag" value="${escapeAttr(item ? (item.tag || '') : '')}" placeholder="username без @">
+       <p class="field-hint">Тег Telegram из таблицы команды.</p>
+     </div>`,
     `<button class="btn btn-outline" data-action="close-modal">Отмена</button>
      <button class="btn btn-primary" data-action="save-birthday" ${item ? `data-id="${item.id}"` : ''}>Сохранить</button>`
   );
@@ -24542,15 +24591,28 @@ function saveBirthday(id) {
   if (!(canEdit() || isAdminUser())) return;
   loadBirthdays();
   const name = document.getElementById('fBdName')?.value.trim() || '';
-  const birthDate = document.getElementById('fBdDate')?.value || '';
+  const day = Number(document.getElementById('fBdDay')?.value);
+  const month = Number(document.getElementById('fBdMonth')?.value);
+  const yearRaw = (document.getElementById('fBdYear')?.value || '').trim();
+  const year = yearRaw ? Number(yearRaw) : 0;
   const city = document.getElementById('fBdCity')?.value.trim() || '';
-  if (!name || !birthDate) { toast('Укажите ФИО и дату', 'error'); return; }
+  const tag = (document.getElementById('fBdTag')?.value || '').trim().replace(/^@+/, '');
+  if (!name) { toast('Укажите ФИО', 'error'); return; }
+  if (!day || !month || day < 1 || day > 31 || month < 1 || month > 12) {
+    toast('Укажите день и месяц рождения', 'error'); return;
+  }
+  let birthDate = '';
+  if (year >= 1900 && year <= 2100) {
+    birthDate = year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+  } else {
+    birthDate = String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+  }
   if (id) {
     const item = state.birthdays.find(x => x.id === id);
     if (!item) return;
-    item.name = name; item.birthDate = birthDate; item.city = city;
+    item.name = name; item.birthDate = birthDate; item.city = city; item.tag = tag;
   } else {
-    state.birthdays.push({ id: uid(), name, birthDate, city });
+    state.birthdays.push({ id: uid(), name, birthDate, city, tag });
   }
   persistBirthdays(true);
   closeModal();
