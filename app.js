@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.6.10 — реальные названия комплектаций по моделям
+ * ЕЦТ Скрипты v2.7.0 — таймер смены, дни рождения, адаптив
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -21046,6 +21046,11 @@ let state = {
   flappyScores: {},
   leaderboardPeriod: 'month',
   goalsStore: {},
+  birthdays: [],
+  birthdaysSort: 'soon',
+  birthdaysMonth: '',
+  birthdaysQuery: '',
+  shiftTick: 0,
   diaryPeriod: 'day',
   goalsTab: 'my-goal',
   diaryFrom: '',
@@ -21143,6 +21148,8 @@ function persistExtraUsers() {
 async function pullExtraUsersFromCloud() {
   try {
     if (typeof loadLocalSettings === 'function') loadLocalSettings();
+    try { loadBirthdays(); } catch (_) {}
+    try { startShiftTimerTicker(); } catch (_) {}
   } catch (_) {}
   const url = (typeof getCloudExecUrl === 'function' ? getCloudExecUrl() : (state.cloud && state.cloud.sheetsUrl || '')).trim();
   if (!url || !url.includes('script.google.com')) return false;
@@ -21437,6 +21444,8 @@ const PAGE_PERM_DEFS = [
   { key: 'refinfo', label: 'Справка' },
   { key: 'newbie', label: 'Новичкам / Памятка' },
   { key: 'goals', label: 'Цель / дневник' },
+  { key: 'shift', label: 'Таймер смены' },
+  { key: 'birthdays', label: 'Дни рождения' },
   { key: 'leaderboard', label: 'Лидерборд' },
   { key: 'settings', label: 'Настройки' },
   { key: 'games', label: 'Игры (Flappy)' },
@@ -21473,7 +21482,7 @@ function defaultPermsFor(name) {
   if (name && String(name).indexOf('Гость:') === 0) {
     const pages = {};
     PAGE_PERM_DEFS.forEach(p => {
-      pages[p.key] = ['home','scripts','otabotki','catalog','calls','rules','refinfo','games','newbie','settings'].includes(p.key);
+      pages[p.key] = ['home','scripts','otabotki','catalog','calls','rules','refinfo','games','newbie','settings','shift','birthdays'].includes(p.key);
     });
     // гостю: настройки (тема + синхронизация), без целей и лидерборда
     pages.goals = false;
@@ -21488,7 +21497,7 @@ function defaultPermsFor(name) {
   const pages = {};
   PAGE_PERM_DEFS.forEach(p => {
     // базовый просмотр контента
-    pages[p.key] = ['home','scripts','otabotki','catalog','calls','rules','refinfo','games'].includes(p.key);
+    pages[p.key] = ['home','scripts','otabotki','catalog','calls','rules','refinfo','games','shift','birthdays'].includes(p.key);
   });
   pages.goals = false;
   pages.leaderboard = false;
@@ -21674,6 +21683,7 @@ function applyAccountPermissions() {
 
   const badge = document.getElementById('currentUserBadge');
   if (badge) badge.textContent = user ? ('👤 ' + user) : '';
+  try { ensureExtraNavItems(); } catch (_) {}
 }
 
 
@@ -22492,6 +22502,7 @@ function buildCloudExtras() {
     cars: Array.isArray(state.cars) ? state.cars : [],
     calls: Array.isArray(state.calls) ? state.calls : [],
     goalsStore: (state.goalsStore && typeof state.goalsStore === 'object') ? state.goalsStore : {},
+    birthdays: Array.isArray(state.birthdays) ? state.birthdays : [],
     refInfo: Array.isArray(state.refInfo) ? state.refInfo : [],
     leaderboardManual: Array.isArray(state.leaderboardManual) ? state.leaderboardManual : [],
     leaderboardSettings: (state.leaderboardSettings && typeof state.leaderboardSettings === 'object')
@@ -22566,6 +22577,10 @@ function applyCloudRecord(remote) {
   if (ex.goalsStore && typeof ex.goalsStore === 'object') {
     state.goalsStore = ex.goalsStore;
     try { localStorage.setItem('ect_goals_v1', JSON.stringify(state.goalsStore)); } catch (_) {}
+  }
+  if (Array.isArray(ex.birthdays)) {
+    state.birthdays = ex.birthdays;
+    try { localStorage.setItem('ect_birthdays_v1', JSON.stringify(state.birthdays)); } catch (_) {}
   }
   if (Array.isArray(ex.refInfo)) {
     state.refInfo = ex.refInfo;
@@ -23589,6 +23604,8 @@ function navigate(page, scriptId = null) {
     calls: 'Звонки',
     leaderboard: 'Лидерборд',
     goals: 'Цель',
+    shift: 'Таймер смены',
+    birthdays: 'Дни рождения',
     rules: 'Правила',
     refinfo: 'Справка',
     settings: 'Настройки',
@@ -23640,6 +23657,556 @@ function restoreSearchFocus(saved) {
   } catch (_) {}
 }
 
+
+/* ========== Таймер смены (КЦ) ========== */
+const SHIFT_KEY_PREFIX = 'ect_shift_v1_';
+let __shiftInterval = null;
+
+function shiftStorageKey() {
+  const who = state.currentUser || 'anon';
+  return SHIFT_KEY_PREFIX + who;
+}
+
+function defaultShiftState() {
+  return {
+    date: toISODate(new Date()),
+    startedAt: null,
+    endedAt: null,
+    breaks: [], // {start, end|null}
+    note: ''
+  };
+}
+
+function loadShiftTimer() {
+  try {
+    const raw = localStorage.getItem(shiftStorageKey());
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (p && typeof p === 'object') {
+        // новый день — новая смена
+        const today = toISODate(new Date());
+        if (p.date && p.date !== today && p.endedAt) {
+          return defaultShiftState();
+        }
+        if (!Array.isArray(p.breaks)) p.breaks = [];
+        return p;
+      }
+    }
+  } catch (_) {}
+  return defaultShiftState();
+}
+
+function saveShiftTimer(data) {
+  try {
+    localStorage.setItem(shiftStorageKey(), JSON.stringify(data));
+  } catch (_) {}
+}
+
+function getShift() {
+  return loadShiftTimer();
+}
+
+function parseTimeOnDate(dateIso, hhmm) {
+  const [h, m] = String(hhmm || '').split(':').map(Number);
+  if (!isFinite(h) || !isFinite(m)) return null;
+  const [y, mo, d] = String(dateIso).split('-').map(Number);
+  return new Date(y, (mo || 1) - 1, d || 1, h, m, 0, 0).getTime();
+}
+
+function formatShiftDuration(ms) {
+  ms = Math.max(0, Math.floor(ms || 0));
+  const s = Math.floor(ms / 1000);
+  const hh = Math.floor(s / 3600);
+  const mm = Math.floor((s % 3600) / 60);
+  const ss = s % 60;
+  return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') + ':' + String(ss).padStart(2, '0');
+}
+
+function formatTimeShort(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+}
+
+function computeShiftStats(sh, now) {
+  now = now || Date.now();
+  if (!sh || !sh.startedAt) {
+    return { workMs: 0, breakMs: 0, elapsedMs: 0, onBreak: false, active: false, finished: false };
+  }
+  const end = sh.endedAt || now;
+  let breakMs = 0;
+  let onBreak = false;
+  (sh.breaks || []).forEach(b => {
+    if (!b || !b.start) return;
+    const bEnd = b.end || (sh.endedAt ? sh.endedAt : now);
+    if (!b.end && !sh.endedAt) onBreak = true;
+    breakMs += Math.max(0, bEnd - b.start);
+  });
+  const elapsedMs = Math.max(0, end - sh.startedAt);
+  const workMs = Math.max(0, elapsedMs - breakMs);
+  return {
+    workMs, breakMs, elapsedMs, onBreak,
+    active: !sh.endedAt && !!sh.startedAt,
+    finished: !!sh.endedAt
+  };
+}
+
+function startShiftTimerTicker() {
+  if (__shiftInterval) return;
+  __shiftInterval = setInterval(() => {
+    if (state.currentPage === 'shift') {
+      state.shiftTick = (state.shiftTick || 0) + 1;
+      try {
+        const el = document.getElementById('shiftWorkClock');
+        const sh = getShift();
+        const st = computeShiftStats(sh);
+        if (el) el.textContent = formatShiftDuration(st.workMs);
+        const br = document.getElementById('shiftBreakClock');
+        if (br) br.textContent = formatShiftDuration(st.breakMs);
+        const stEl = document.getElementById('shiftStatusText');
+        if (stEl) {
+          if (!sh.startedAt) stEl.textContent = 'Смена не начата';
+          else if (sh.endedAt) stEl.textContent = 'Смена завершена';
+          else if (st.onBreak) stEl.textContent = 'Перерыв';
+          else stEl.textContent = 'На смене';
+        }
+      } catch (_) {}
+    }
+  }, 1000);
+}
+
+function shiftStart(atTs) {
+  let sh = getShift();
+  const today = toISODate(new Date());
+  if (sh.date !== today) sh = defaultShiftState();
+  if (sh.startedAt && !sh.endedAt) { toast('Смена уже идёт', 'error'); return; }
+  sh.date = today;
+  sh.startedAt = atTs || Date.now();
+  sh.endedAt = null;
+  if (!Array.isArray(sh.breaks)) sh.breaks = [];
+  saveShiftTimer(sh);
+  startShiftTimerTicker();
+  toast('Смена начата в ' + formatTimeShort(sh.startedAt));
+  render();
+}
+
+function shiftSetStartTime() {
+  const v = document.getElementById('shiftStartTimeInput')?.value;
+  if (!v) { toast('Укажите время начала', 'error'); return; }
+  let sh = getShift();
+  const today = toISODate(new Date());
+  if (sh.date !== today) sh = defaultShiftState();
+  const ts = parseTimeOnDate(today, v);
+  if (!ts) { toast('Некорректное время', 'error'); return; }
+  if (ts > Date.now() + 60000) { toast('Время начала не может быть в будущем', 'error'); return; }
+  sh.date = today;
+  sh.startedAt = ts;
+  // если конец раньше старта — сброс
+  if (sh.endedAt && sh.endedAt < sh.startedAt) sh.endedAt = null;
+  saveShiftTimer(sh);
+  startShiftTimerTicker();
+  toast('Время выхода на смену: ' + formatTimeShort(ts));
+  render();
+}
+
+function shiftBreakStart() {
+  const sh = getShift();
+  if (!sh.startedAt || sh.endedAt) { toast('Сначала начните смену', 'error'); return; }
+  const st = computeShiftStats(sh);
+  if (st.onBreak) { toast('Перерыв уже идёт', 'error'); return; }
+  sh.breaks.push({ start: Date.now(), end: null });
+  saveShiftTimer(sh);
+  toast('Перерыв начат');
+  render();
+}
+
+function shiftBreakEnd() {
+  const sh = getShift();
+  if (!sh.startedAt || sh.endedAt) return;
+  const open = (sh.breaks || []).slice().reverse().find(b => b && b.start && !b.end);
+  if (!open) { toast('Нет активного перерыва', 'error'); return; }
+  open.end = Date.now();
+  saveShiftTimer(sh);
+  toast('Перерыв завершён · всего ' + formatShiftDuration(computeShiftStats(sh).breakMs));
+  render();
+}
+
+function shiftBreakSetTimes() {
+  const a = document.getElementById('shiftBreakFrom')?.value;
+  const b = document.getElementById('shiftBreakTo')?.value;
+  if (!a || !b) { toast('Укажите начало и конец перерыва', 'error'); return; }
+  let sh = getShift();
+  if (!sh.startedAt) { toast('Сначала укажите начало смены', 'error'); return; }
+  const day = sh.date || toISODate(new Date());
+  const tsA = parseTimeOnDate(day, a);
+  const tsB = parseTimeOnDate(day, b);
+  if (!tsA || !tsB || tsB <= tsA) { toast('Проверьте время перерыва', 'error'); return; }
+  sh.breaks.push({ start: tsA, end: tsB });
+  saveShiftTimer(sh);
+  toast('Перерыв добавлен: ' + formatShiftDuration(tsB - tsA));
+  render();
+}
+
+function shiftEnd(atTs) {
+  const sh = getShift();
+  if (!sh.startedAt) { toast('Смена не начата', 'error'); return; }
+  if (sh.endedAt) { toast('Смена уже завершена', 'error'); return; }
+  // закрыть открытый перерыв
+  (sh.breaks || []).forEach(b => {
+    if (b && b.start && !b.end) b.end = atTs || Date.now();
+  });
+  sh.endedAt = atTs || Date.now();
+  if (sh.endedAt < sh.startedAt) { toast('Конец смены раньше начала', 'error'); return; }
+  saveShiftTimer(sh);
+  const st = computeShiftStats(sh);
+  toast('Смена завершена · работа ' + formatShiftDuration(st.workMs) + ' · перерывы ' + formatShiftDuration(st.breakMs));
+  render();
+}
+
+function shiftEndSetTime() {
+  const v = document.getElementById('shiftEndTimeInput')?.value;
+  if (!v) { toast('Укажите время завершения', 'error'); return; }
+  const sh = getShift();
+  const day = sh.date || toISODate(new Date());
+  const ts = parseTimeOnDate(day, v);
+  if (!ts) { toast('Некорректное время', 'error'); return; }
+  shiftEnd(ts);
+}
+
+function shiftResetToday() {
+  saveShiftTimer(defaultShiftState());
+  toast('Смена за сегодня сброшена');
+  render();
+}
+
+function renderShiftTimer() {
+  startShiftTimerTicker();
+  const sh = getShift();
+  const st = computeShiftStats(sh);
+  const breaks = sh.breaks || [];
+  return `
+  <div class="card catalog-toolbar">
+    <div class="catalog-toolbar-row">
+      <div>
+        <strong>⏱ Таймер смены</strong>
+        <p class="catalog-hint">Укажите выход на смену, перерывы и завершение. Можно поставить время вручную, если забыли в начале.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="shift-grid">
+    <div class="card shift-clock-card">
+      <div class="shift-status" id="shiftStatusText">${!sh.startedAt ? 'Смена не начата' : (sh.endedAt ? 'Смена завершена' : (st.onBreak ? 'Перерыв' : 'На смене'))}</div>
+      <div class="shift-clock-label">Время в работе (без перерывов)</div>
+      <div class="shift-clock" id="shiftWorkClock">${formatShiftDuration(st.workMs)}</div>
+      <div class="shift-metrics">
+        <div><span class="muted">Перерывы</span><b id="shiftBreakClock">${formatShiftDuration(st.breakMs)}</b></div>
+        <div><span class="muted">Всего с начала</span><b>${formatShiftDuration(st.elapsedMs)}</b></div>
+      </div>
+      <div class="shift-times">
+        <div>Выход: <b>${formatTimeShort(sh.startedAt)}</b></div>
+        <div>Завершение: <b>${formatTimeShort(sh.endedAt)}</b></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <strong>Смена</strong>
+      <div class="actions-row" style="margin-top:12px">
+        <button class="btn btn-primary" data-action="shift-start" ${sh.startedAt && !sh.endedAt ? 'disabled' : ''}>▶ Начать сейчас</button>
+        <button class="btn btn-outline" data-action="shift-end" ${!sh.startedAt || sh.endedAt ? 'disabled' : ''}>■ Завершить сейчас</button>
+        <button class="btn btn-outline btn-sm" data-action="shift-reset">Сброс дня</button>
+      </div>
+      <div class="form-row-2" style="margin-top:14px">
+        <div class="form-group">
+          <label>Вышел на смену в</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input type="time" id="shiftStartTimeInput" class="search-input" style="flex:1;min-width:120px" value="${sh.startedAt ? new Date(sh.startedAt).toTimeString().slice(0,5) : ''}">
+            <button class="btn btn-primary btn-sm" data-action="shift-set-start">Применить</button>
+          </div>
+          <p class="field-hint">Если забыли включить таймер — поставьте фактическое время выхода.</p>
+        </div>
+        <div class="form-group">
+          <label>Завершил смену в</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input type="time" id="shiftEndTimeInput" class="search-input" style="flex:1;min-width:120px" value="${sh.endedAt ? new Date(sh.endedAt).toTimeString().slice(0,5) : ''}">
+            <button class="btn btn-outline btn-sm" data-action="shift-set-end">Применить</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <strong>Перерывы</strong>
+      <div class="actions-row" style="margin-top:12px">
+        <button class="btn btn-outline" data-action="shift-break-start" ${!st.active || st.onBreak ? 'disabled' : ''}>☕ Ушёл на перерыв</button>
+        <button class="btn btn-primary" data-action="shift-break-end" ${!st.onBreak ? 'disabled' : ''}>↩ Вернулся</button>
+      </div>
+      <div class="form-row-2" style="margin-top:14px">
+        <div class="form-group">
+          <label>Перерыв с</label>
+          <input type="time" id="shiftBreakFrom" class="search-input" style="width:100%">
+        </div>
+        <div class="form-group">
+          <label>по</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input type="time" id="shiftBreakTo" class="search-input" style="flex:1;min-width:120px">
+            <button class="btn btn-outline btn-sm" data-action="shift-break-add">+ Добавить</button>
+          </div>
+        </div>
+      </div>
+      <p class="field-hint">Сумма перерывов считается автоматически и вычитается из рабочего времени.</p>
+      <div class="shift-break-list">
+        ${breaks.length === 0 ? '<p class="catalog-hint">Перерывов пока нет</p>' :
+          breaks.map((b, i) => {
+            const dur = (b.end || Date.now()) - b.start;
+            return `<div class="shift-break-row">
+              <span>#${i + 1} ${formatTimeShort(b.start)} – ${b.end ? formatTimeShort(b.end) : '…'}</span>
+              <b>${formatShiftDuration(dur)}${!b.end ? ' (сейчас)' : ''}</b>
+            </div>`;
+          }).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ========== Дни рождения ========== */
+const BIRTHDAYS_KEY = 'ect_birthdays_v1';
+
+const DEFAULT_BIRTHDAYS = [
+  { id: 'bd_1', name: 'Александр', birthDate: '1995-03-12', city: 'Москва' },
+  { id: 'bd_2', name: 'Мария', birthDate: '1998-07-21', city: 'Санкт-Петербург' },
+  { id: 'bd_3', name: 'Дмитрий', birthDate: '1993-11-03', city: 'Казань' },
+  { id: 'bd_4', name: 'Елена', birthDate: '1996-01-18', city: 'Новосибирск' },
+  { id: 'bd_5', name: 'Иван', birthDate: '1994-09-09', city: 'Екатеринбург' },
+  { id: 'bd_6', name: 'Анна', birthDate: '1999-05-25', city: 'Краснодар' },
+  { id: 'bd_7', name: 'Сергей', birthDate: '1992-12-14', city: 'Москва' },
+  { id: 'bd_8', name: 'Ольга', birthDate: '1997-08-30', city: 'Ростов-на-Дону' }
+];
+
+function loadBirthdays() {
+  try {
+    const raw = localStorage.getItem(BIRTHDAYS_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (Array.isArray(p)) {
+        state.birthdays = p;
+        return;
+      }
+    }
+  } catch (_) {}
+  if (!Array.isArray(state.birthdays) || !state.birthdays.length) {
+    state.birthdays = DEFAULT_BIRTHDAYS.map(x => ({ ...x }));
+    persistBirthdays(false);
+  }
+}
+
+function persistBirthdays(syncCloud) {
+  try { localStorage.setItem(BIRTHDAYS_KEY, JSON.stringify(state.birthdays || [])); } catch (_) {}
+  if (syncCloud !== false) {
+    try { if (typeof scheduleCloudExtrasSave === 'function') scheduleCloudExtrasSave(); } catch (_) {}
+  }
+}
+
+function birthdayAge(iso, onDate) {
+  if (!iso) return null;
+  const [y, m, d] = String(iso).split('-').map(Number);
+  const now = onDate || new Date();
+  let age = now.getFullYear() - y;
+  const md = (now.getMonth() + 1) * 100 + now.getDate();
+  const bd = m * 100 + d;
+  if (md < bd) age -= 1;
+  return age;
+}
+
+function daysUntilBirthday(iso) {
+  if (!iso) return 9999;
+  const [, m, d] = String(iso).split('-').map(Number);
+  const now = new Date();
+  now.setHours(0,0,0,0);
+  let next = new Date(now.getFullYear(), m - 1, d);
+  if (next < now) next = new Date(now.getFullYear() + 1, m - 1, d);
+  return Math.round((next - now) / 86400000);
+}
+
+function monthNameRu(m) {
+  return ['', 'Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'][m] || '';
+}
+
+function renderBirthdays() {
+  loadBirthdays();
+  const q = (state.birthdaysQuery || '').toLowerCase().trim();
+  const monthFilter = state.birthdaysMonth || '';
+  const sort = state.birthdaysSort || 'soon';
+  const canEdit = canEdit() || isAdminUser();
+
+  let list = [...(state.birthdays || [])];
+  if (monthFilter) {
+    list = list.filter(b => String(Number(String(b.birthDate || '').split('-')[1])) === String(Number(monthFilter)));
+  }
+  if (q) {
+    list = list.filter(b => {
+      const hay = [b.name, b.city, b.birthDate].join(' ').toLowerCase();
+      return q.split(/\s+/).every(w => hay.includes(w));
+    });
+  }
+
+  list.sort((a, b) => {
+    if (sort === 'name') return (a.name || '').localeCompare(b.name || '', 'ru');
+    if (sort === 'city') return (a.city || '').localeCompare(b.city || '', 'ru') || (a.name || '').localeCompare(b.name || '', 'ru');
+    if (sort === 'age') return (birthdayAge(a.birthDate) || 0) - (birthdayAge(b.birthDate) || 0);
+    if (sort === 'month') {
+      const ma = Number(String(a.birthDate || '').split('-')[1]) || 0;
+      const mb = Number(String(b.birthDate || '').split('-')[1]) || 0;
+      if (ma !== mb) return ma - mb;
+      const da = Number(String(a.birthDate || '').split('-')[2]) || 0;
+      const db = Number(String(b.birthDate || '').split('-')[2]) || 0;
+      return da - db;
+    }
+    // soon
+    return daysUntilBirthday(a.birthDate) - daysUntilBirthday(b.birthDate);
+  });
+
+  // upcoming 14 days
+  const soon = [...(state.birthdays || [])]
+    .map(b => ({ ...b, in: daysUntilBirthday(b.birthDate) }))
+    .filter(b => b.in <= 14)
+    .sort((a, b) => a.in - b.in);
+
+  return `
+  <div class="card catalog-toolbar">
+    <div class="catalog-toolbar-row">
+      <div>
+        <strong>🎂 Дни рождения</strong>
+        <p class="catalog-hint">ФИО, дата рождения и город. Сортировка и фильтр по месяцу.</p>
+      </div>
+      ${canEdit ? `<button class="btn btn-primary btn-sm" data-action="add-birthday">+ Добавить</button>` : ''}
+    </div>
+    <div class="catalog-filters">
+      <input type="search" class="search-input" id="birthdaysSearch" placeholder="Поиск: имя, город…"
+        value="${escapeAttr(state.birthdaysQuery || '')}" style="flex:1;min-width:160px">
+      <select class="search-input" id="birthdaysMonth" style="flex:0 0 150px">
+        <option value="">Все месяцы</option>
+        ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m =>
+          `<option value="${m}" ${String(monthFilter) === String(m) ? 'selected' : ''}>${monthNameRu(m)}</option>`
+        ).join('')}
+      </select>
+      <select class="search-input" id="birthdaysSort" style="flex:0 0 180px">
+        <option value="soon" ${sort === 'soon' ? 'selected' : ''}>Скоро (ближайшие)</option>
+        <option value="month" ${sort === 'month' ? 'selected' : ''}>По месяцу и дню</option>
+        <option value="name" ${sort === 'name' ? 'selected' : ''}>По имени</option>
+        <option value="city" ${sort === 'city' ? 'selected' : ''}>По городу</option>
+        <option value="age" ${sort === 'age' ? 'selected' : ''}>По возрасту</option>
+      </select>
+    </div>
+    <p class="catalog-count">Записей: <b>${list.length}</b></p>
+  </div>
+
+  ${soon.length ? `<div class="card" style="margin-bottom:14px">
+    <strong>Ближайшие 14 дней</strong>
+    <div class="bd-soon-list">${soon.map(b => `
+      <div class="bd-soon-chip">
+        <b>${escapeHtml(b.name)}</b>
+        <span>${b.in === 0 ? 'сегодня' : (b.in === 1 ? 'завтра' : 'через ' + b.in + ' дн.')}</span>
+        <span class="muted">${escapeHtml(b.city || '')}</span>
+      </div>
+    `).join('')}</div>
+  </div>` : ''}
+
+  <div class="bd-list">
+    ${list.length === 0 ? `<div class="empty-state"><div class="empty-icon">🎂</div><p>Никого не найдено</p></div>` :
+      list.map(b => {
+        const age = birthdayAge(b.birthDate);
+        const inDays = daysUntilBirthday(b.birthDate);
+        const [, m, d] = String(b.birthDate || '').split('-');
+        return `<article class="card bd-card">
+          <div class="bd-card-main">
+            <div>
+              <h3 class="call-title">${escapeHtml(b.name || '—')}</h3>
+              <div class="call-meta">
+                <span class="badge badge-primary">${escapeHtml((d || '') + '.' + (m || ''))}</span>
+                <span class="badge">${age != null ? age + ' лет' : '—'}</span>
+                ${b.city ? `<span class="badge">${escapeHtml(b.city)}</span>` : ''}
+                <span class="badge badge-teal">${inDays === 0 ? 'сегодня' : 'через ' + inDays + ' дн.'}</span>
+              </div>
+            </div>
+            ${canEdit ? `<div class="call-actions">
+              <button class="btn btn-outline btn-sm" data-action="edit-birthday" data-id="${escapeAttr(b.id)}">✏️</button>
+              <button class="btn btn-danger btn-sm" data-action="delete-birthday" data-id="${escapeAttr(b.id)}">🗑</button>
+            </div>` : ''}
+          </div>
+        </article>`;
+      }).join('')}
+  </div>`;
+}
+
+function showBirthdayModal(id) {
+  if (!(canEdit() || isAdminUser())) { toast('Нет прав', 'error'); return; }
+  loadBirthdays();
+  const item = id ? (state.birthdays || []).find(x => x.id === id) : null;
+  openModal(
+    item ? 'Редактировать' : 'Новый день рождения',
+    `<div class="form-group"><label>ФИО</label>
+       <input type="text" id="fBdName" value="${escapeAttr(item ? item.name : '')}" placeholder="Иванов Иван Иванович"></div>
+     <div class="form-group"><label>Дата рождения</label>
+       <input type="date" id="fBdDate" class="search-input" style="width:100%" value="${escapeAttr(item ? item.birthDate : '')}"></div>
+     <div class="form-group"><label>Город</label>
+       <input type="text" id="fBdCity" value="${escapeAttr(item ? item.city : '')}" placeholder="Москва"></div>`,
+    `<button class="btn btn-outline" data-action="close-modal">Отмена</button>
+     <button class="btn btn-primary" data-action="save-birthday" ${item ? `data-id="${item.id}"` : ''}>Сохранить</button>`
+  );
+}
+
+function saveBirthday(id) {
+  if (!(canEdit() || isAdminUser())) return;
+  loadBirthdays();
+  const name = document.getElementById('fBdName')?.value.trim() || '';
+  const birthDate = document.getElementById('fBdDate')?.value || '';
+  const city = document.getElementById('fBdCity')?.value.trim() || '';
+  if (!name || !birthDate) { toast('Укажите ФИО и дату', 'error'); return; }
+  if (id) {
+    const item = state.birthdays.find(x => x.id === id);
+    if (!item) return;
+    item.name = name; item.birthDate = birthDate; item.city = city;
+  } else {
+    state.birthdays.push({ id: uid(), name, birthDate, city });
+  }
+  persistBirthdays(true);
+  closeModal();
+  toast('Сохранено');
+  render();
+}
+
+function deleteBirthday(id) {
+  if (!(canEdit() || isAdminUser())) return;
+  loadBirthdays();
+  state.birthdays = (state.birthdays || []).filter(x => x.id !== id);
+  persistBirthdays(true);
+  toast('Удалено');
+  render();
+}
+
+function ensureExtraNavItems() {
+  const nav = document.querySelector('.sidebar-nav') || document.querySelector('nav.sidebar-nav') || document.querySelector('.sidebar nav');
+  if (!nav) return;
+  const items = [
+    { page: 'shift', label: '⏱ Смена', after: 'goals' },
+    { page: 'birthdays', label: '🎂 ДР', after: 'shift' }
+  ];
+  items.forEach(it => {
+    if (nav.querySelector('[data-page="' + it.page + '"]')) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'nav-item';
+    btn.setAttribute('data-action', 'nav');
+    btn.setAttribute('data-page', it.page);
+    btn.innerHTML = '<span class="nav-icon"></span><span class="nav-label">' + it.label + '</span>';
+    const afterEl = nav.querySelector('[data-page="' + it.after + '"]');
+    if (afterEl && afterEl.nextSibling) afterEl.parentNode.insertBefore(btn, afterEl.nextSibling);
+    else if (afterEl) afterEl.parentNode.appendChild(btn);
+    else nav.appendChild(btn);
+  });
+}
+
 function render() {
   const savedFocus = captureSearchFocus();
   const content = document.getElementById('content');
@@ -23652,6 +24219,8 @@ function render() {
     case 'calls': content.innerHTML = renderCalls(); break;
     case 'leaderboard': content.innerHTML = renderLeaderboard(); break;
     case 'goals': try { if (state.currentUser) maybeFinalizeUserGoal(state.currentUser); } catch (_) {} content.innerHTML = renderGoals(); break;
+    case 'shift': content.innerHTML = renderShiftTimer(); break;
+    case 'birthdays': content.innerHTML = renderBirthdays(); break;
     case 'rules': content.innerHTML = renderRules(); break;
     case 'refinfo': content.innerHTML = renderRefInfo(); break;
     case 'newbie': content.innerHTML = renderNewbieGuide(); break;
@@ -32743,6 +33312,19 @@ function handleClick(e) {
     case 'save-cloud': saveCloudConfig(); break;
     case 'disconnect-cloud': disconnectCloud(); break;
     case 'sync-now': syncNow(); break;
+    case 'shift-start': shiftStart(); break;
+    case 'shift-set-start': shiftSetStartTime(); break;
+    case 'shift-end': shiftEnd(); break;
+    case 'shift-set-end': shiftEndSetTime(); break;
+    case 'shift-break-start': shiftBreakStart(); break;
+    case 'shift-break-end': shiftBreakEnd(); break;
+    case 'shift-break-add': shiftBreakSetTimes(); break;
+    case 'shift-reset': shiftResetToday(); break;
+    case 'add-birthday': showBirthdayModal(null); break;
+    case 'edit-birthday': showBirthdayModal(el.dataset.id); break;
+    case 'save-birthday': saveBirthday(el.dataset.id || null); break;
+    case 'delete-birthday': deleteBirthday(el.dataset.id); break;
+
                         case 'test-cloud':
       toast('Проверка облака…');
       Promise.resolve(testCloudConnection()).then((r) => {
@@ -33274,6 +33856,18 @@ function bindGlobalEvents() {
   try { loadFlappyScores(); FlappyGame.init(); } catch (e) { console.warn('flappy', e); }
 
   document.addEventListener('click', handleClick);
+  document.addEventListener('input', function(e) {
+    const t = e.target;
+    if (!t || !t.id) return;
+    if (t.id === 'birthdaysSearch') { state.birthdaysQuery = t.value || ''; render(); }
+  });
+  document.addEventListener('change', function(e) {
+    const t = e.target;
+    if (!t || !t.id) return;
+    if (t.id === 'birthdaysMonth') { state.birthdaysMonth = t.value || ''; render(); }
+    if (t.id === 'birthdaysSort') { state.birthdaysSort = t.value || 'soon'; render(); }
+  });
+
 
   document.addEventListener('change', function (e) {
     const inp = e.target && e.target.closest && e.target.closest('[data-action-change="upload-script-media"]');
