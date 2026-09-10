@@ -55,8 +55,14 @@ function jsonOut_(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+var ECT_SPREADSHEET_ID = '10gitlvnBGl9i-wXtBZU3yfSCtu5SiIfitKAMeu0GweA';
+
 function getSs_() {
-  return SpreadsheetApp.getActiveSpreadsheet();
+  try {
+    var active = SpreadsheetApp.getActiveSpreadsheet();
+    if (active) return active;
+  } catch (e) {}
+  return SpreadsheetApp.openById(ECT_SPREADSHEET_ID);
 }
 
 function getOrCreateSheet_(name, headers) {

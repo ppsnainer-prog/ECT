@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.7.9 — защита данных от пустого облака + главная
+ * ЕЦТ Скрипты v2.7.10 — диагностика 404 облака, getSs по ID таблицы
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -21169,7 +21169,7 @@ async function pullExtraUsersFromCloud() {
   const url = (typeof getCloudExecUrl === 'function' ? getCloudExecUrl() : (state.cloud && state.cloud.sheetsUrl || '')).trim();
   if (!url || !url.includes('script.google.com')) return false;
   try {
-    const res = await fetchWithTimeout(url, { method: 'GET' }, 25000);
+    const res = await fetchWithTimeout(url, { method: 'GET' }, 20000);
     if (!res.ok) return false;
     const json = await res.json();
     const record = (json && (json.record || json)) || {};
@@ -22368,6 +22368,9 @@ async function cloudFetch(opts) {
       try {
         result = await cloudFetchOnce(url, Object.assign({}, opts, { force: !!force }));
       } catch (firstErr) {
+        const msg = String(firstErr && firstErr.message || firstErr || '');
+        // 404 — URL мёртв, повторы бессмысленны
+        if (msg.includes('404')) throw firstErr;
         // Один тихий повтор при таймауте/abort (cold start Apps Script)
         if (isAbortError(firstErr)) {
           console.warn('Cloud fetch timeout, retry…', firstErr);
