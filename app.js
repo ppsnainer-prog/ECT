@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.7.3 — ДР без фиктивного года, город/возраст неизвестны, тег в форме
+ * ЕЦТ Скрипты v2.7.4 — смена пароля системным пользователям + права
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -21122,6 +21122,26 @@ const TEAM_USERS = {
   "Общая": "a555c6ff72cb2148406184ce4c9326e2f85f8ede4b5ec6cd32cc5ba06317ab48"
 };
 
+/** Переопределения паролей системных аккаунтов (hash), хранятся локально + в облаке */
+const TEAM_PASS_OVERRIDES_KEY = 'ect_team_pass_overrides_v1';
+let teamPassOverrides = {};
+
+function loadTeamPassOverrides() {
+  try {
+    const raw = localStorage.getItem(TEAM_PASS_OVERRIDES_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (p && typeof p === 'object') teamPassOverrides = p;
+    }
+  } catch (_) { teamPassOverrides = teamPassOverrides || {}; }
+  if (!teamPassOverrides || typeof teamPassOverrides !== 'object') teamPassOverrides = {};
+}
+
+function persistTeamPassOverrides() {
+  try { localStorage.setItem(TEAM_PASS_OVERRIDES_KEY, JSON.stringify(teamPassOverrides || {})); } catch (_) {}
+  try { if (typeof scheduleCloudExtrasSave === 'function') scheduleCloudExtrasSave(); } catch (_) {}
+}
+
 const EXTRA_USERS_KEY = 'ect_extra_users_v1';
 // { name, passwordHash, role: 'edit' | 'view' }
 let extraUsers = [];
@@ -21149,6 +21169,7 @@ async function pullExtraUsersFromCloud() {
   try {
     if (typeof loadLocalSettings === 'function') loadLocalSettings();
     try { loadBirthdays(); } catch (_) {}
+    try { loadTeamPassOverrides(); } catch (_) {}
     try { startShiftTimerTicker(); } catch (_) {}
   } catch (_) {}
   const url = (typeof getCloudExecUrl === 'function' ? getCloudExecUrl() : (state.cloud && state.cloud.sheetsUrl || '')).trim();
@@ -21368,6 +21389,11 @@ function getUserRole(name) {
 }
 
 async function findUserPasswordHash(name) {
+  loadTeamPassOverrides();
+  // Сначала переопределение (админ сменил пароль)
+  if (teamPassOverrides && teamPassOverrides[name]) {
+    return teamPassOverrides[name];
+  }
   if (TEAM_USERS[name]) return TEAM_USERS[name];
   loadExtraUsers();
   const u = extraUsers.find(x => x.name === name);
@@ -22519,6 +22545,10 @@ function buildCloudExtras() {
         createdAt: u.createdAt || Date.now()
       })) : [];
     })(),
+    teamPassOverrides: (function() {
+      try { loadTeamPassOverrides(); } catch (_) {}
+      return (teamPassOverrides && typeof teamPassOverrides === 'object') ? teamPassOverrides : {};
+    })(),
     flappyScores: (state.flappyScores && typeof state.flappyScores === 'object') ? state.flappyScores : {},
     userPerms: (function() {
       try { loadUserPermsStore(); } catch (_) {}
@@ -22626,6 +22656,13 @@ function applyCloudRecord(remote) {
   if (ex.ruleItemTags && typeof ex.ruleItemTags === 'object') {
     state.ruleItemTags = ex.ruleItemTags;
     try { localStorage.setItem(RULE_ITEM_TAGS_KEY, JSON.stringify(state.ruleItemTags)); } catch (_) {}
+  }
+  if (ex.teamPassOverrides && typeof ex.teamPassOverrides === 'object') {
+    try {
+      loadTeamPassOverrides();
+      teamPassOverrides = { ...teamPassOverrides, ...ex.teamPassOverrides };
+      localStorage.setItem(TEAM_PASS_OVERRIDES_KEY, JSON.stringify(teamPassOverrides));
+    } catch (e) { console.warn('apply teamPassOverrides', e); }
   }
   if (Array.isArray(ex.extraUsers)) {
     try {
@@ -31859,6 +31896,7 @@ function renderAdminPanel() {
               <span class="badge ${name === 'Общая' ? '' : 'badge-teal'}">${name === 'Александр' ? 'админ' : (name === 'Общая' ? 'просмотр' : 'редактор')}</span>
             </div>
             <div class="team-row-actions">
+              <button class="btn btn-outline btn-sm" data-action="set-team-password" data-name="${escapeAttr(name)}">🔑 Пароль</button>
               ${name !== 'Александр' ? `<button class="btn btn-outline btn-sm" data-action="edit-user-perms" data-name="${escapeAttr(name)}">🔐 Права</button>` : '<span class="field-hint">полный доступ</span>'}
             </div>
           </div>`).join('')}
@@ -31869,6 +31907,7 @@ function renderAdminPanel() {
               <span class="badge ${u.role === 'edit' ? 'badge-teal' : ''}">${u.role === 'edit' ? 'редактор' : 'просмотр'}</span>
             </div>
             <div class="team-row-actions">
+              <button class="btn btn-outline btn-sm" data-action="set-team-password" data-name="${escapeAttr(u.name)}">🔑 Пароль</button>
               <button class="btn btn-outline btn-sm" data-action="edit-user-perms" data-name="${escapeAttr(u.name)}">🔐 Права</button>
               <button class="btn btn-outline btn-sm" data-action="edit-team-user" data-name="${escapeAttr(u.name)}">✏️</button>
               <button class="btn btn-danger btn-sm" data-action="delete-team-user" data-name="${escapeAttr(u.name)}">🗑</button>
@@ -33409,6 +33448,59 @@ function saveUserPermsFromForm(name) {
 }
 
 
+
+function showSetTeamPasswordModal(name) {
+  if (!isAdminUser()) { toast('Только администратор', 'error'); return; }
+  if (!name) return;
+  openModal(
+    'Пароль: ' + name,
+    `<p class="catalog-hint" style="margin-bottom:12px">Задайте новый пароль для входа. Изменение сохранится в облако и будет действовать на всех устройствах.</p>
+     <div class="form-group"><label>Новый пароль</label>
+       <input type="password" id="fTeamNewPass" value="" placeholder="Минимум 4 символа" autocomplete="new-password"></div>
+     <div class="form-group"><label>Повтор пароля</label>
+       <input type="password" id="fTeamNewPass2" value="" placeholder="Ещё раз" autocomplete="new-password"></div>
+     ${TEAM_USERS[name] ? '<p class="field-hint">Это системный аккаунт — пароль можно сменить, удалить аккаунт нельзя.</p>' : ''}`,
+    `<button class="btn btn-outline" data-action="close-modal">Отмена</button>
+     <button class="btn btn-primary" data-action="save-team-password" data-name="${escapeAttr(name)}">Сохранить пароль</button>`
+  );
+  setTimeout(() => { try { document.getElementById('fTeamNewPass')?.focus(); } catch (_) {} }, 50);
+}
+
+async function saveTeamPassword(name) {
+  if (!isAdminUser()) { toast('Только администратор', 'error'); return; }
+  if (!name) return;
+  const p1 = document.getElementById('fTeamNewPass')?.value || '';
+  const p2 = document.getElementById('fTeamNewPass2')?.value || '';
+  if (!p1 || p1.length < 4) { toast('Пароль не короче 4 символов', 'error'); return; }
+  if (p1 !== p2) { toast('Пароли не совпадают', 'error'); return; }
+  const hash = await sha256Hex(p1);
+  if (TEAM_USERS[name]) {
+    loadTeamPassOverrides();
+    teamPassOverrides[name] = hash;
+    persistTeamPassOverrides();
+  } else {
+    loadExtraUsers();
+    const u = extraUsers.find(x => x.name === name);
+    if (!u) { toast('Пользователь не найден', 'error'); return; }
+    u.passwordHash = hash;
+    persistExtraUsers();
+  }
+  closeModal();
+  toast('Пароль обновлён для «' + name + '»');
+  // сразу в облако
+  try {
+    if (typeof enqueueCloud === 'function' && typeof cloudSaveExtrasOnly === 'function') {
+      enqueueCloud(async () => {
+        const ok = await cloudSaveExtrasOnly();
+        if (ok) toast('Пароль записан в облако');
+        else toast('Пароль локально ок, но облако не ответило', 'error');
+      });
+    } else if (typeof cloudSaveExtrasOnly === 'function') {
+      cloudSaveExtrasOnly();
+    }
+  } catch (e) { console.warn(e); }
+}
+
 function showTeamUserModal(editName) {
   if (!isAdminUser()) { toast('Только Александр', 'error'); return; }
   loadExtraUsers();
@@ -33596,6 +33688,8 @@ function handleClick(e) {
       });
       break;
     case 'edit-user-perms': showUserPermsModal(el.dataset.name); break;
+    case 'set-team-password': showSetTeamPasswordModal(el.dataset.name); break;
+    case 'save-team-password': saveTeamPassword(el.dataset.name); break;
     case 'save-user-perms': saveUserPermsFromForm(el.dataset.name); break;
     case 'perms-preset': applyPermsPreset(el.dataset.name, el.dataset.preset); break;
     case 'edit-team-user': showTeamUserModal(el.dataset.name); break;
