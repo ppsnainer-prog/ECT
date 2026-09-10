@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.7.5 — вход учитывает смену пароля (overrides)
+ * ЕЦТ Скрипты v2.7.6 — поиск ДР без потери фокуса
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -23677,7 +23677,7 @@ function navigate(page, scriptId = null) {
 }
 
 /* ========== Render (без изменений, кроме настроек) ========== */
-const SEARCH_FOCUS_IDS = ['homeSearch', 'searchInput', 'otabotkiSearch', 'catalogSearch', 'callsSearch', 'pickOtabotkaSearch', 'rulesSearch', 'refInfoSearch', 'newbieSearch'];
+const SEARCH_FOCUS_IDS = ['homeSearch', 'searchInput', 'otabotkiSearch', 'catalogSearch', 'callsSearch', 'pickOtabotkaSearch', 'rulesSearch', 'refInfoSearch', 'newbieSearch', 'birthdaysSearch'];
 
 function captureSearchFocus() {
   const active = document.activeElement;
@@ -34431,10 +34431,15 @@ function bindGlobalEvents() {
   try { loadFlappyScores(); FlappyGame.init(); } catch (e) { console.warn('flappy', e); }
 
   document.addEventListener('click', handleClick);
+  let __bdSearchTimer = null;
   document.addEventListener('input', function(e) {
     const t = e.target;
     if (!t || !t.id) return;
-    if (t.id === 'birthdaysSearch') { state.birthdaysQuery = t.value || ''; render(); }
+    if (t.id === 'birthdaysSearch') {
+      state.birthdaysQuery = t.value || '';
+      clearTimeout(__bdSearchTimer);
+      __bdSearchTimer = setTimeout(function () { render(); }, 120);
+    }
   });
   document.addEventListener('change', function(e) {
     const t = e.target;
