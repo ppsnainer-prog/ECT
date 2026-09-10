@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.7.6 — поиск ДР без потери фокуса
+ * ЕЦТ Скрипты v2.7.7 — инструкция по сайту для новичков
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -21472,6 +21472,7 @@ const PAGE_PERM_DEFS = [
   { key: 'rules', label: 'Правила' },
   { key: 'refinfo', label: 'Справка' },
   { key: 'newbie', label: 'Новичкам / Памятка' },
+  { key: 'help', label: 'Инструкция по сайту' },
   { key: 'goals', label: 'Цель / дневник' },
   { key: 'shift', label: 'Таймер смены' },
   { key: 'birthdays', label: 'Дни рождения' },
@@ -21511,7 +21512,7 @@ function defaultPermsFor(name) {
   if (name && String(name).indexOf('Гость:') === 0) {
     const pages = {};
     PAGE_PERM_DEFS.forEach(p => {
-      pages[p.key] = ['home','scripts','otabotki','catalog','calls','rules','refinfo','games','newbie','settings','shift'].includes(p.key);
+      pages[p.key] = ['home','scripts','otabotki','catalog','calls','rules','refinfo','games','newbie','settings','shift','help'].includes(p.key);
     });
     // гостю: настройки (тема + синхронизация), без целей и лидерборда
     pages.goals = false;
@@ -21526,7 +21527,7 @@ function defaultPermsFor(name) {
   const pages = {};
   PAGE_PERM_DEFS.forEach(p => {
     // базовый просмотр контента
-    pages[p.key] = ['home','scripts','otabotki','catalog','calls','rules','refinfo','games','shift','birthdays'].includes(p.key);
+    pages[p.key] = ['home','scripts','otabotki','catalog','calls','rules','refinfo','games','shift','birthdays','help'].includes(p.key);
   });
   pages.goals = false;
   pages.leaderboard = false;
@@ -21621,7 +21622,7 @@ function canViewPage(page) {
   // гость: настройки можно, цели и лидерборд — нет
   if (typeof isGuestUser === 'function' && isGuestUser()) {
     if (key === 'goals' || key === 'leaderboard' || key === 'admin' || key === 'birthdays') return false;
-    if (key === 'settings' || key === 'shift') return true;
+    if (key === 'settings' || key === 'shift' || key === 'help') return true;
   }
   const perms = getUserPerms(state.currentUser);
   if (key === 'games') return !!perms.pages.games;
@@ -21670,7 +21671,7 @@ function applyAccountPermissions() {
       // гостю принудительно скрываем цели, лидерборд и дни рождения
       if (guest && (p.key === 'goals' || p.key === 'leaderboard' || p.key === 'birthdays')) ok = false;
       // гостю: настройки и таймер смены
-      if (guest && (p.key === 'settings' || p.key === 'shift')) ok = true;
+      if (guest && (p.key === 'settings' || p.key === 'shift' || p.key === 'help')) ok = true;
       el.hidden = !ok;
       if (!ok) {
         el.style.display = 'none';
@@ -23650,6 +23651,7 @@ function navigate(page, scriptId = null) {
     goals: 'Цель',
     shift: 'Таймер смены',
     birthdays: 'Дни рождения',
+    help: 'Инструкция',
     rules: 'Правила',
     refinfo: 'Справка',
     settings: 'Настройки',
@@ -24674,6 +24676,7 @@ function ensureExtraNavItems() {
   if (!nav) return;
   const guest = typeof isGuestSession === 'function' && isGuestSession();
   const items = [
+    { page: 'help', icon: '📘', label: 'Инструкция', after: 'home' },
     { page: 'shift', icon: '⏱', label: 'Смена', after: 'goals' },
     { page: 'birthdays', icon: '🎂', label: 'Дни рождения', after: 'shift', hideForGuest: true }
   ];
@@ -24739,6 +24742,7 @@ function render() {
     case 'goals': try { if (state.currentUser) maybeFinalizeUserGoal(state.currentUser); } catch (_) {} content.innerHTML = renderGoals(); break;
     case 'shift': content.innerHTML = renderShiftTimer(); break;
     case 'birthdays': content.innerHTML = renderBirthdays(); break;
+    case 'help': content.innerHTML = renderSiteGuide(); break;
     case 'rules': content.innerHTML = renderRules(); break;
     case 'refinfo': content.innerHTML = renderRefInfo(); break;
     case 'newbie': content.innerHTML = renderNewbieGuide(); break;
@@ -27983,6 +27987,117 @@ const BODY_TYPES = [
 ];
 
 
+
+function dismissHomeGuide() {
+  try { localStorage.setItem('ect_guide_home_dismissed_v1', '1'); } catch (_) {}
+  render();
+}
+
+function renderSiteGuide() {
+  return `
+  <div class="card catalog-toolbar">
+    <div class="catalog-toolbar-row">
+      <div>
+        <strong>📘 Инструкция по сайту ЕЦТ Скрипты</strong>
+        <p class="catalog-hint">Для новых участников: где что лежит и как быстро начать работу.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card site-guide-note">
+    <strong>🔄 Сайт часто обновляется</strong>
+    <p class="catalog-hint" style="margin:6px 0 0">
+      Мы регулярно добавляем новые возможности, разделы и улучшения.
+      Если что-то выглядит иначе, чем вчера — это нормально.
+      Актуальная инструкция всегда здесь. При сильных изменениях смотрите этот раздел заново.
+    </p>
+  </div>
+
+  <div class="site-guide-grid">
+    <article class="card site-guide-card">
+      <h3>1. Меню слева</h3>
+      <p>Слева — разделы сайта. На телефоне откройте меню кнопкой ☰ вверху.</p>
+      <ul>
+        <li><b>Главная</b> — быстрый поиск по скриптам, отработкам и авто</li>
+        <li><b>Инструкция</b> — этот раздел</li>
+        <li><b>Скрипты</b> — сценарии звонков</li>
+        <li><b>Отработки</b> — ответы на возражения и частые фразы</li>
+        <li><b>Автокаталог</b> — авто, цены, комплектации</li>
+        <li><b>Звонки</b> — записи и статусы</li>
+        <li><b>Правила / Справка / Новичкам</b> — рабочие материалы</li>
+        <li><b>Цель</b> — личная цель и дневник смен</li>
+        <li><b>Смена</b> — таймер смены и перерывов</li>
+        <li><b>Дни рождения</b> — календарь команды (не у гостей)</li>
+        <li><b>Настройки</b> — тема, синхронизация</li>
+      </ul>
+    </article>
+
+    <article class="card site-guide-card">
+      <h3>2. Скрипты и отработки</h3>
+      <ul>
+        <li>Откройте <b>Скрипты</b> → выберите нужный сценарий</li>
+        <li>Внутри скрипта блоки можно раскрывать/сворачивать</li>
+        <li><b>Отработки</b> — общая библиотека фраз; их можно привязывать к скрипту</li>
+        <li>На главной один поиск ищет сразу скрипты, отработки и авто</li>
+      </ul>
+    </article>
+
+    <article class="card site-guide-card">
+      <h3>3. Автокаталог</h3>
+      <ul>
+        <li>Фильтры: страна, марка, тип кузова, поиск</li>
+        <li>Карточка авто — характеристики и описание</li>
+        <li>Внутри — <b>комплектации</b> (цена и что входит), блок можно свернуть</li>
+      </ul>
+    </article>
+
+    <article class="card site-guide-card">
+      <h3>4. Таймер смены</h3>
+      <ul>
+        <li>Раздел <b>Смена</b>: «Начать сейчас» или укажите время выхода вручную</li>
+        <li>Перерыв: «Ушёл» / «Вернулся» или добавьте время вручную</li>
+        <li>Сайт сам считает время в работе без перерывов</li>
+      </ul>
+    </article>
+
+    <article class="card site-guide-card">
+      <h3>5. Цель и дневник</h3>
+      <ul>
+        <li>Если раздел доступен — ведите дневник и цель недели</li>
+        <li>Неделя накопления: <b>вторник → понедельник</b>, выплаты — со среды</li>
+        <li>Гостю цели и лидерборд обычно скрыты</li>
+      </ul>
+    </article>
+
+    <article class="card site-guide-card">
+      <h3>6. Синхронизация и вход</h3>
+      <ul>
+        <li>В <b>Настройках</b> можно обновить синхронизацию с облаком</li>
+        <li>Данные (скрипты, каталог и т.д.) подтягиваются с сервера</li>
+        <li>Если чего-то не видно — проверьте права у администратора</li>
+        <li>Пароль забыли — только админ может задать новый</li>
+      </ul>
+    </article>
+
+    <article class="card site-guide-card">
+      <h3>7. Советы новичкам</h3>
+      <ul>
+        <li>Начните с <b>Главной</b> и поиска по теме звонка</li>
+        <li>Держите открытыми скрипт + нужную отработку</li>
+        <li>Для авто — сразу смотрите комплектацию, не только базовую цену</li>
+        <li>Не бойтесь обновлений: интерфейс может чуть меняться, логика разделов та же</li>
+      </ul>
+    </article>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <p class="catalog-hint" style="margin:0">
+      Остались вопросы — напишите администратору (Александр) или коллегам в рабочей группе.
+      Раздел «Инструкция» всегда доступен в меню слева (📘).
+    </p>
+  </div>`;
+}
+
 function renderHome() {
   ensureOtabotkiModel();
   const q = (state.homeQuery || '').toLowerCase().trim();
@@ -28010,8 +28125,28 @@ function renderHome() {
 
   otabotki = (q ? otabotki : otabotki.slice(0, 10)).slice(0, q ? 24 : 10);
 
+  const guideDismissed = (() => { try { return localStorage.getItem('ect_guide_home_dismissed_v1') === '1'; } catch (_) { return false; } })();
   return `
     <div class="home-quick">
+      ${guideDismissed ? '' : `<div class="card site-guide-banner">
+        <div class="site-guide-banner-head">
+          <div>
+            <strong>📘 Как пользоваться сайтом</strong>
+            <p class="catalog-hint" style="margin:4px 0 0">Коротко для новых участников. Сайт регулярно обновляется — появляются новые разделы и удобства.</p>
+          </div>
+          <div class="actions-row">
+            <button type="button" class="btn btn-primary btn-sm" data-action="nav" data-page="help">Открыть инструкцию</button>
+            <button type="button" class="btn btn-outline btn-sm" data-action="dismiss-home-guide">Скрыть</button>
+          </div>
+        </div>
+        <ul class="site-guide-mini">
+          <li><b>📜 Скрипты</b> — тексты разговоров по сценариям</li>
+          <li><b>🔄 Отработки</b> — готовые ответы на возражения</li>
+          <li><b>🚗 Автокаталог</b> — марки, модели, комплектации</li>
+          <li><b>⏱ Смена</b> — таймер выхода, перерывов и конца смены</li>
+          <li><b>🎯 Цель</b> — личные цели и дневник (если доступ открыт)</li>
+        </ul>
+      </div>`}
       <div class="home-search-wrap card">
         <label class="home-search-label" for="homeSearch">Быстрый поиск</label>
         <input type="search" class="home-search-input" id="homeSearch"
@@ -33633,6 +33768,7 @@ function handleClick(e) {
 
   switch (action) {
     case 'nav': navigate(el.dataset.page); break;
+    case 'dismiss-home-guide': dismissHomeGuide(); break;
     case 'open-script': closeModal(); navigate('script', el.dataset.id); break;
     case 'add-script': showAddScriptModal(); break;
     case 'edit-script': showEditScriptModal(el.dataset.id); break;
