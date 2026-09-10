@@ -4220,11 +4220,16 @@ textarea:focus {
 }
 .home-col { min-width: 0; display: flex; flex-direction: column; }
 .home-list { min-width: 0; }
-.home-row { max-width: 100%; overflow: hidden; }
+.home-row { max-width: 100%; }
 .home-row-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: block;
+  width: 100%;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: normal;
+  word-break: break-word;
 }
 .site-guide-banner-bottom { margin-top: 2px; }
 .site-guide-banner-head { align-items: center; }
@@ -4241,4 +4246,15 @@ textarea:focus {
 }
 @media (max-width: 768px) {
   .site-guide-banner-head { flex-direction: column; align-items: stretch; }
+}
+
+.home-col .section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.site-guide-banner-bottom {
+  order: 99;
 }

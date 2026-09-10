@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.7.8 — инструкция внизу главной, выравнивание
+ * ЕЦТ Скрипты v2.7.9 — защита данных от пустого облака + главная
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -22588,36 +22588,70 @@ function applyCloudRecord(remote) {
   if (!remote || typeof remote !== 'object') return false;
   let applied = false;
 
+  // Не затираем локальные данные пустым ответом облака
+  const preferRemoteArray = (localArr, remoteArr) => {
+    if (!Array.isArray(remoteArr)) return localArr;
+    if (!remoteArr.length && Array.isArray(localArr) && localArr.length) return localArr;
+    return remoteArr;
+  };
+
   if (Array.isArray(remote.scripts)) {
-    state.scripts = remote.scripts;
-    applied = true;
+    const next = preferRemoteArray(state.scripts, remote.scripts);
+    // если в облаке скрипты без названий, а локально с названиями — не откатываем
+    const remoteHaveTitles = (remote.scripts || []).some(s => s && String(s.title || '').trim());
+    const localHaveTitles = (state.scripts || []).some(s => s && String(s.title || '').trim());
+    if (remote.scripts.length && (!remoteHaveTitles && localHaveTitles)) {
+      /* keep local scripts */
+    } else {
+      state.scripts = next;
+      applied = true;
+    }
   }
   if (Array.isArray(remote.sharedOtabotki)) {
-    state.sharedOtabotki = remote.sharedOtabotki;
-    try { seedMetodichkaOtabotki(); } catch (_) {}
+    const next = preferRemoteArray(state.sharedOtabotki, remote.sharedOtabotki);
+    const remoteHaveTitles = (remote.sharedOtabotki || []).some(o => o && String(o.title || '').trim());
+    const localHaveTitles = (state.sharedOtabotki || []).some(o => o && String(o.title || '').trim());
+    if (remote.sharedOtabotki.length && (!remoteHaveTitles && localHaveTitles)) {
+      /* keep local otabotki */
+    } else {
+      state.sharedOtabotki = next;
+      try { seedMetodichkaOtabotki(); } catch (_) {}
+    }
   }
 
   // extras могут приходить плоско (Code.gs flatten) или в remote.extras
   const ex = (remote.extras && typeof remote.extras === 'object') ? remote.extras : remote;
 
   if (Array.isArray(ex.cars)) {
-    state.cars = ex.cars;
+    state.cars = preferRemoteArray(state.cars, ex.cars);
     try { localStorage.setItem('ect_cars_v1', JSON.stringify(state.cars || [])); } catch (_) {}
   }
   if (Array.isArray(ex.calls)) {
-    state.calls = ex.calls;
+    state.calls = preferRemoteArray(state.calls, ex.calls);
     try { localStorage.setItem('ect_calls_meta_v1', JSON.stringify(state.calls || [])); } catch (_) {}
   }
   if (ex.goalsStore && typeof ex.goalsStore === 'object') {
-    state.goalsStore = ex.goalsStore;
-    try { localStorage.setItem('ect_goals_v1', JSON.stringify(state.goalsStore)); } catch (_) {}
+    const remoteKeys = Object.keys(ex.goalsStore || {});
+    const localKeys = Object.keys(state.goalsStore || {});
+    if (remoteKeys.length || !localKeys.length) {
+      // merge by user: prefer non-empty goal
+      const merged = { ...(state.goalsStore || {}) };
+      remoteKeys.forEach(k => {
+        const r = ex.goalsStore[k];
+        const l = merged[k];
+        if (!l) merged[k] = r;
+        else if (r && typeof r === 'object') merged[k] = { ...l, ...r };
+      });
+      state.goalsStore = merged;
+      try { localStorage.setItem('ect_goals_v1', JSON.stringify(state.goalsStore)); } catch (_) {}
+    }
   }
   if (Array.isArray(ex.birthdays)) {
-    state.birthdays = ex.birthdays;
+    state.birthdays = preferRemoteArray(state.birthdays, ex.birthdays);
     try { localStorage.setItem('ect_birthdays_v1', JSON.stringify(state.birthdays)); } catch (_) {}
   }
   if (Array.isArray(ex.refInfo)) {
-    state.refInfo = ex.refInfo;
+    state.refInfo = preferRemoteArray(state.refInfo, ex.refInfo);
     try { localStorage.setItem('ect_refinfo_v1', JSON.stringify(state.refInfo || [])); } catch (_) {}
   }
   if (Array.isArray(ex.leaderboardManual)) {
@@ -22875,6 +22909,13 @@ function scheduleCloudExtrasSave() {
 async function cloudSave() {
   if (typeof isCommonAccount === 'function' && isCommonAccount()) return false;
   if (!state.cloud.enabled) return false;
+  // защита: не заливаем пустой каталог скриптов поверх облака
+  if (!Array.isArray(state.scripts) || state.scripts.length === 0) {
+    console.warn('cloudSave aborted: empty scripts');
+    state.cloud.status = 'error';
+    try { updateSyncBadge(); } catch (_) {}
+    return false;
+  }
   state.cloud.status = 'syncing';
   updateSyncBadge();
   try {
@@ -28157,7 +28198,7 @@ function renderHome() {
             ? `<div class="home-empty">${q ? 'Ничего не найдено' : 'Нет скриптов'}</div>`
             : `<div class="home-list">${scripts.map(s => `
                 <button type="button" class="home-row" data-action="open-script" data-id="${s.id}">
-                  <span class="home-row-title">${escapeHtml(shortTitle(s.title, 90))}</span>
+                  <span class="home-row-title">${escapeHtml(shortTitle(s.title || s.name || "Без названия", 90))}</span>
                   <span class="home-row-meta">
                     ${s.category ? `<span class="badge badge-primary">${escapeHtml(s.category)}</span>` : ''}
                     ${(s.otabotkiIds || []).length ? `<span class="badge badge-teal">🔄 ${(s.otabotkiIds || []).length}</span>` : ''}
@@ -28177,7 +28218,7 @@ function renderHome() {
             ? `<div class="home-empty">${q ? 'Ничего не найдено' : 'Нет отработок'}</div>`
             : `<div class="home-list">${otabotki.map(o => `
                 <button type="button" class="home-row" ${o.scripts[0] ? `data-action="open-script" data-id="${o.scripts[0].id}"` : 'disabled'}>
-                  <span class="home-row-title">${escapeHtml(shortTitle(o.title, 80))}</span>
+                  <span class="home-row-title">${escapeHtml(shortTitle(o.title || o.name || "Без названия", 80))}</span>
                   <span class="home-row-meta">
                     ${o.categories.slice(0, 2).map(c => `<span class="badge badge-primary">${escapeHtml(c)}</span>`).join('') || '<span class="badge">—</span>'}
                     <span class="badge badge-teal">${o.scripts.length} скр.</span>
