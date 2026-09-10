@@ -125,33 +125,38 @@ function writeShared_(list) {
     var ss = getSs_();
     var ch = ss.getSheetByName('shared_chunks');
     if (ch) ch.clear();
-    return;
+  } else {
+    sheet.getRange('E1').setValue(CHUNK_MARK + Math.ceil(text.length / MAX_CELL));
+    var chunksSheet = getOrCreateSheet_('shared_chunks', ['part', 'text']);
+    resetSheet_(chunksSheet, ['part', 'text']);
+    var parts = splitChunks_(text);
+    var rows = [];
+    var i;
+    for (i = 0; i < parts.length; i++) rows.push([i, parts[i]]);
+    if (rows.length) {
+      chunksSheet.getRange(2, 1, rows.length, 2).setNumberFormat('@');
+      chunksSheet.getRange(2, 1, rows.length, 2).setValues(rows);
+    }
   }
-  sheet.getRange('E1').setValue(CHUNK_MARK + Math.ceil(text.length / MAX_CELL));
-  var chunksSheet = getOrCreateSheet_('shared_chunks', ['part', 'text']);
-  resetSheet_(chunksSheet, ['part', 'text']);
-  var parts = splitChunks_(text);
-  var rows = [];
-  var i;
-  for (i = 0; i < parts.length; i++) rows.push([i, parts[i]]);
-  if (rows.length) {
-    chunksSheet.getRange(2, 1, rows.length, 2).setNumberFormat('@');
-    chunksSheet.getRange(2, 1, rows.length, 2).setValues(rows);
-  }
+  try { backupAllTextData_('writeShared'); } catch (eB) {}
 }
 
-function readShared_() {
+function readShared_function readShared_() {
   var sheet = dataSheet_();
   var raw = String(sheet.getRange('E1').getValue() || '');
   if (!raw) return [];
   if (raw.indexOf(CHUNK_MARK) === 0) {
     var chunksSheet = getSs_().getSheetByName('shared_chunks');
     if (!chunksSheet || chunksSheet.getLastRow() < 2) return [];
-    var values = chunksSheet.getRange(2, 1, chunksSheet.getLastRow() - 1, 2).getValues();
+    var lastS = chunksSheet.getLastRow();
+    var numS = lastS - 1;
+    if (numS < 1) return [];
+    var values = chunksSheet.getRange(2, 1, numS, 2).getValues();
     var map = [];
     var i;
     for (i = 0; i < values.length; i++) {
-      var part = parseInt(values[i][0], 10) || 0;
+      var part = parseInt(values[i][0], 10);
+      if (isNaN(part)) part = i;
       map[part] = String(values[i][1] == null ? '' : values[i][1]);
     }
     raw = map.join('');
@@ -345,19 +350,37 @@ function writeExtras_(obj) {
     var ss = getSs_();
     var ch = ss.getSheetByName('extras_chunks');
     if (ch) ch.clear();
-    return;
+  } else {
+    sheet.getRange('F1').setValue(CHUNK_MARK + Math.ceil(text.length / MAX_CELL));
+    var chunksSheet = getOrCreateSheet_('extras_chunks', ['part', 'text']);
+    resetSheet_(chunksSheet, ['part', 'text']);
+    var parts = splitChunks_(text);
+    var rows = [];
+    var i;
+    for (i = 0; i < parts.length; i++) rows.push([i, parts[i]]);
+    if (rows.length) {
+      chunksSheet.getRange(2, 1, rows.length, 2).setNumberFormat('@');
+      chunksSheet.getRange(2, 1, rows.length, 2).setValues(rows);
+    }
   }
-  sheet.getRange('F1').setValue(CHUNK_MARK + Math.ceil(text.length / MAX_CELL));
-  var chunksSheet = getOrCreateSheet_('extras_chunks', ['part', 'text']);
-  resetSheet_(chunksSheet, ['part', 'text']);
-  var parts = splitChunks_(text);
-  var rows = [];
+  try { backupAllTextData_('writeExtras'); } catch (eB) {}
+}
+
+function readChunkSheet_(sheetName) {
+  var chunksSheet = getSs_().getSheetByName(sheetName);
+  if (!chunksSheet || chunksSheet.getLastRow() < 2) return '';
+  var last = chunksSheet.getLastRow();
+  var num = last - 1; // строк данных начиная со 2-й
+  if (num < 1) return '';
+  var values = chunksSheet.getRange(2, 1, num, 2).getValues();
+  var map = [];
   var i;
-  for (i = 0; i < parts.length; i++) rows.push([i, parts[i]]);
-  if (rows.length) {
-    chunksSheet.getRange(2, 1, rows.length, 2).setNumberFormat('@');
-    chunksSheet.getRange(2, 1, rows.length, 2).setValues(rows);
+  for (i = 0; i < values.length; i++) {
+    var part = parseInt(values[i][0], 10);
+    if (isNaN(part)) part = i;
+    map[part] = String(values[i][1] == null ? '' : values[i][1]);
   }
+  return map.join('');
 }
 
 function readExtras_() {
@@ -365,16 +388,8 @@ function readExtras_() {
   var raw = String(sheet.getRange('F1').getValue() || '');
   if (!raw) return {};
   if (raw.indexOf(CHUNK_MARK) === 0) {
-    var chunksSheet = getSs_().getSheetByName('extras_chunks');
-    if (!chunksSheet || chunksSheet.getLastRow() < 2) return {};
-    var values = chunksSheet.getRange(2, 1, chunksSheet.getLastRow() - 1, 2).getValues();
-    var map = [];
-    var i;
-    for (i = 0; i < values.length; i++) {
-      var part = parseInt(values[i][0], 10) || 0;
-      map[part] = String(values[i][1] == null ? '' : values[i][1]);
-    }
-    raw = map.join('');
+    raw = readChunkSheet_('extras_chunks');
+    if (!raw) return {};
   }
   try {
     var parsed = JSON.parse(raw);
@@ -391,6 +406,7 @@ function flattenExtrasOnto_(out, extras) {
   if (extras.calls) out.calls = extras.calls;
   if (extras.goalsStore) out.goalsStore = extras.goalsStore;
   if (extras.refInfo) out.refInfo = extras.refInfo;
+  if (extras.birthdays) out.birthdays = extras.birthdays;
   if (extras.leaderboardManual) out.leaderboardManual = extras.leaderboardManual;
   if (extras.leaderboardSettings) out.leaderboardSettings = extras.leaderboardSettings;
   if (extras.sharedPenalties) out.sharedPenalties = extras.sharedPenalties;
@@ -429,6 +445,7 @@ function readAll_() {
       if (extras.calls) out.calls = extras.calls;
       if (extras.goalsStore) out.goalsStore = extras.goalsStore;
       if (extras.refInfo) out.refInfo = extras.refInfo;
+  if (extras.birthdays) out.birthdays = extras.birthdays;
       if (extras.leaderboardManual) out.leaderboardManual = extras.leaderboardManual;
       if (extras.leaderboardSettings) out.leaderboardSettings = extras.leaderboardSettings;
       if (extras.sharedPenalties) out.sharedPenalties = extras.sharedPenalties;
@@ -581,6 +598,122 @@ var MEDIA_SUBFOLDERS = { image: 'images', audio: 'audio', video: 'video', other:
  * чтобы выдать разрешение на Google Drive.
  * После: Развернуть → Новая версия.
  */
+
+/* ========== Бэкап текстов на Google Drive ==========
+ * Папка: https://drive.google.com/drive/folders/1w-zj7djGSy-tXZI8hvivPPQImjZ1KyWI
+ * Пишем JSON: отработки, справка, цели, ДР, звонки-meta, лидерборд, extras целиком.
+ */
+var BACKUP_FOLDER_ID = '1w-zj7djGSy-tXZI8hvivPPQImjZ1KyWI';
+var BACKUP_FOLDER_NAME = 'ECT Text Backup';
+
+function getBackupFolder_() {
+  try {
+    return DriveApp.getFolderById(BACKUP_FOLDER_ID);
+  } catch (e) {
+    var it = DriveApp.getFoldersByName(BACKUP_FOLDER_NAME);
+    if (it.hasNext()) return it.next();
+    return DriveApp.createFolder(BACKUP_FOLDER_NAME);
+  }
+}
+
+function pad2_(n) {
+  n = String(n);
+  return n.length < 2 ? '0' + n : n;
+}
+
+function backupStamp_() {
+  var d = new Date();
+  return d.getFullYear() + pad2_(d.getMonth() + 1) + pad2_(d.getDate()) + '_' +
+    pad2_(d.getHours()) + pad2_(d.getMinutes()) + pad2_(d.getSeconds());
+}
+
+function saveTextBackup_(baseName, obj, keepLatest) {
+  try {
+    var folder = getBackupFolder_();
+    var text = JSON.stringify(obj == null ? {} : obj, null, 2);
+    var blob = Utilities.newBlob(text, 'application/json', baseName + '_' + backupStamp_() + '.json');
+    folder.createFile(blob);
+    if (keepLatest) {
+      var latestName = 'latest_' + baseName + '.json';
+      var it = folder.getFilesByName(latestName);
+      while (it.hasNext()) {
+        try { it.next().setTrashed(true); } catch (eT) {}
+      }
+      folder.createFile(Utilities.newBlob(text, 'application/json', latestName));
+    }
+    return true;
+  } catch (e) {
+    try { Logger.log('saveTextBackup_ ' + baseName + ': ' + e); } catch (e2) {}
+    return false;
+  }
+}
+
+function backupAllTextData_(reason) {
+  try {
+    var shared = [];
+    try { shared = readShared_() || []; } catch (e1) { shared = []; }
+    var extras = {};
+    try { extras = readExtras_() || {}; } catch (e2) { extras = {}; }
+
+    saveTextBackup_('shared_otabotki', {
+      reason: reason || '',
+      savedAt: new Date().toISOString(),
+      count: Array.isArray(shared) ? shared.length : 0,
+      items: shared
+    }, true);
+
+    saveTextBackup_('refInfo', {
+      reason: reason || '',
+      savedAt: new Date().toISOString(),
+      items: extras.refInfo || []
+    }, true);
+
+    saveTextBackup_('calls_meta', {
+      reason: reason || '',
+      savedAt: new Date().toISOString(),
+      items: extras.calls || []
+    }, true);
+
+    saveTextBackup_('birthdays', {
+      reason: reason || '',
+      savedAt: new Date().toISOString(),
+      items: extras.birthdays || []
+    }, true);
+
+    saveTextBackup_('leaderboard', {
+      reason: reason || '',
+      savedAt: new Date().toISOString(),
+      manual: extras.leaderboardManual || [],
+      settings: extras.leaderboardSettings || {}
+    }, true);
+
+    saveTextBackup_('goalsStore', {
+      reason: reason || '',
+      savedAt: new Date().toISOString(),
+      store: extras.goalsStore || {}
+    }, true);
+
+    saveTextBackup_('extras_full', {
+      reason: reason || '',
+      savedAt: new Date().toISOString(),
+      extras: extras
+    }, true);
+
+    return { ok: true, reason: reason || '' };
+  } catch (e) {
+    try { Logger.log('backupAllTextData_: ' + e); } catch (e2) {}
+    return { ok: false, error: String(e) };
+  }
+}
+
+/** Ручной запуск из редактора: Выполнить → backupTextDataNow */
+function backupTextDataNow() {
+  var r = backupAllTextData_('manual');
+  Logger.log(JSON.stringify(r));
+  return r;
+}
+
+
 function authorizeDriveAccess() {
   var root = DriveApp.getFolderById(MEDIA_ROOT_ID);
   var names = ['images', 'audio', 'video'];
@@ -1270,6 +1403,11 @@ function doPost(e) {
       return jsonOut_(setGuestLoginEnabled_(parsed.enabled));
     }
 
+    if (op === 'backupText') {
+      clearMetaCache_();
+      return jsonOut_(backupAllTextData_(parsed.reason || 'client'));
+    }
+
     if (op === 'saveExtras') {
       clearMetaCache_();
       var existingEx = {};
@@ -1285,11 +1423,23 @@ function doPost(e) {
         ruleItemTags: parsed.ruleItemTags,
         extraUsers: parsed.extraUsers
       };
-      // merge: не затираем флаги/поля, которых нет в новом пакете
+      // merge: не затираем поля пустыми массивами/объектами с клиента
       var mergedEx = {};
       var k;
       for (k in existingEx) { if (Object.prototype.hasOwnProperty.call(existingEx, k)) mergedEx[k] = existingEx[k]; }
-      for (k in (ex || {})) { if (Object.prototype.hasOwnProperty.call(ex, k)) mergedEx[k] = ex[k]; }
+      for (k in (ex || {})) {
+        if (!Object.prototype.hasOwnProperty.call(ex, k)) continue;
+        var nv = ex[k];
+        var ov = mergedEx[k];
+        // пустой массив не затирает непустой на сервере
+        if (Array.isArray(nv) && nv.length === 0 && Array.isArray(ov) && ov.length > 0) continue;
+        // пустой object не затирает непустой (goalsStore и т.п.)
+        if (nv && typeof nv === 'object' && !Array.isArray(nv) && Object.keys(nv).length === 0 &&
+            ov && typeof ov === 'object' && !Array.isArray(ov) && Object.keys(ov).length > 0) continue;
+        // null/undefined не затирает
+        if (nv === null || nv === undefined) continue;
+        mergedEx[k] = nv;
+      }
       if (typeof parsed.guestLoginEnabled === 'boolean') mergedEx.guestLoginEnabled = parsed.guestLoginEnabled;
       // если клиент прислал guestLoginEnabled — продублируем в meta A1
       if (typeof mergedEx.guestLoginEnabled === 'boolean') {
@@ -1303,7 +1453,15 @@ function doPost(e) {
       }
       writeExtras_(mergedEx);
       if (parsed.sharedOtabotki !== undefined) {
-        writeShared_(parsed.sharedOtabotki || []);
+        var incomingShared = parsed.sharedOtabotki || [];
+        var existingShared = [];
+        try { existingShared = readShared_() || []; } catch (eSh) { existingShared = []; }
+        // не затираем библиотеку пустым/урезанным списком (только методичка)
+        if (Array.isArray(incomingShared) && incomingShared.length === 0 && existingShared.length > 0) {
+          // skip
+        } else {
+          writeShared_(incomingShared);
+        }
       }
       var sheet = dataSheet_();
       var nowAt = parsed.updatedAt || Date.now();

@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.7.10 — диагностика 404 облака, getSs по ID таблицы
+ * ЕЦТ Скрипты v2.7.11 — удаление ДР не откатывается шаблоном
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -24415,6 +24415,23 @@ const DEFAULT_BIRTHDAYS = [
   }
 ];
 
+const BIRTHDAYS_REMOVED_KEY = 'ect_birthdays_removed_v1';
+
+function loadBirthdayRemovedSet() {
+  try {
+    const raw = localStorage.getItem(BIRTHDAYS_REMOVED_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (Array.isArray(p)) return new Set(p.map(x => String(x || '').trim().toLowerCase()).filter(Boolean));
+    }
+  } catch (_) {}
+  return new Set();
+}
+
+function persistBirthdayRemovedSet(set) {
+  try { localStorage.setItem(BIRTHDAYS_REMOVED_KEY, JSON.stringify(Array.from(set || []))); } catch (_) {}
+}
+
 function loadBirthdays() {
   try {
     const raw = localStorage.getItem(BIRTHDAYS_KEY);
@@ -24425,12 +24442,13 @@ function loadBirthdays() {
   } catch (_) {}
   if (!Array.isArray(state.birthdays)) state.birthdays = [];
 
-  // подтянуть людей из списка по умолчанию, которых ещё нет (по ФИ)
+  const removed = loadBirthdayRemovedSet();
+  // подтянуть людей из списка по умолчанию, которых ещё нет (и кого не удаляли вручную)
   const have = new Set((state.birthdays || []).map(b => String(b.name || '').trim().toLowerCase()).filter(Boolean));
   let changed = false;
   DEFAULT_BIRTHDAYS.forEach(d => {
     const key = String(d.name || '').trim().toLowerCase();
-    if (!key || have.has(key)) return;
+    if (!key || have.has(key) || removed.has(key)) return;
     state.birthdays.push({
       id: d.id || ('bd_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)),
       name: d.name || '',
@@ -24709,7 +24727,15 @@ function saveBirthday(id) {
 function deleteBirthday(id) {
   if (!(canEdit() || isAdminUser())) return;
   loadBirthdays();
+  const item = (state.birthdays || []).find(x => x.id === id);
+  const nameKey = item ? String(item.name || '').trim().toLowerCase() : '';
   state.birthdays = (state.birthdays || []).filter(x => x.id !== id);
+  // чтобы DEFAULT_BIRTHDAYS не вернул человека снова
+  if (nameKey) {
+    const removed = loadBirthdayRemovedSet();
+    removed.add(nameKey);
+    persistBirthdayRemovedSet(removed);
+  }
   persistBirthdays(true);
   toast('Удалено');
   render();
