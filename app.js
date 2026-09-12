@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.7.16 — защита от отката при 404 облака, merge скриптов
+ * ЕЦТ Скрипты v2.7.17 — новый URL Apps Script
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -21087,7 +21087,7 @@ let state = {
     enabled: true,
     provider: 'sheets', // 'sheets' | 'jsonbin'
     // Google Apps Script web app URL
-    sheetsUrl: 'https://script.google.com/macros/s/AKfycbxk9hWog0sAruR4QRCM0t-oOFJTDvkHoA9mHy12ixT3dKWspy0Q2Pkiy85lJRnt_BlewA/exec',
+    sheetsUrl: 'https://script.google.com/macros/s/AKfycbxpsNOmwaRLLMAql6XC_owTmDJO52EEskFbUCDCAhExaHLdvvijO17NRvc8kb4sBWopnA/exec',
     // legacy JSONBin (опционально)
     binId: '',
     apiKey: '',
@@ -21278,7 +21278,7 @@ function isGuestUser(name) {
 window.__ECT_GUEST_ENABLED = isGuestLoginEnabled;
 
 /* ========== IP / гости ========== */
-const DEFAULT_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxk9hWog0sAruR4QRCM0t-oOFJTDvkHoA9mHy12ixT3dKWspy0Q2Pkiy85lJRnt_BlewA/exec';
+const DEFAULT_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxpsNOmwaRLLMAql6XC_owTmDJO52EEskFbUCDCAhExaHLdvvijO17NRvc8kb4sBWopnA/exec';
 let __clientIp = '';
 let __guestWatchTimer = null;
 
