@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.7.12 — отработки: merge + защита от отката облаком
+ * ЕЦТ Скрипты v2.7.15 — порционное сохранение, синк восстановлен
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -22329,7 +22329,7 @@ async function cloudFetchOnce(url, opts) {
   } catch (_) { /* meta опционален */ }
 
   // Полная выгрузка: Apps Script иногда отвечает 20–40 с при большой таблице
-  const res = await fetchWithTimeout(url, { method: 'GET' }, 55000);
+  const res = await fetchWithTimeout(url, { method: 'GET' }, 90000);
   if (!res.ok) throw new Error(res.status === 404 ? 'HTTP 404 — неверный URL или старое развёртывание Apps Script' : ('HTTP ' + res.status));
   const json = await res.json();
   if (json && json.error) throw new Error(json.error);
@@ -22442,6 +22442,17 @@ async function postSheets(url, payload, timeoutMs) {
     mode: 'cors',
     credentials: 'omit'
   }, timeoutMs || 60000);
+
+  if (res && res.status === 404) {
+    try {
+      state.cloud = state.cloud || {};
+      state.cloud.status = 'error';
+      state.cloud.lastError = '404';
+      updateSyncBadge();
+      toast('Облако 404: откройте Apps Script → Развернуть → скопируйте URL /exec и вставьте в Админ → облако.', 'error');
+    } catch (_) {}
+    throw new Error('HTTP 404 — неверный URL Apps Script');
+  }
 
   let json = null;
   let textBody = '';
@@ -22825,33 +22836,66 @@ async function forceCloudExtrasSave(reason) {
   return false;
 }
 
-async function cloudSaveExtrasOnly() {
+async function cloudSaveExtrasOnly(opts) {
   if (typeof isCommonAccount === 'function' && isCommonAccount()) return false;
   if (!state.cloud || !state.cloud.enabled) return false;
   if (state.cloud.provider !== 'sheets') return false;
   const url = (state.cloud.sheetsUrl || '').trim();
   if (!url) return false;
+  const mode = (opts && opts.mode) || 'full'; // full | shared | light
   try {
-    const extras = buildCloudExtras();
-    const posted = await postSheets(url, {
+    let extrasPayload;
+    if (mode === 'shared') {
+      // только отработки — сервер merge не затрёт extras
+      extrasPayload = {};
+    } else if (mode === 'light') {
+      // без тяжёлого каталога авто
+      const full = buildCloudExtras();
+      extrasPayload = Object.assign({}, full);
+      delete extrasPayload.cars;
+    } else {
+      extrasPayload = buildCloudExtras();
+    }
+    const body = {
       op: 'saveExtras',
-      extras: extras,
+      extras: extrasPayload,
       sharedOtabotki: state.sharedOtabotki || [],
       updatedAt: Date.now()
-    }, 60000);
+    };
+    let posted;
+    try {
+      posted = await postSheets(url, body, mode === 'shared' ? 20000 : 45000);
+    } catch (e1) {
+      // один повтор на таймаут
+      if (String(e1 && e1.message || e1).includes('timeout') || (typeof isAbortError === 'function' && isAbortError(e1))) {
+        await new Promise(r => setTimeout(r, 800));
+        posted = await postSheets(url, body, mode === 'shared' ? 25000 : 50000);
+      } else throw e1;
+    }
     if (posted.json && posted.json.ok === false) {
       throw new Error(posted.json.error || 'saveExtras failed');
     }
+    // 404 уже бросает postSheets
+    if (posted.res && !posted.res.ok && !(posted.json && posted.json.ok)) {
+      throw new Error('HTTP ' + posted.res.status);
+    }
     state.cloud.lastLocalWrite = Date.now();
+    state.cloud.status = 'ok';
+    state.cloud.lastSync = Date.now();
     __lastMetaAt = 0; __lastMetaPayload = null;
     if (posted.json && posted.json.updatedAt) {
       state.cloud.lastRemoteUpdatedAt = posted.json.updatedAt;
     } else {
       state.cloud.lastRemoteUpdatedAt = state.cloud.lastLocalWrite;
     }
+    try { updateSyncBadge(); } catch (_) {}
     return true;
   } catch (e) {
     console.warn('cloudSaveExtrasOnly', e);
+    try {
+      state.cloud.status = 'error';
+      updateSyncBadge();
+    } catch (_) {}
     return false;
   }
 }
@@ -22866,17 +22910,19 @@ let __pendingExtrasSave = false;
 
 /** Очередь: не гоняем параллельные save/fetch (главная причина сбоев) */
 function enqueueCloud(fn) {
-  __cloudQueue = __cloudQueue.then(async () => {
+  const run = __cloudQueue.then(async () => {
     __cloudBusy = true;
     try {
       return await fn();
     } finally {
       __cloudBusy = false;
     }
-  }).catch(e => {
+  });
+  // очередь не должна падать из-за одной ошибки
+  __cloudQueue = run.then(() => undefined, e => {
     console.warn('cloud queue', e);
   });
-  return __cloudQueue;
+  return run;
 }
 
 function scheduleCloudSave() {
@@ -22926,8 +22972,7 @@ function scheduleCloudExtrasSave() {
 }
 async function cloudSave() {
   if (typeof isCommonAccount === 'function' && isCommonAccount()) return false;
-  if (!state.cloud.enabled) return false;
-  // защита: не заливаем пустой каталог скриптов поверх облака
+  if (!state.cloud || !state.cloud.enabled) return false;
   if (!Array.isArray(state.scripts) || state.scripts.length === 0) {
     console.warn('cloudSave aborted: empty scripts');
     state.cloud.status = 'error';
@@ -22935,107 +22980,67 @@ async function cloudSave() {
     return false;
   }
   state.cloud.status = 'syncing';
-  updateSyncBadge();
+  try { updateSyncBadge(); } catch (_) {}
   try {
-    const extras = buildCloudExtras();
-    const payload = {
-      op: 'replace',
-      scripts: state.scripts,
-      sharedOtabotki: state.sharedOtabotki || [],
-      sharedPenalties: state.sharedPenalties || extras.sharedPenalties || [],
-      extras,
-      cars: extras.cars,
-      calls: extras.calls,
-      goalsStore: extras.goalsStore,
-      refInfo: extras.refInfo,
-      leaderboardManual: extras.leaderboardManual,
-      leaderboardSettings: extras.leaderboardSettings,
-      updatedAt: Date.now(),
-      version: 1
-    };
-
-    if (state.cloud.provider === 'sheets') {
-      const url = (state.cloud.sheetsUrl || '').trim();
-      if (!url) throw new Error('Нет URL Google Apps Script');
-
-      let json = null;
-      let res = null;
-      let textBody = '';
-      try {
-        const posted = await postSheets(url, payload, 60000);
-        res = posted.res;
-        json = posted.json;
-        textBody = posted.textBody;
-      } catch (netErr) {
-        if (state.cloud.rowStorage) {
-          await cloudSaveChunked(url, state.scripts, payload.updatedAt);
-          // chunked-путь не пишет extras — допишем отдельно
-          try {
-            await postSheets(url, {
-              op: 'saveExtras',
-              extras: extras,
-              sharedOtabotki: state.sharedOtabotki || [],
-              updatedAt: payload.updatedAt
-            }, 60000);
-          } catch (exErr) {
-            console.warn('saveExtras after chunked failed', exErr);
-          }
-        } else {
-          throw netErr;
-        }
+    if (state.cloud.provider !== 'sheets') {
+      // JSONBin fallback — как раньше, короткий путь
+      const extras = buildCloudExtras();
+      const payload = {
+        scripts: state.scripts,
+        sharedOtabotki: state.sharedOtabotki || [],
+        extras,
+        updatedAt: Date.now(),
+        version: 1
+      };
+      const headers = getCloudHeaders();
+      const res = await fetchWithTimeout(
+        `https://api.jsonbin.io/v3/b/${state.cloud.binId}`,
+        { method: 'PUT', headers, body: JSON.stringify(payload) },
+        8000
+      );
+      if (!res.ok) {
+        state.cloud.status = 'error';
+        try { updateSyncBadge(); } catch (_) {}
+        return false;
       }
-
-      if (json && json.ok === false) {
-        const err = String(json.error || '');
-        if (/50,?000|maximum of 50/i.test(err) || err.indexOf('characters') !== -1) {
-          throw new Error('Скрипт слишком большой для старого API. Вставьте новый Code.gs и сделайте НОВУЮ ВЕРСИЮ развёртывания.');
-        }
-        throw new Error(json.error || 'save failed');
-      }
-
-      if (json && json.ok === true && json.op === 'replace') state.cloud.rowStorage = true;
-
-      // Успех: явный ok, либо HTTP 200 с телом без error
-      const explicitFail = json && json.ok === false;
-      const httpFail = res && !res.ok;
-      if (explicitFail || (httpFail && !(json && json.ok === true))) {
-        throw new Error(
-          (json && json.error) ||
-          ('HTTP ' + (res && res.status) + (textBody ? (': ' + textBody.slice(0, 120)) : ''))
-        );
-      }
-
-      __cloudFailStreak = 0;
       state.cloud.status = 'ok';
       state.cloud.lastSync = Date.now();
       state.cloud.lastLocalWrite = Date.now();
-    __lastMetaAt = 0; __lastMetaPayload = null;
-      updateSyncBadge();
+      try { updateSyncBadge(); } catch (_) {}
       return true;
     }
 
-    const headers = getCloudHeaders();
-    const res = await fetchWithTimeout(
-      `https://api.jsonbin.io/v3/b/${state.cloud.binId}`,
-      { method: 'PUT', headers, body: JSON.stringify(payload) },
-      4000
-    );
-    if (!res.ok) {
-      if (res.status === 401) toast('Ошибка 401 — неверный Master Key JSONBin.', 'error');
-      else if (res.status === 403) toast('Ошибка 403 — лимит JSONBin или доступ запрещён.', 'error');
-      state.cloud.status = 'error';
-      updateSyncBadge();
-      return false;
+    const url = (state.cloud.sheetsUrl || '').trim();
+    if (!url) throw new Error('Нет URL Google Apps Script');
+
+    const updatedAt = Date.now();
+    // Всегда порциями: полный replace ~2–3 МБ часто не проходит за 60с
+    state.cloud.rowStorage = true;
+    await cloudSaveChunked(url, state.scripts, updatedAt);
+
+    // extras + отработки отдельным более лёгким запросом
+    let extrasOk = false;
+    try {
+      extrasOk = await cloudSaveExtrasOnly({ mode: 'light' });
+      if (!extrasOk) extrasOk = await cloudSaveExtrasOnly({ mode: 'full' });
+    } catch (exErr) {
+      console.warn('cloudSave extras after scripts', exErr);
     }
-    state.cloud.status = 'ok';
+
+    __cloudFailStreak = 0;
+    state.cloud.status = extrasOk ? 'ok' : 'error';
     state.cloud.lastSync = Date.now();
-    updateSyncBadge();
-    return true;
+    state.cloud.lastLocalWrite = Date.now();
+    state.cloud.lastRemoteUpdatedAt = updatedAt;
+    __lastMetaAt = 0;
+    __lastMetaPayload = null;
+    try { updateSyncBadge(); } catch (_) {}
+    return true; // скрипты уже записаны
   } catch (e) {
     console.warn('Cloud save error', e);
     state.cloud.status = 'error';
-    updateSyncBadge();
-    toast('Ошибка сохранения в облако: ' + (e.message || e), 'error');
+    try { updateSyncBadge(); } catch (_) {}
+    try { toast('Ошибка сохранения в облако: ' + (e.message || e), 'error'); } catch (_) {}
     return false;
   }
 }
@@ -23070,14 +23075,31 @@ async function loadData() {
   }
 }
 
-async function saveData() {
+async function saveData(opts) {
   if (isCommonAccount()) return false;
   // Сначала локально — UI не ждёт сеть
   try { saveLocalScripts(); } catch (_) {}
-  if (state.cloud.enabled) {
-    scheduleCloudSave(); // debounce + очередь, без блокировки интерфейса
-    return true;
+  if (!(state.cloud && state.cloud.enabled)) return true;
+  state.cloud.lastLocalWrite = Date.now(); // защита от отката облаком
+  // wait:true — дождаться реальной записи в облако (скрипты для гостей)
+  if (opts && opts.wait) {
+    try {
+      clearTimeout(__cloudDebounce);
+      __pendingFullSave = false;
+      if (typeof enqueueCloud === 'function') {
+        const ok = await enqueueCloud(async () => {
+          if (typeof cloudSave === 'function') return await cloudSave();
+          return false;
+        });
+        return !!ok;
+      }
+      if (typeof cloudSave === 'function') return !!(await cloudSave());
+    } catch (e) {
+      console.warn('saveData wait', e);
+      return false;
+    }
   }
+  scheduleCloudSave(); // debounce + очередь, без блокировки интерфейса
   return true;
 }
 
@@ -23258,6 +23280,8 @@ function startAutoSync() {
       if (!remote) return;
       const remoteAt = Number(remote.updatedAt) || 0;
       const localWrite = Number(state.cloud.lastLocalWrite) || 0;
+      // не откатываем свежие локальные правки (2 мин)
+      if (localWrite && Date.now() - localWrite < 120000) return;
       // чужие изменения только если сервер новее нашей последней записи
       if (remoteAt && localWrite && remoteAt <= localWrite + 1000) return;
 
@@ -32825,14 +32849,15 @@ async function saveNewScript() {
     createdAt: Date.now(), updatedAt: Date.now()
   };
   state.scripts.push(script);
-  const saved = await saveData();
   closeModal();
-  if (saved) {
-    toast('Скрипт создан и отправлен в облако');
-  } else {
-    toast('Скрипт сохранён локально, но в облако не отправлен', 'error');
-  }
+  toast('Сохраняем скрипт в облако…');
   navigate('script', script.id);
+  const saved = await saveData({ wait: true });
+  if (saved) {
+    toast('Скрипт в облаке — гости увидят после обновления');
+  } else {
+    toast('Скрипт только локально. Нажмите «Синхронизировать» в настройках.', 'error');
+  }
 }
 
 function showEditScriptModal(id) {
@@ -32890,14 +32915,15 @@ async function saveEditScript(id) {
   script.content = sanitizeScriptHtml(editor ? editor.innerHTML : '');
   script.plainContent = editor ? editor.textContent : '';
   script.updatedAt = Date.now();
-  const saved = await saveData();
   closeModal();
+  toast('Сохраняем в облако…');
+  render();
+  const saved = await saveData({ wait: true });
   if (saved) {
     toast('Скрипт обновлён в облаке');
   } else {
-    toast('Скрипт обновлён локально, но в облако не отправлен', 'error');
+    toast('Локально ок, облако не приняло — синхронизируйте вручную', 'error');
   }
-  render();
 }
 
 function confirmDeleteScript(id) {
@@ -32913,7 +32939,7 @@ function confirmDeleteScript(id) {
 async function deleteScript(id) {
   if (isCommonAccount()) { toast('Аккаунт «Общая» доступен только для просмотра.', 'error'); return; }
   state.scripts = state.scripts.filter(s => s.id !== id);
-  await saveData();
+  await saveData({ wait: true });
   closeModal();
   toast('Скрипт удалён');
   navigate('scripts');
@@ -34271,11 +34297,12 @@ async function saveSharedOtabotka(id) {
   try {
     if (typeof enqueueCloud === 'function' && typeof cloudSaveExtrasOnly === 'function') {
       await enqueueCloud(async () => {
-        ok = await cloudSaveExtrasOnly();
+        ok = await cloudSaveExtrasOnly({ mode: 'shared' });
+        if (!ok) ok = await cloudSaveExtrasOnly({ mode: 'light' });
         if (!ok && typeof cloudSave === 'function') ok = await cloudSave();
       });
     } else if (typeof cloudSaveExtrasOnly === 'function') {
-      ok = await cloudSaveExtrasOnly();
+      ok = await cloudSaveExtrasOnly({ mode: 'shared' });
     }
   } catch (e) { console.warn(e); }
   toast(ok ? 'Отработка в облаке' : 'Локально ок, облако не ответило — не обновляйте страницу', ok ? undefined : 'error');
@@ -34295,7 +34322,8 @@ async function deleteSharedOtabotka(id) {
   try {
     if (typeof enqueueCloud === 'function' && typeof cloudSaveExtrasOnly === 'function') {
       await enqueueCloud(async () => {
-        let ok = await cloudSaveExtrasOnly();
+        let ok = await cloudSaveExtrasOnly({ mode: 'shared' });
+        if (!ok) ok = await cloudSaveExtrasOnly({ mode: 'light' });
         if (!ok && typeof cloudSave === 'function') await cloudSave();
       });
     }
