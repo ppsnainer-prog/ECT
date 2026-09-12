@@ -18,7 +18,7 @@
  * → Новая версия → Развернуть (URL тот же).
  */
 
-var ECT_API_VERSION = '2.7.18';
+var ECT_API_VERSION = '2.7.21';
 var MAX_CELL = 40000;
 var CHUNK_MARK = '__CHUNKS__:';
 var SCRIPT_HEADERS = ['id', 'title', 'category', 'content', 'plainContent', 'otabotki', 'shtrafy', 'opens', 'createdAt', 'updatedAt', 'extra'];
@@ -334,9 +334,12 @@ function readFromSheets_(scriptsName, chunksName) {
   var cols = Math.max(scriptsSheet.getLastColumn(), SCRIPT_HEADERS.length);
   var values = scriptsSheet.getRange(2, 1, last - 1, cols).getValues();
   var scripts = [];
+  var deleted = readDeletions_().scripts;
   var i;
   for (i = 0; i < values.length; i++) {
     if (!values[i][0]) continue;
+    var sid = String(values[i][0]);
+    if (deleted[sid]) continue;
     scripts.push(rowToScript_(values[i], chunkMap));
   }
   return scripts;
@@ -426,9 +429,92 @@ function flattenExtrasOnto_(out, extras) {
   return out;
 }
 
+
+function getDeletionSheet_() {
+  return getOrCreateSheet_('deletions', ['type', 'id', 'deletedAt']);
+}
+
+function readDeletions_() {
+  var sheet = getSs_().getSheetByName('deletions');
+  var out = { scripts: {}, otabotki: {} };
+  if (!sheet || sheet.getLastRow() < 2) return out;
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 3).getValues();
+  for (var i = 0; i < values.length; i++) {
+    var type = String(values[i][0] || '');
+    var id = String(values[i][1] || '');
+    if (!id) continue;
+    if (type === 'script') out.scripts[id] = Number(values[i][2]) || Date.now();
+    if (type === 'otabotki') out.otabotki[id] = Number(values[i][2]) || Date.now();
+  }
+  return out;
+}
+
+function isDeleted_(type, id) {
+  var d = readDeletions_();
+  var key = (type === 'scripts') ? 'scripts' : (type === 'otabotki' ? 'otabotki' : type);
+  return !!((d[key] || {})[String(id || '')]);
+}
+
+function markDeleted_(type, id) {
+  id = String(id || '');
+  if (!id) throw new Error('delete: id required');
+  var sheet = getDeletionSheet_();
+  var now = Date.now();
+  // update existing marker
+  if (sheet.getLastRow() >= 2) {
+    var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues();
+    for (var i = 0; i < values.length; i++) {
+      if (String(values[i][0] || '') === type && String(values[i][1] || '') === id) {
+        sheet.getRange(i + 2, 3).setValue(now);
+        return now;
+      }
+    }
+  }
+  sheet.appendRow([type, id, now]);
+  return now;
+}
+
+function removeScriptRows_(id) {
+  var ss = getSs_();
+  var sheet = ss.getSheetByName('scripts');
+  if (sheet && sheet.getLastRow() >= 2) {
+    var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+    for (var i = values.length - 1; i >= 0; i--) {
+      if (String(values[i][0] || '') === String(id)) sheet.deleteRow(i + 2);
+    }
+  }
+  var ch = ss.getSheetByName('chunks');
+  if (ch && ch.getLastRow() >= 2) {
+    var vals = ch.getRange(2, 1, ch.getLastRow() - 1, 2).getValues();
+    for (var j = vals.length - 1; j >= 0; j--) {
+      if (String(vals[j][0] || '') === String(id)) ch.deleteRow(j + 2);
+    }
+  }
+}
+
+function removeSharedOtabotki_(id) {
+  var list = readShared_() || [];
+  var removed = false;
+  function walk(arr) {
+    if (!Array.isArray(arr)) return;
+    for (var i = arr.length - 1; i >= 0; i--) {
+      if (String(arr[i] && arr[i].id || '') === String(id)) {
+        arr.splice(i, 1); removed = true; continue;
+      }
+      if (arr[i] && Array.isArray(arr[i].children)) walk(arr[i].children);
+    }
+  }
+  walk(list);
+  if (removed) writeShared_(list);
+  return removed;
+}
+
 function readAll_() {
+  var ssAll = getSs_();
+  var scriptsSheetExists = !!ssAll.getSheetByName('scripts');
   var scripts = readFromSheets_('scripts', 'chunks');
   var extras = readExtras_();
+  var deletions = readDeletions_();
   if (scripts && scripts.length) {
     var meta = {};
     try { meta = JSON.parse(String(dataSheet_().getRange('A1').getValue() || '{}')); } catch (e) {}
@@ -437,7 +523,9 @@ function readAll_() {
       sharedOtabotki: readShared_(),
       updatedAt: meta.updatedAt || Date.now(),
       version: 1,
-      storage: 'rows'
+      storage: 'rows',
+      deletedScriptIds: Object.keys(deletions.scripts || {}),
+      deletedOtabotkiIds: Object.keys(deletions.otabotki || {})
     };
     // flatten extras onto record for client
     if (extras) {
@@ -465,6 +553,20 @@ function readAll_() {
     }
     return out;
   }
+  if (scriptsSheetExists) {
+    var metaEmpty = {};
+    try { metaEmpty = JSON.parse(String(dataSheet_().getRange('A1').getValue() || '{}')); } catch (eEmpty) {}
+    return {
+      scripts: [],
+      sharedOtabotki: readShared_(),
+      updatedAt: metaEmpty.updatedAt || Date.now(),
+      version: 1,
+      storage: 'rows',
+      deletedScriptIds: Object.keys(deletions.scripts || {}),
+      deletedOtabotkiIds: Object.keys(deletions.otabotki || {}),
+      extras: extras || {}
+    };
+  }
   var legacy = readLegacyA1_();
   if (legacy && !legacy.sharedOtabotki) legacy.sharedOtabotki = readShared_();
   if (legacy && extras) {
@@ -481,6 +583,8 @@ function readAll_() {
     if (extras.flappyScores) legacy.flappyScores = extras.flappyScores;
     if (extras.userPerms) legacy.userPerms = extras.userPerms;
   }
+  legacy.deletedScriptIds = Object.keys(deletions.scripts || {});
+  legacy.deletedOtabotkiIds = Object.keys(deletions.otabotki || {});
   return legacy;
 }
 
@@ -493,7 +597,10 @@ function writeRows_(sheet, headers, rows) {
 }
 
 function writeAll_(parsed) {
-  var scripts = parsed.scripts || [];
+  var deleted = readDeletions_().scripts;
+  var scripts = (parsed.scripts || []).filter(function(sc) {
+    return sc && sc.id && !deleted[String(sc.id)];
+  });
   var chunkRows = [];
   var rows = [];
   var i;
@@ -545,6 +652,7 @@ function handleBegin_(parsed) {
 
 function handleUpsert_(script) {
   if (!script || !script.id) throw new Error('upsert: no script.id');
+  if (isDeleted_('scripts', script.id)) return;
   var inbox = getOrCreateSheet_('_inbox', SCRIPT_HEADERS);
   var inboxChunks = getOrCreateSheet_('_inbox_chunks', CHUNK_HEADERS);
   var chunkRows = [];
@@ -1434,6 +1542,34 @@ function doPost(e) {
         boundName: bound && bound.name ? bound.name : '',
         blockedIps: extrasL.blockedIps
       });
+    }
+
+    // Явное удаление с tombstone: старые клиенты не смогут воскресить объект.
+    if (op === 'deleteScript') {
+      var delScriptId = String(parsed.id || '');
+      if (!delScriptId) throw new Error('deleteScript: id required');
+      clearMetaCache_();
+      markDeleted_('script', delScriptId);
+      removeScriptRows_(delScriptId);
+      var metaDel = {};
+      try { metaDel = JSON.parse(String(dataSheet_().getRange('A1').getValue() || '{}')); } catch (_) {}
+      metaDel.updatedAt = Date.now();
+      metaDel.count = (readFromSheets_('scripts', 'chunks') || []).length;
+      dataSheet_().getRange('A1').setValue(JSON.stringify(metaDel));
+      return jsonOut_({ ok: true, op: 'deleteScript', id: delScriptId, updatedAt: metaDel.updatedAt });
+    }
+
+    if (op === 'deleteOtabotki') {
+      var delOtId = String(parsed.id || '');
+      if (!delOtId) throw new Error('deleteOtabotki: id required');
+      clearMetaCache_();
+      markDeleted_('otabotki', delOtId);
+      removeSharedOtabotki_(delOtId);
+      var metaOt = {};
+      try { metaOt = JSON.parse(String(dataSheet_().getRange('A1').getValue() || '{}')); } catch (_) {}
+      metaOt.updatedAt = Date.now();
+      dataSheet_().getRange('A1').setValue(JSON.stringify(metaOt));
+      return jsonOut_({ ok: true, op: 'deleteOtabotki', id: delOtId, updatedAt: metaOt.updatedAt });
     }
 
     // Только extras (цели, авто, справка, звонки-мета, лидерборд) — без перезаписи скриптов

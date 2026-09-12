@@ -5,6 +5,6 @@
  * После изменения: сохранить -> git push -> дождаться GitHub Pages.
  */
 window.ECT_CONFIG = Object.freeze({
-  version: '2.7.18',
+  version: '2.7.21',
   appsScriptUrl: 'https://script.google.com/macros/s/AKfycbxpsNOmwaRLLMAql6XC_owTmDJO52EEskFbUCDCAhExaHLdvvijO17NRvc8kb4sBWopnA/exec'
 });

@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.7.18 — новый URL Apps Script
+ * ЕЦТ Скрипты v2.7.21 — новый URL Apps Script
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -8,7 +8,7 @@
 // app.js и диагностические запросы никогда не расходились.
 const ECT_APPS_SCRIPT_URL = (window.ECT_CONFIG && typeof window.ECT_CONFIG.appsScriptUrl === 'string')
   ? window.ECT_CONFIG.appsScriptUrl.trim()
-  : ECT_APPS_SCRIPT_URL;
+  : '';
 
 const DEFAULT_CARS = [
   {
@@ -21285,6 +21285,20 @@ window.__ECT_GUEST_ENABLED = isGuestLoginEnabled;
 
 /* ========== IP / гости ========== */
 const DEFAULT_SHEETS_URL = ECT_APPS_SCRIPT_URL;
+window.__ECT_CLOUD_HEALTH = async function () {
+  const url = getCloudExecUrl();
+  if (!url) return { ok:false, error:'Нет URL Apps Script' };
+  try {
+    const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'op=health&t=' + Date.now(), {
+      method:'GET', cache:'no-store', credentials:'omit'
+    });
+    const text = await r.text();
+    let data = null; try { data = JSON.parse(text); } catch (_) {}
+    return { ok:r.ok, status:r.status, url:url, data:data, text:text.slice(0,1000) };
+  } catch (e) {
+    return { ok:false, url:url, error:String(e) };
+  }
+};
 let __clientIp = '';
 let __guestWatchTimer = null;
 
@@ -21983,8 +21997,11 @@ function loadLocalSettings() {
       if (c.provider) state.cloud.provider = c.provider;
       if (c.sheetsUrl) {
         state.cloud.sheetsUrl = c.sheetsUrl;
-        // Миграция старого URL из index.html v2.7.17.
-        if (String(state.cloud.sheetsUrl).trim() === 'https://script.google.com/macros/s/AKfycbxk9hWog0sAruR4QRCM0t-oOFJTDvkHoA9mHy12ixT3dKWspy0Q2Pkiy85lJRnt_BlewA/exec') {
+        // Миграция старого URL: localStorage больше не может переопределить
+        // deployment, указанный в config.js. Это устраняет повторный 404 после
+        // обновления GitHub Pages.
+        const storedUrl = String(state.cloud.sheetsUrl).trim();
+        if (!normalizeAppsScriptUrl(storedUrl) || storedUrl !== ECT_APPS_SCRIPT_URL) {
           state.cloud.sheetsUrl = ECT_APPS_SCRIPT_URL;
         }
       }
@@ -21994,6 +22011,12 @@ function loadLocalSettings() {
       state.cloud.useAccessKey = false;
     }
   } catch (e) {}
+  // config.js is the single source of truth for the current deployment.
+  // This also repairs a stale URL saved by an older site version.
+  if (ECT_APPS_SCRIPT_URL && normalizeAppsScriptUrl(ECT_APPS_SCRIPT_URL) &&
+      state.cloud.sheetsUrl !== ECT_APPS_SCRIPT_URL) {
+    state.cloud.sheetsUrl = ECT_APPS_SCRIPT_URL;
+  }
   // дефолтный URL, если не настроен (гости и новые устройства читают облако)
   if (!state.cloud.sheetsUrl || !String(state.cloud.sheetsUrl).includes('script.google.com')) {
     try {
@@ -22324,6 +22347,11 @@ const META_CLIENT_TTL = 12000;
 
 async function cloudFetchOnce(url, opts) {
   const force = !!(opts && opts.force);
+  // После 404 не повторяем запросы бесконечно: это почти всегда мёртвый
+  // deployment, а не временная ошибка сети.
+  if (!force && window.__ectCloud404Until && Date.now() < window.__ectCloud404Until) {
+    throw new Error('HTTP 404 — Apps Script deployment недоступен');
+  }
   // Сначала лёгкий meta (updatedAt) — не качаем весь JSON зря
   try {
     let meta = null;
@@ -22439,6 +22467,8 @@ async function cloudFetch(opts) {
     updateSyncBadge();
     return record;
   } catch (e) {
+    const emsg = String(e && e.message || e || '');
+    if (emsg.includes('404')) window.__ectCloud404Until = Date.now() + 120000;
     console.warn('Cloud fetch error', e);
     // Таймаут на фоне: не красим бейдж в «ошибка», если недавно был ok
     if (quiet && isAbortError(e) && state.cloud.lastSync) {
@@ -22453,6 +22483,9 @@ async function cloudFetch(opts) {
 }
 
 async function postSheets(url, payload, timeoutMs) {
+  if (window.__ectCloud404Until && Date.now() < window.__ectCloud404Until) {
+    throw new Error('HTTP 404 — Apps Script deployment недоступен');
+  }
   const res = await fetchWithTimeout(url, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -22463,6 +22496,9 @@ async function postSheets(url, payload, timeoutMs) {
   }, timeoutMs || 60000);
 
   if (res && res.status === 404) {
+    // 404 фиксируем на 2 минуты, чтобы фоновые save/poll не создавали
+    // десятки одинаковых ошибок в консоли.
+    window.__ectCloud404Until = Date.now() + 120000;
     try {
       state.cloud = state.cloud || {};
       state.cloud.status = 'error';
@@ -22656,6 +22692,21 @@ function applyCloudRecord(remote) {
 
   const preferRemoteArray = (localArr, remoteArr) => mergeByIdPreferNewer(localArr, remoteArr);
 
+  // Server tombstones are authoritative: deleted objects must disappear on every device.
+  if (Array.isArray(remote.deletedScriptIds) && remote.deletedScriptIds.length) {
+    const deleted = new Set(remote.deletedScriptIds.map(String));
+    state.scripts = (state.scripts || []).filter(s => s && !deleted.has(String(s.id)));
+  }
+  if (Array.isArray(remote.deletedOtabotkiIds) && remote.deletedOtabotkiIds.length) {
+    const deleted = new Set(remote.deletedOtabotkiIds.map(String));
+    const filterTree = (items) => (items || []).filter(it => {
+      if (!it || deleted.has(String(it.id))) return false;
+      if (Array.isArray(it.children)) it.children = filterTree(it.children);
+      return true;
+    });
+    state.sharedOtabotki = filterTree(state.sharedOtabotki || []);
+  }
+
   if (Array.isArray(remote.scripts)) {
     const next = mergeByIdPreferNewer(state.scripts, remote.scripts);
     const remoteHaveTitles = (remote.scripts || []).some(s => s && String(s.title || '').trim());
@@ -22678,8 +22729,9 @@ function applyCloudRecord(remote) {
     } else {
       // merge по id: берём более свежий updatedAt; локальные новые id сохраняем
       const byId = new Map();
+      const deletedShared = new Set((remote.deletedOtabotkiIds || []).map(String));
       (remote.sharedOtabotki || []).forEach(o => {
-        if (o && o.id) byId.set(o.id, o);
+        if (o && o.id && !deletedShared.has(String(o.id))) byId.set(o.id, o);
       });
       (state.sharedOtabotki || []).forEach(o => {
         if (!o || !o.id) return;
@@ -23021,11 +23073,8 @@ function scheduleCloudExtrasSave() {
 async function cloudSave() {
   if (typeof isCommonAccount === 'function' && isCommonAccount()) return false;
   if (!state.cloud || !state.cloud.enabled) return false;
-  if (!Array.isArray(state.scripts) || state.scripts.length === 0) {
-    console.warn('cloudSave aborted: empty scripts');
-    state.cloud.status = 'error';
-    try { updateSyncBadge(); } catch (_) {}
-    return false;
+  if (!Array.isArray(state.scripts)) {
+    state.scripts = [];
   }
   state.cloud.status = 'syncing';
   try { updateSyncBadge(); } catch (_) {}
@@ -32987,9 +33036,27 @@ function confirmDeleteScript(id) {
 async function deleteScript(id) {
   if (isCommonAccount()) { toast('Аккаунт «Общая» доступен только для просмотра.', 'error'); return; }
   state.scripts = state.scripts.filter(s => s.id !== id);
-  await saveData({ wait: true });
+  saveLocalScripts();
+  let cloudOk = false;
+  try {
+    const url = getCloudExecUrl();
+    if (url) {
+      const posted = await postSheets(url, { op: 'deleteScript', id: id, updatedAt: Date.now() }, 30000);
+      cloudOk = !!(posted && posted.json && posted.json.ok);
+    }
+  } catch (e) {
+    console.warn('deleteScript cloud', e);
+  }
+  if (cloudOk) {
+    state.cloud.lastLocalWrite = Date.now();
+    state.cloud.lastRemoteUpdatedAt = Date.now();
+    state.cloud.status = 'ok';
+    try { updateSyncBadge(); } catch (_) {}
+  } else {
+    await saveData({ wait: true });
+  }
   closeModal();
-  toast('Скрипт удалён');
+  toast(cloudOk ? 'Скрипт удалён у всех пользователей' : 'Скрипт удалён локально; облако не подтвердило удаление', cloudOk ? undefined : 'error');
   navigate('scripts');
 }
 
@@ -33188,8 +33255,22 @@ async function deleteItem(scriptId, type, itemId) {
       return false;
     };
     if (!(script.otabotkiIds || []).includes(itemId)) {
-      // возможно вложенная
+      // возможно вложенная / глобальная библиотека
       removeChild(state.sharedOtabotki);
+    }
+    try {
+      const url = getCloudExecUrl();
+      if (url) {
+        const posted = await postSheets(url, { op: 'deleteOtabotki', id: itemId, updatedAt: Date.now() }, 30000);
+        if (posted && posted.json && posted.json.ok) {
+          state.cloud.lastLocalWrite = Date.now();
+          state.cloud.lastRemoteUpdatedAt = Date.now();
+        } else {
+          await cloudSaveExtrasOnly({ mode: 'shared' });
+        }
+      }
+    } catch (e) {
+      console.warn('deleteOtabotki cloud', e);
     }
   } else {
     const found = findInTree(script[type] || [], itemId);

@@ -215,8 +215,8 @@
   <!-- Toast -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="config.js"></script>
-<script src="app.js"></script>
+  <script src="config.js?v=2.7.21"></script>
+<script src="app.js?v=2.7.21"></script>
 <script>
 (function () {
   // В index.html больше нет паролей в открытом виде.
@@ -507,7 +507,7 @@
           if (c && c.sheetsUrl && String(c.sheetsUrl).indexOf('script.google.com') >= 0) return c.sheetsUrl;
         }
       } catch (_) {}
-      return (window.ECT_CONFIG && window.ECT_CONFIG.appsScriptUrl) || "https://script.google.com/macros/s/AKfycbxpsNOmwaRLLMAql6XC_owTmDJO52EEskFbUCDCAhExaHLdvvijO17NRvc8kb4sBWopnA/exec";
+      return (window.ECT_CONFIG && window.ECT_CONFIG.appsScriptUrl) || "";
     }
     
     function sheetsUrlIndex() {
@@ -518,24 +518,14 @@
           if (c && c.sheetsUrl) return c.sheetsUrl;
         }
       } catch (_) {}
-      return (window.ECT_CONFIG && window.ECT_CONFIG.appsScriptUrl) || "https://script.google.com/macros/s/AKfycbxpsNOmwaRLLMAql6XC_owTmDJO52EEskFbUCDCAhExaHLdvvijO17NRvc8kb4sBWopnA/exec";
+      return (window.ECT_CONFIG && window.ECT_CONFIG.appsScriptUrl) || "";
     }
 function pullGuestFlagFromCloud() {
-      var url = getSheetsUrlForGuestFlag();
-      if (!url) return Promise.resolve();
-      var metaUrl = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'op=meta&_=' + Date.now();
-      return fetch(metaUrl, { method: 'GET', mode: 'cors', credentials: 'omit', cache: 'no-store' })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (meta) {
-          if (!meta || typeof meta.guestLoginEnabled !== 'boolean') return;
-          try {
-            localStorage.setItem('ect_guest_login_enabled', meta.guestLoginEnabled ? '1' : '0');
-          } catch (_) {}
-          updateGuestBtnVisibility();
-        })
-        .catch(function () {});
+      // Cloud sync is owned by app.js after configuration is loaded.
+      // Avoid a second, pre-login request that can race with deployment migration.
+      return Promise.resolve();
     }
-    
+
     function enterAsGuest() {
       if (!isGuestLoginEnabled()) {
         setMessage('Вход гостей временно отключён администратором');
