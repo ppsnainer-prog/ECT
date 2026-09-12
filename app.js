@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.7.21 — новый URL Apps Script
+ * ЕЦТ Скрипты v2.7.22 — новый URL Apps Script
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -21309,17 +21309,15 @@ function normalizeAppsScriptUrl(value) {
 }
 
 function getCloudExecUrl() {
+  // Единственный источник правды — config.js (ECT_APPS_SCRIPT_URL).
+  // localStorage со старым URL больше не может вернуть 404-деплой.
+  if (typeof ECT_APPS_SCRIPT_URL === 'string') {
+    const forced = normalizeAppsScriptUrl(ECT_APPS_SCRIPT_URL);
+    if (forced) return forced;
+  }
   const stateUrl = normalizeAppsScriptUrl(state.cloud && state.cloud.sheetsUrl);
   if (stateUrl) return stateUrl;
-  try {
-    const raw = localStorage.getItem('ect_cloud_cfg_v1');
-    if (raw) {
-      const c = JSON.parse(raw);
-      const stored = normalizeAppsScriptUrl(c && c.sheetsUrl);
-      if (stored) return stored;
-    }
-  } catch (_) {}
-  return DEFAULT_SHEETS_URL;
+  return DEFAULT_SHEETS_URL || '';
 }
 
 async function detectClientIp() {
@@ -22011,11 +22009,18 @@ function loadLocalSettings() {
       state.cloud.useAccessKey = false;
     }
   } catch (e) {}
-  // config.js is the single source of truth for the current deployment.
-  // This also repairs a stale URL saved by an older site version.
-  if (ECT_APPS_SCRIPT_URL && normalizeAppsScriptUrl(ECT_APPS_SCRIPT_URL) &&
-      state.cloud.sheetsUrl !== ECT_APPS_SCRIPT_URL) {
+  // config.js — единственный источник правды для URL
+  if (ECT_APPS_SCRIPT_URL && normalizeAppsScriptUrl(ECT_APPS_SCRIPT_URL)) {
     state.cloud.sheetsUrl = ECT_APPS_SCRIPT_URL;
+    try {
+      localStorage.setItem(CLOUD_CFG_KEY, JSON.stringify({
+        provider: 'sheets',
+        sheetsUrl: ECT_APPS_SCRIPT_URL,
+        binId: state.cloud.binId || '',
+        apiKey: state.cloud.apiKey || '',
+        private: !!state.cloud.private
+      }));
+    } catch (_) {}
   }
   // дефолтный URL, если не настроен (гости и новые устройства читают облако)
   if (!state.cloud.sheetsUrl || !String(state.cloud.sheetsUrl).includes('script.google.com')) {
@@ -22347,11 +22352,11 @@ const META_CLIENT_TTL = 12000;
 
 async function cloudFetchOnce(url, opts) {
   const force = !!(opts && opts.force);
-  // После 404 не повторяем запросы бесконечно: это почти всегда мёртвый
-  // deployment, а не временная ошибка сети.
-  if (!force && window.__ectCloud404Until && Date.now() < window.__ectCloud404Until) {
-    throw new Error('HTTP 404 — Apps Script deployment недоступен');
-  }
+  // URL всегда из config.js
+  try {
+    const forced = typeof getCloudExecUrl === 'function' ? getCloudExecUrl() : '';
+    if (forced) url = forced;
+  } catch (_) {}
   // Сначала лёгкий meta (updatedAt) — не качаем весь JSON зря
   try {
     let meta = null;
@@ -22468,8 +22473,7 @@ async function cloudFetch(opts) {
     return record;
   } catch (e) {
     const emsg = String(e && e.message || e || '');
-    if (emsg.includes('404')) window.__ectCloud404Until = Date.now() + 120000;
-    console.warn('Cloud fetch error', e);
+        console.warn('Cloud fetch error', e);
     // Таймаут на фоне: не красим бейдж в «ошибка», если недавно был ok
     if (quiet && isAbortError(e) && state.cloud.lastSync) {
       state.cloud.status = 'ok';
@@ -22483,22 +22487,30 @@ async function cloudFetch(opts) {
 }
 
 async function postSheets(url, payload, timeoutMs) {
-  if (window.__ectCloud404Until && Date.now() < window.__ectCloud404Until) {
-    throw new Error('HTTP 404 — Apps Script deployment недоступен');
-  }
-  const res = await fetchWithTimeout(url, {
+  // Всегда предпочитаем URL из config.js
+  try {
+    const forced = typeof getCloudExecUrl === 'function' ? getCloudExecUrl() : '';
+    if (forced) url = forced;
+  } catch (_) {}
+
+  const doFetch = async () => fetchWithTimeout(url, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(payload),
     redirect: 'follow',
     mode: 'cors',
-    credentials: 'omit'
+    credentials: 'omit',
+    cache: 'no-store'
   }, timeoutMs || 60000);
 
+  let res = await doFetch();
+  // один повтор при 404/502/503 — у Google usercontent бывает краткий сбой
+  if (res && (res.status === 404 || res.status === 502 || res.status === 503)) {
+    await new Promise(r => setTimeout(r, 1200));
+    res = await doFetch();
+  }
+
   if (res && res.status === 404) {
-    // 404 фиксируем на 2 минуты, чтобы фоновые save/poll не создавали
-    // десятки одинаковых ошибок в консоли.
-    window.__ectCloud404Until = Date.now() + 120000;
     try {
       state.cloud = state.cloud || {};
       state.cloud.status = 'error';
@@ -22507,10 +22519,17 @@ async function postSheets(url, payload, timeoutMs) {
       const now = Date.now();
       if (!window.__ect404ToastAt || now - window.__ect404ToastAt > 60000) {
         window.__ect404ToastAt = now;
-        toast('Облако 404: в Настройках вставьте актуальный URL веб-приложения (/exec) и синхронизируйте.', 'error');
+        toast('Облако 404: проверьте развёртывание Apps Script (доступ «Все») и обновите страницу Ctrl+F5.', 'error');
       }
     } catch (_) {}
     throw new Error('HTTP 404 — неверный URL Apps Script');
+  }
+
+  // успешный ответ снимает «ошибку»
+  if (res && res.ok) {
+    try {
+      if (state.cloud && state.cloud.lastError === '404') state.cloud.lastError = '';
+    } catch (_) {}
   }
 
   let json = null;
@@ -22940,7 +22959,7 @@ async function cloudSaveExtrasOnly(opts) {
   if (typeof isCommonAccount === 'function' && isCommonAccount()) return false;
   if (!state.cloud || !state.cloud.enabled) return false;
   if (state.cloud.provider !== 'sheets') return false;
-  const url = (state.cloud.sheetsUrl || '').trim();
+  const url = (typeof getCloudExecUrl === 'function' ? getCloudExecUrl() : (state.cloud.sheetsUrl || '')).trim();
   if (!url) return false;
   const mode = (opts && opts.mode) || 'full'; // full | shared | light
   try {
