@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.7.15 — порционное сохранение, синк восстановлен
+ * ЕЦТ Скрипты v2.7.16 — защита от отката при 404 облака, merge скриптов
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -22602,20 +22602,45 @@ function applyCloudRecord(remote) {
   if (!remote || typeof remote !== 'object') return false;
   let applied = false;
 
-  // Не затираем локальные данные пустым ответом облака
-  const preferRemoteArray = (localArr, remoteArr) => {
+  // Не затираем локальные данные пустым/урезанным ответом облака
+  const localWrite = Number(state.cloud && state.cloud.lastLocalWrite) || 0;
+  const recentLocal = localWrite && (Date.now() - localWrite < 180000);
+
+  const mergeByIdPreferNewer = (localArr, remoteArr) => {
     if (!Array.isArray(remoteArr)) return localArr;
     if (!remoteArr.length && Array.isArray(localArr) && localArr.length) return localArr;
-    return remoteArr;
+    // свежие локальные правки и локально не меньше — не откатываем
+    if (recentLocal && Array.isArray(localArr) && localArr.length >= remoteArr.length) {
+      return localArr;
+    }
+    const byId = new Map();
+    (remoteArr || []).forEach(x => { if (x && x.id) byId.set(String(x.id), x); });
+    (localArr || []).forEach(x => {
+      if (!x || !x.id) return;
+      const id = String(x.id);
+      const r = byId.get(id);
+      if (!r) {
+        // локальный id, которого нет в облаке — сохраняем при недавней записи
+        if (recentLocal) byId.set(id, x);
+        return;
+      }
+      const rt = Number(r.updatedAt) || 0;
+      const lt = Number(x.updatedAt) || 0;
+      if (lt >= rt) byId.set(id, x);
+    });
+    return Array.from(byId.values());
   };
 
+  const preferRemoteArray = (localArr, remoteArr) => mergeByIdPreferNewer(localArr, remoteArr);
+
   if (Array.isArray(remote.scripts)) {
-    const next = preferRemoteArray(state.scripts, remote.scripts);
-    // если в облаке скрипты без названий, а локально с названиями — не откатываем
+    const next = mergeByIdPreferNewer(state.scripts, remote.scripts);
     const remoteHaveTitles = (remote.scripts || []).some(s => s && String(s.title || '').trim());
     const localHaveTitles = (state.scripts || []).some(s => s && String(s.title || '').trim());
     if (remote.scripts.length && (!remoteHaveTitles && localHaveTitles)) {
       /* keep local scripts */
+    } else if (recentLocal && (state.scripts || []).length > (remote.scripts || []).length) {
+      /* keep local — облако отстаёт */
     } else {
       state.scripts = next;
       applied = true;
@@ -28269,7 +28294,7 @@ function renderHome() {
                   <span class="home-row-title">${escapeHtml(shortTitle(s.title || s.name || "Без названия", 90))}</span>
                   <span class="home-row-meta">
                     ${s.category ? `<span class="badge badge-primary">${escapeHtml(s.category)}</span>` : ''}
-                    ${(s.otabotkiIds || []).length ? `<span class="badge badge-teal">🔄 ${(s.otabotkiIds || []).length}</span>` : ''}
+                    ${(function(){ const n=(s.otabotkiIds||[]).filter(id=>typeof getLibOtabotka==='function'&&getLibOtabotka(id)).length; return n?`<span class="badge badge-teal">🔄 ${n}</span>`:''; })()}
                     ${(s.opens || 0) ? `<span class="badge">👁 ${s.opens}</span>` : ''}
                   </span>
                 </button>
