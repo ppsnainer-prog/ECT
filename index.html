@@ -215,15 +215,18 @@
   <!-- Toast -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="app.js"></script>
+  <script src="config.js"></script>
+<script src="app.js"></script>
 <script>
 (function () {
+  // В index.html больше нет паролей в открытом виде.
+// Это SHA-256 тех же паролей; пароль проверяется локально по хэшу.
   const USERS = {
-    "Александр": "Ect-A7!Kp29",
-    "Айнур": "Ect-N4@vL83",
-    "Илья": "Ect-I6#rT41",
-    "Екатерина": "Ect-E9$zQ57",
-    "Общая": "Ect-C3!mR72"
+    "Александр": "c5462988bb257279b044955b10dbf91c2ca52d554fbee6420e0417bb19885bcd",
+    "Айнур": "4469046f17cb23745587338fc1cc3abdf03ec46a5be90c897dd12a4c572b2141",
+    "Илья": "20382b54089ec59d6fb16d96a1564584ddf84e6a3ae25f32c6386a4452b755d7",
+    "Екатерина": "08d3aaa39c7f45b481909dda7e0494f5f4a21b126ef1aa5405e3d0e5e20379c5",
+    "Общая": "a555c6ff72cb2148406184ce4c9326e2f85f8ede4b5ec6cd32cc5ba06317ab48"
   };
 
   function setMessage(text) {
@@ -374,8 +377,8 @@
           const overrides = JSON.parse(localStorage.getItem("ect_team_pass_overrides_v1") || "{}");
           hasOverride = !!(overrides && overrides[user]);
         } catch (_) {}
-        const expectedPlain = USERS[user];
-        if (!hasOverride && expectedPlain && (passTry === expectedPlain || password === expectedPlain)) {
+        const expectedHash = USERS[user];
+        if (!hasOverride && expectedHash && hash && hash === expectedHash) {
           ok = true;
         }
       }
@@ -504,7 +507,7 @@
           if (c && c.sheetsUrl && String(c.sheetsUrl).indexOf('script.google.com') >= 0) return c.sheetsUrl;
         }
       } catch (_) {}
-      return "https://script.google.com/macros/s/AKfycbxk9hWog0sAruR4QRCM0t-oOFJTDvkHoA9mHy12ixT3dKWspy0Q2Pkiy85lJRnt_BlewA/exec";
+      return (window.ECT_CONFIG && window.ECT_CONFIG.appsScriptUrl) || "https://script.google.com/macros/s/AKfycbxpsNOmwaRLLMAql6XC_owTmDJO52EEskFbUCDCAhExaHLdvvijO17NRvc8kb4sBWopnA/exec";
     }
     
     function sheetsUrlIndex() {
@@ -515,7 +518,7 @@
           if (c && c.sheetsUrl) return c.sheetsUrl;
         }
       } catch (_) {}
-      return "https://script.google.com/macros/s/AKfycbxk9hWog0sAruR4QRCM0t-oOFJTDvkHoA9mHy12ixT3dKWspy0Q2Pkiy85lJRnt_BlewA/exec";
+      return (window.ECT_CONFIG && window.ECT_CONFIG.appsScriptUrl) || "https://script.google.com/macros/s/AKfycbxpsNOmwaRLLMAql6XC_owTmDJO52EEskFbUCDCAhExaHLdvvijO17NRvc8kb4sBWopnA/exec";
     }
 function pullGuestFlagFromCloud() {
       var url = getSheetsUrlForGuestFlag();

@@ -18,6 +18,7 @@
  * → Новая версия → Развернуть (URL тот же).
  */
 
+var ECT_API_VERSION = '2.7.18';
 var MAX_CELL = 40000;
 var CHUNK_MARK = '__CHUNKS__:';
 var SCRIPT_HEADERS = ['id', 'title', 'category', 'content', 'plainContent', 'otabotki', 'shtrafy', 'opens', 'createdAt', 'updatedAt', 'extra'];
@@ -138,10 +139,10 @@ function writeShared_(list) {
       chunksSheet.getRange(2, 1, rows.length, 2).setValues(rows);
     }
   }
-  try { backupAllTextData_('writeShared'); } catch (eB) {}
+  /* backup только вручную / по расписанию */
 }
 
-function readShared_function readShared_() {
+function readShared_() {
   var sheet = dataSheet_();
   var raw = String(sheet.getRange('E1').getValue() || '');
   if (!raw) return [];
@@ -363,7 +364,7 @@ function writeExtras_(obj) {
       chunksSheet.getRange(2, 1, rows.length, 2).setValues(rows);
     }
   }
-  try { backupAllTextData_('writeExtras'); } catch (eB) {}
+  /* backup только вручную / по расписанию */
 }
 
 function readChunkSheet_(sheetName) {
@@ -503,12 +504,21 @@ function writeAll_(parsed) {
   var chunksSheet = getOrCreateSheet_('chunks', CHUNK_HEADERS);
   writeRows_(scriptsSheet, SCRIPT_HEADERS, rows);
   writeRows_(chunksSheet, CHUNK_HEADERS, chunkRows);
-  writeMeta_({
+  // ВАЖНО: не передаём shared/extras если их нет в пакете —
+  // иначе порционный commit затирает отработки и справку пустыми данными
+  var meta = {
     count: scripts.length,
     updatedAt: parsed.updatedAt || Date.now(),
-    pending: false,
-    sharedOtabotki: parsed.sharedOtabotki || [],
-    extras: parsed.extras || {
+    pending: false
+  };
+  if (parsed.sharedOtabotki !== undefined) {
+    meta.sharedOtabotki = parsed.sharedOtabotki;
+  }
+  if (parsed.extras !== undefined) {
+    meta.extras = parsed.extras;
+  } else if (parsed.cars !== undefined || parsed.calls !== undefined || parsed.refInfo !== undefined ||
+             parsed.goalsStore !== undefined || parsed.leaderboardManual !== undefined) {
+    meta.extras = {
       cars: parsed.cars,
       calls: parsed.calls,
       goalsStore: parsed.goalsStore,
@@ -516,8 +526,9 @@ function writeAll_(parsed) {
       leaderboardManual: parsed.leaderboardManual,
       leaderboardSettings: parsed.leaderboardSettings,
       sharedPenalties: parsed.sharedPenalties
-    }
-  });
+    };
+  }
+  writeMeta_(meta);
 }
 
 function handleBegin_(parsed) {
@@ -646,6 +657,16 @@ function saveTextBackup_(baseName, obj, keepLatest) {
     try { Logger.log('saveTextBackup_ ' + baseName + ': ' + e); } catch (e2) {}
     return false;
   }
+}
+
+function maybeBackupTextData_(reason) {
+  try {
+    var cache = CacheService.getScriptCache();
+    var key = 'ect_backup_throttle';
+    if (cache.get(key)) return { ok: true, skipped: true };
+    cache.put(key, '1', 300); // не чаще раза в 5 минут
+  } catch (e) {}
+  return backupAllTextData_(reason);
 }
 
 function backupAllTextData_(reason) {
@@ -1048,6 +1069,24 @@ function doGet(e) {
   try {
     if (e && e.parameter && e.parameter.op === 'mediaInfo') {
       return jsonOut_(handleMediaInfo_());
+    }
+    // Диагностика развёртывания: не меняет данные.
+    if (e && e.parameter && e.parameter.op === 'health') {
+      var health = {
+        ok: true,
+        service: 'ECT Apps Script',
+        version: ECT_API_VERSION,
+        timestamp: Date.now()
+      };
+      try {
+        var ssHealth = getSs_();
+        health.spreadsheetId = ssHealth.getId();
+        health.spreadsheetName = ssHealth.getName();
+      } catch (healthErr) {
+        health.ok = false;
+        health.error = String(healthErr);
+      }
+      return jsonOut_(health);
     }
     // Лёгкая проверка «есть ли изменения» без чтения всех скриптов
     if (e && e.parameter && e.parameter.op === 'meta') {

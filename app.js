@@ -1,8 +1,14 @@
 /**
- * ЕЦТ Скрипты v2.7.17 — новый URL Apps Script
+ * ЕЦТ Скрипты v2.7.18 — новый URL Apps Script
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
+
+// Центральная конфигурация. URL Apps Script хранится в config.js, чтобы index.html,
+// app.js и диагностические запросы никогда не расходились.
+const ECT_APPS_SCRIPT_URL = (window.ECT_CONFIG && typeof window.ECT_CONFIG.appsScriptUrl === 'string')
+  ? window.ECT_CONFIG.appsScriptUrl.trim()
+  : ECT_APPS_SCRIPT_URL;
 
 const DEFAULT_CARS = [
   {
@@ -21087,7 +21093,7 @@ let state = {
     enabled: true,
     provider: 'sheets', // 'sheets' | 'jsonbin'
     // Google Apps Script web app URL
-    sheetsUrl: 'https://script.google.com/macros/s/AKfycbxpsNOmwaRLLMAql6XC_owTmDJO52EEskFbUCDCAhExaHLdvvijO17NRvc8kb4sBWopnA/exec',
+    sheetsUrl: ECT_APPS_SCRIPT_URL,
     // legacy JSONBin (опционально)
     binId: '',
     apiKey: '',
@@ -21278,18 +21284,25 @@ function isGuestUser(name) {
 window.__ECT_GUEST_ENABLED = isGuestLoginEnabled;
 
 /* ========== IP / гости ========== */
-const DEFAULT_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxpsNOmwaRLLMAql6XC_owTmDJO52EEskFbUCDCAhExaHLdvvijO17NRvc8kb4sBWopnA/exec';
+const DEFAULT_SHEETS_URL = ECT_APPS_SCRIPT_URL;
 let __clientIp = '';
 let __guestWatchTimer = null;
 
+function normalizeAppsScriptUrl(value) {
+  const u = String(value || '').trim();
+  if (!u || !/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec(?:\?.*)?$/.test(u)) return '';
+  return u;
+}
+
 function getCloudExecUrl() {
-  const u = (state.cloud && state.cloud.sheetsUrl || '').trim();
-  if (u && u.includes('script.google.com')) return u;
+  const stateUrl = normalizeAppsScriptUrl(state.cloud && state.cloud.sheetsUrl);
+  if (stateUrl) return stateUrl;
   try {
     const raw = localStorage.getItem('ect_cloud_cfg_v1');
     if (raw) {
       const c = JSON.parse(raw);
-      if (c && c.sheetsUrl && String(c.sheetsUrl).includes('script.google.com')) return String(c.sheetsUrl).trim();
+      const stored = normalizeAppsScriptUrl(c && c.sheetsUrl);
+      if (stored) return stored;
     }
   } catch (_) {}
   return DEFAULT_SHEETS_URL;
@@ -21968,7 +21981,13 @@ function loadLocalSettings() {
     if (rawC) {
       const c = JSON.parse(rawC);
       if (c.provider) state.cloud.provider = c.provider;
-      if (c.sheetsUrl) state.cloud.sheetsUrl = c.sheetsUrl;
+      if (c.sheetsUrl) {
+        state.cloud.sheetsUrl = c.sheetsUrl;
+        // Миграция старого URL из index.html v2.7.17.
+        if (String(state.cloud.sheetsUrl).trim() === 'https://script.google.com/macros/s/AKfycbxk9hWog0sAruR4QRCM0t-oOFJTDvkHoA9mHy12ixT3dKWspy0Q2Pkiy85lJRnt_BlewA/exec') {
+          state.cloud.sheetsUrl = ECT_APPS_SCRIPT_URL;
+        }
+      }
       if (c.binId) state.cloud.binId = c.binId;
       if (c.apiKey) state.cloud.apiKey = c.apiKey;
       if (c.private !== undefined) state.cloud.private = c.private;
@@ -22449,7 +22468,11 @@ async function postSheets(url, payload, timeoutMs) {
       state.cloud.status = 'error';
       state.cloud.lastError = '404';
       updateSyncBadge();
-      toast('Облако 404: откройте Apps Script → Развернуть → скопируйте URL /exec и вставьте в Админ → облако.', 'error');
+      const now = Date.now();
+      if (!window.__ect404ToastAt || now - window.__ect404ToastAt > 60000) {
+        window.__ect404ToastAt = now;
+        toast('Облако 404: в Настройках вставьте актуальный URL веб-приложения (/exec) и синхронизируйте.', 'error');
+      }
     } catch (_) {}
     throw new Error('HTTP 404 — неверный URL Apps Script');
   }
