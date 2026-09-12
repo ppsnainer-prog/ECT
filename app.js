@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.7.22 — новый URL Apps Script
+ * ЕЦТ Скрипты v2.7.24 — новый URL Apps Script
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -21172,10 +21172,19 @@ function persistExtraUsers() {
 
 /** Подтянуть extraUsers из облака (для списка входа на любом ПК) */
 async function pullExtraUsersFromCloud() {
+  // Отключено как отдельный full-GET: дублировал cloudFetch и усиливал 404.
+  // extraUsers подтягиваются в applyCloudRecord при обычной синхронизации.
+  return false;
   const url = (typeof getCloudExecUrl === 'function' ? getCloudExecUrl() : (state.cloud && state.cloud.sheetsUrl || '')).trim();
   if (!url || !url.includes('script.google.com')) return false;
   try {
-    const res = await fetchWithTimeout(url, { method: 'GET' }, 20000);
+    if (typeof __cloudBusy !== 'undefined' && __cloudBusy) return false;
+    if (window.__ectPullUsersAt && Date.now() - window.__ectPullUsersAt < 60000) return false;
+    window.__ectPullUsersAt = Date.now();
+  } catch (_) {}
+  try {
+    if (typeof __cloudBusy !== 'undefined' && __cloudBusy) return false;
+    const res = await fetchWithTimeout(url, { method: 'GET', cache: 'no-store' }, 45000);
     if (!res.ok) return false;
     const json = await res.json();
     const record = (json && (json.record || json)) || {};
@@ -21306,6 +21315,37 @@ function normalizeAppsScriptUrl(value) {
   const u = String(value || '').trim();
   if (!u || !/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec(?:\?.*)?$/.test(u)) return '';
   return u;
+}
+
+
+/** Пауза фонового облака после серии 404 (не блокирует навсегда) */
+window.__ectCloudFailStreak = window.__ectCloudFailStreak || 0;
+window.__ectCloudPauseUntil = window.__ectCloudPauseUntil || 0;
+
+function ectCloudPaused() {
+  return Date.now() < (window.__ectCloudPauseUntil || 0);
+}
+
+function ectCloudNoteSuccess() {
+  window.__ectCloudFailStreak = 0;
+  window.__ectCloudPauseUntil = 0;
+}
+
+function ectCloudNote404() {
+  window.__ectCloudFailStreak = (window.__ectCloudFailStreak || 0) + 1;
+  if (window.__ectCloudFailStreak >= 3) {
+    window.__ectCloudPauseUntil = Date.now() + 5 * 60 * 1000; // 5 мин фон
+    try {
+      state.cloud = state.cloud || {};
+      state.cloud.status = 'error';
+      updateSyncBadge();
+      const now = Date.now();
+      if (!window.__ect404BannerAt || now - window.__ect404BannerAt > 120000) {
+        window.__ect404BannerAt = now;
+        toast('Облако Google недоступно (404). Работаем локально 5 мин. Создайте НОВЫЙ проект Apps Script — см. инструкцию.', 'error');
+      }
+    } catch (_) {}
+  }
 }
 
 function getCloudExecUrl() {
@@ -22352,7 +22392,9 @@ const META_CLIENT_TTL = 12000;
 
 async function cloudFetchOnce(url, opts) {
   const force = !!(opts && opts.force);
-  // URL всегда из config.js
+  if (!force && typeof ectCloudPaused === 'function' && ectCloudPaused()) {
+    throw new Error('HTTP 404 — облако на паузе после серии ошибок');
+  }
   try {
     const forced = typeof getCloudExecUrl === 'function' ? getCloudExecUrl() : '';
     if (forced) url = forced;
@@ -22487,11 +22529,15 @@ async function cloudFetch(opts) {
 }
 
 async function postSheets(url, payload, timeoutMs) {
-  // Всегда предпочитаем URL из config.js
   try {
     const forced = typeof getCloudExecUrl === 'function' ? getCloudExecUrl() : '';
     if (forced) url = forced;
   } catch (_) {}
+
+  // фон на паузе — не долбим Google; ручные save с force всё равно могут вызвать
+  if (ectCloudPaused() && !(payload && payload.__force)) {
+    throw new Error('HTTP 404 — облако на паузе после серии ошибок');
+  }
 
   const doFetch = async () => fetchWithTimeout(url, {
     method: 'POST',
@@ -22501,35 +22547,28 @@ async function postSheets(url, payload, timeoutMs) {
     mode: 'cors',
     credentials: 'omit',
     cache: 'no-store'
-  }, timeoutMs || 60000);
+  }, timeoutMs || 45000);
 
-  let res = await doFetch();
-  // один повтор при 404/502/503 — у Google usercontent бывает краткий сбой
-  if (res && (res.status === 404 || res.status === 502 || res.status === 503)) {
-    await new Promise(r => setTimeout(r, 1200));
+  let res;
+  try {
     res = await doFetch();
+  } catch (e) {
+    throw e;
   }
 
   if (res && res.status === 404) {
+    ectCloudNote404();
     try {
       state.cloud = state.cloud || {};
       state.cloud.status = 'error';
       state.cloud.lastError = '404';
       updateSyncBadge();
-      const now = Date.now();
-      if (!window.__ect404ToastAt || now - window.__ect404ToastAt > 60000) {
-        window.__ect404ToastAt = now;
-        toast('Облако 404: проверьте развёртывание Apps Script (доступ «Все») и обновите страницу Ctrl+F5.', 'error');
-      }
     } catch (_) {}
     throw new Error('HTTP 404 — неверный URL Apps Script');
   }
 
-  // успешный ответ снимает «ошибку»
   if (res && res.ok) {
-    try {
-      if (state.cloud && state.cloud.lastError === '404') state.cloud.lastError = '';
-    } catch (_) {}
+    try { ectCloudNoteSuccess(); } catch (_) {}
   }
 
   let json = null;
@@ -22570,7 +22609,8 @@ async function cloudSaveChunked(url, scripts, updatedAt) {
     pack('otabotki', copy.otabotki, true);
     pack('shtrafy', copy.shtrafy, true);
 
-    const up = await postSheets(url, { op: 'upsert', script: copy }, 60000);
+    const up = await postSheets(url, { op: 'upsert', script: copy }, 30000);
+    if (up.res && up.res.status === 404) throw new Error('HTTP 404 — неверный URL Apps Script');
     if (up.json && up.json.ok === false) throw new Error(up.json.error || 'upsert failed');
     for (const ch of pendingChunks) {
       const cr = await postSheets(url, ch, 60000);
@@ -23363,7 +23403,7 @@ async function testCloudConnection() {
 function startPresenceHeartbeat() {
   stopPresenceHeartbeat();
   sendPresenceHeartbeat();
-  presenceTimer = setInterval(sendPresenceHeartbeat, 40000);
+  presenceTimer = setInterval(sendPresenceHeartbeat, 90000);
 }
 
 function stopPresenceHeartbeat() {
@@ -23444,7 +23484,7 @@ function startAutoSync() {
         render();
       }
     });
-  }, 90000);
+  }, 180000);
 }
 
 function stopAutoSync() {
