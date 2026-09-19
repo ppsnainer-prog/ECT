@@ -4260,10 +4260,3 @@ textarea:focus {
 }
 
 
-/* Внешний автокаталог */
-.car-card-external {
-  border: 1px dashed rgba(59, 130, 246, 0.45);
-}
-.car-card-external .car-card-body:hover {
-  border-color: rgba(59, 130, 246, 0.7);
-}
