@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.7.24 — новый URL Apps Script
+ * ЕЦТ Скрипты v2.7.28 — новый URL Apps Script
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -21047,6 +21047,9 @@ let state = {
   catalogBrand: '',
   catalogBody: '',
   catalogCountry: '',
+  catalogExternal: [],
+  catalogExternalLoading: false,
+  catalogExternalError: '',
   leaderboardSettings: { viewCanSee: false },
   leaderboardManual: [],
   flappyScores: {},
@@ -25001,7 +25004,19 @@ function render() {
     case 'scripts': content.innerHTML = renderScriptsList(); break;
     case 'script': content.innerHTML = renderScriptDetail(); break;
     case 'otabotki': content.innerHTML = renderOtabotkiCatalog(); break;
-    case 'catalog': content.innerHTML = renderCatalog(); break;
+    case 'catalog':
+      content.innerHTML = renderCatalog();
+      try {
+        if (window.ECTCatalogExternal && window.ECTCatalogExternal.prefetchExternalCatalog) {
+          window.ECTCatalogExternal.prefetchExternalCatalog();
+        }
+        if (state.catalogQuery) {
+          refreshCatalogExternal(state.catalogQuery).then(() => {
+            if (state.currentPage === 'catalog') render();
+          });
+        }
+      } catch (_) {}
+      break;
     case 'calls': content.innerHTML = renderCalls(); break;
     case 'leaderboard': content.innerHTML = renderLeaderboard(); break;
     case 'goals': try { if (state.currentUser) maybeFinalizeUserGoal(state.currentUser); } catch (_) {} content.innerHTML = renderGoals(); break;
@@ -28796,6 +28811,115 @@ function renderOtabotkiCatalog() {
   `;
 }
 
+
+/** Внешний каталог: поиск, если локально мало/нет результатов */
+async function refreshCatalogExternal(query) {
+  const q = String(query || '').trim();
+  state.catalogExternalError = '';
+  if (!q || q.length < 2) {
+    state.catalogExternal = [];
+    state.catalogExternalLoading = false;
+    return;
+  }
+  if (!window.ECTCatalogExternal || typeof window.ECTCatalogExternal.searchExternalCars !== 'function') {
+    state.catalogExternal = [];
+    state.catalogExternalError = 'Модуль внешнего каталога не подключён (catalog-external.js)';
+    return;
+  }
+  const local = searchCars(q);
+  const localKeys = new Set(local.map(c => ((c.brand || '') + '|' + (c.model || '')).toLowerCase()));
+  state.catalogExternalLoading = true;
+  try {
+    const remote = await window.ECTCatalogExternal.searchExternalCars(q, { limit: 18 });
+    state.catalogExternal = (remote || []).filter(c => {
+      const key = ((c.brand || '') + '|' + (c.model || '')).toLowerCase();
+      return !localKeys.has(key);
+    });
+  } catch (e) {
+    console.warn('refreshCatalogExternal', e);
+    state.catalogExternal = [];
+    state.catalogExternalError = 'Не удалось загрузить внешний каталог';
+  } finally {
+    state.catalogExternalLoading = false;
+  }
+}
+
+function showViewExternalCar(carOrId) {
+  let c = carOrId;
+  if (typeof carOrId === 'string') {
+    c = (state.catalogExternal || []).find(x => x.id === carOrId);
+  }
+  if (!c) { toast('Авто не найдено во внешнем каталоге', 'error'); return; }
+  const fullName = [c.brand, c.model].filter(Boolean).join(' ').trim();
+  const copyAttr = escapeAttr(fullName);
+  const autoru = (c.links && c.links.autoru) || (window.ECTCatalogExternal && window.ECTCatalogExternal.autoRuSearchUrl(c.brand, c.model)) || '#';
+  const drom = (c.links && c.links.drom) || (window.ECTCatalogExternal && window.ECTCatalogExternal.dromSearchUrl(c.brand, c.model)) || '#';
+  const canChange = typeof canEdit === 'function' && canEdit();
+  openModal(
+    `${escapeHtml(c.brand)} ${escapeHtml(c.model)}`,
+    `<div class="view-card">
+      <div class="car-ac-warning" style="background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.35);color:inherit">
+        🌐 Данные из внешнего каталога (cars-base.ru). Цены и комплектации могут отличаться — уточняйте у дилера / на Авто.ру.
+      </div>
+      <div class="view-row"><span class="view-label">Марка</span><span class="view-value view-value-copy" data-action="copy-car-name" data-name="${copyAttr}" title="Копировать">${escapeHtml(c.brand)}</span></div>
+      <div class="view-row"><span class="view-label">Модель</span><span class="view-value view-value-copy" data-action="copy-car-name" data-name="${copyAttr}" title="Копировать">${escapeHtml(c.model)}</span></div>
+      ${c.brandCyr || c.modelCyr ? `<div class="view-row"><span class="view-label">По-русски</span><span class="view-value">${escapeHtml([c.brandCyr, c.modelCyr].filter(Boolean).join(' '))}</span></div>` : ''}
+      ${c.bodyType ? `<div class="view-row"><span class="view-label">Кузов</span><span class="view-value">${escapeHtml(c.bodyType)}</span></div>` : ''}
+      ${c.classCode ? `<div class="view-row"><span class="view-label">Класс</span><span class="view-value">${escapeHtml(c.classCode)}</span></div>` : ''}
+      ${c.yearFrom || c.yearTo ? `<div class="view-row"><span class="view-label">Годы</span><span class="view-value">${escapeHtml([c.yearFrom || '?', c.yearTo || '?'].join(' – '))}</span></div>` : ''}
+      ${c.country ? `<div class="view-row"><span class="view-label">Страна</span><span class="view-value">${escapeHtml(countryMeta(c.country).flag + ' ' + countryMeta(c.country).name)}</span></div>` : ''}
+      ${c.description ? `<div class="view-block"><span class="view-label">Описание</span><p class="view-text">${escapeHtml(c.description)}</p></div>` : ''}
+      <div class="view-block">
+        <span class="view-label">Смотреть объявления</span>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+          <a class="btn btn-outline btn-sm" href="${escapeAttr(autoru)}" target="_blank" rel="noopener">Авто.ру</a>
+          <a class="btn btn-outline btn-sm" href="${escapeAttr(drom)}" target="_blank" rel="noopener">Дром</a>
+        </div>
+      </div>
+    </div>`,
+    `${canChange ? `<button class="btn btn-primary" data-action="import-external-car" data-id="${escapeAttr(c.id)}">Добавить в мой каталог</button>` : ''}
+     <button class="btn btn-outline" data-action="close-modal">Закрыть</button>`
+  );
+}
+
+function importExternalCar(id) {
+  if (typeof canEdit === 'function' && !canEdit()) {
+    toast('Недостаточно прав', 'error');
+    return;
+  }
+  ensureCarsModel();
+  const src = (state.catalogExternal || []).find(x => x.id === id);
+  if (!src) { toast('Авто не найдено', 'error'); return; }
+  const key = ((src.brand || '') + '|' + (src.model || '')).toLowerCase();
+  const exists = (state.cars || []).some(c => ((c.brand || '') + '|' + (c.model || '')).toLowerCase() === key);
+  if (exists) {
+    toast('Такое авто уже есть в каталоге');
+    return;
+  }
+  const car = {
+    id: uid(),
+    brand: src.brand || '',
+    model: src.model || '',
+    price: '',
+    transmission: '',
+    engine: '',
+    power: '',
+    fuel: '',
+    bodyType: src.bodyType || '',
+    country: src.country || '',
+    description: src.description || '',
+    tags: Array.isArray(src.tags) ? src.tags.filter(t => t !== 'external' && t !== 'внешний') : [],
+    trims: [],
+    notInAc: false
+  };
+  state.cars.push(car);
+  persistCarsLocal();
+  state.catalogExternal = (state.catalogExternal || []).filter(x => x.id !== id);
+  try { closeModal(); } catch (_) {}
+  toast('Добавлено в каталог: ' + car.brand + ' ' + car.model);
+  if (state.currentPage === 'catalog') render();
+}
+
 function renderCatalog() {
   ensureCarsModel();
   const q = (state.catalogQuery || '').toLowerCase().trim();
@@ -28873,11 +28997,11 @@ function renderCatalog() {
           ${BODY_TYPES.map(b => `<option value="${escapeAttr(b)}" ${b === bodyFilter ? 'selected' : ''}>${escapeHtml(b)}</option>`).join('')}
         </select>
       </div>
-      <p class="catalog-count">Найдено: <b>${list.length}</b> из ${(state.cars || []).length}</p>
+      <p class="catalog-count">Найдено: <b>${list.length}</b> из ${(state.cars || []).length}${q ? ` · внешний поиск: <b>${(state.catalogExternal || []).length}</b>${state.catalogExternalLoading ? ' (загрузка…)' : ''}` : ''}</p>
     </div>
 
     ${list.length === 0
-      ? `<div class="empty-state"><div class="empty-icon">🚗</div><p>Ничего не найдено. Измените запрос или выберите другую страну.</p></div>`
+      ? `<div class="empty-state"><div class="empty-icon">🚗</div><p>В вашем каталоге ничего не найдено.${q ? ' Смотрите результаты внешнего каталога ниже.' : ' Измените запрос или выберите другую страну.'}</p></div>`
       : `<div class="car-grid">${list.map(c => `
           <article class="car-card ${c.notInAc ? 'car-not-in-ac' : ''}">
             <div class="car-card-body card-interactive" data-action="view-car" data-id="${escapeAttr(c.id)}" title="Открыть карточку">
@@ -28907,6 +29031,38 @@ function renderCatalog() {
           </article>
         `).join('')}</div>`
     }
+
+    ${(q && (state.catalogExternalLoading || (state.catalogExternal || []).length || state.catalogExternalError)) ? `
+    <div class="card" style="margin-top:16px">
+      <div class="catalog-toolbar-row" style="margin-bottom:10px">
+        <div>
+          <strong>🌐 Внешний каталог</strong>
+          <p class="catalog-hint" style="margin:4px 0 0">Авто, которых нет в вашей базе (cars-base.ru). Можно открыть карточку и добавить к себе.</p>
+        </div>
+      </div>
+      ${state.catalogExternalError ? `<p class="catalog-hint" style="color:var(--danger,#f66)">${escapeHtml(state.catalogExternalError)}</p>` : ''}
+      ${state.catalogExternalLoading ? `<p class="catalog-hint">Загрузка внешнего каталога…</p>` : ''}
+      ${!(state.catalogExternal || []).length && !state.catalogExternalLoading ? `<p class="catalog-hint">Во внешнем каталоге ничего не найдено по запросу.</p>` : ''}
+      ${(state.catalogExternal || []).length ? `<div class="car-grid">${(state.catalogExternal || []).map(c => `
+          <article class="car-card car-card-external">
+            <div class="car-card-body card-interactive" data-action="view-external-car" data-id="${escapeAttr(c.id)}" title="Открыть">
+              <div class="car-card-top">
+                <h3 class="car-card-title">${escapeHtml(c.brand)} <span class="car-model">${escapeHtml(c.model)}</span></h3>
+                <div class="car-card-badges">
+                  <span class="badge badge-primary">Внешний</span>
+                  ${c.bodyType ? `<span class="badge">${escapeHtml(c.bodyType)}</span>` : ''}
+                  ${c.country ? `<span class="badge">${escapeHtml(c.country)}</span>` : ''}
+                </div>
+              </div>
+              ${c.price ? `<div class="car-price">${escapeHtml(c.price)}</div>` : ''}
+              ${c.brandCyr || c.modelCyr ? `<p class="catalog-hint" style="margin:6px 0 0">${escapeHtml([c.brandCyr, c.modelCyr].filter(Boolean).join(' '))}</p>` : ''}
+            </div>
+            <div class="car-card-footer" style="display:flex;gap:8px;flex-wrap:wrap">
+              <button type="button" class="btn btn-outline btn-sm" data-action="view-external-car" data-id="${escapeAttr(c.id)}">Карточка</button>
+              ${canChange ? `<button type="button" class="btn btn-primary btn-sm" data-action="import-external-car" data-id="${escapeAttr(c.id)}">В каталог</button>` : ''}
+            </div>
+          </article>`).join('')}</div>` : ''}
+    </div>` : ''}
     </div>
   </div>
   `;
@@ -34094,6 +34250,8 @@ function handleClick(e) {
       toggleCallPlay(el.dataset.id);
       break;
     case 'view-car': showViewCarModal(el.dataset.id); break;
+    case 'view-external-car': showViewExternalCar(el.dataset.id); break;
+    case 'import-external-car': importExternalCar(el.dataset.id); break;
     case 'copy-car-name': {
       const name = el.dataset.name || '';
       Promise.resolve(copyTextToClipboard(name)).then(ok => {
@@ -35017,9 +35175,12 @@ function bindGlobalEvents() {
     if (id === 'catalogSearch') {
       state.catalogQuery = e.target.value;
       clearTimeout(window._catTimer);
-      window._catTimer = setTimeout(() => {
+      window._catTimer = setTimeout(async () => {
+        if (state.currentPage !== 'catalog') return;
+        render();
+        await refreshCatalogExternal(state.catalogQuery || '');
         if (state.currentPage === 'catalog') render();
-      }, 220);
+      }, 280);
       return;
     }
     if (id === 'callsSearch') {
