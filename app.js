@@ -1,5 +1,5 @@
 /**
- * ЕЦТ Скрипты v2.7.28 — новый URL Apps Script
+ * ЕЦТ Скрипты v2.7.29 — новый URL Apps Script
  * Оптимизация синка: умный meta-кэш, реже полный fetch, стабильнее запись
  * Автор: @Alekssandr991
  */
@@ -25007,11 +25007,9 @@ function render() {
     case 'catalog':
       content.innerHTML = renderCatalog();
       try {
-        if (window.ECTCatalogExternal && window.ECTCatalogExternal.prefetchExternalCatalog) {
-          window.ECTCatalogExternal.prefetchExternalCatalog();
-        }
-        if (state.catalogQuery) {
-          refreshCatalogExternal(state.catalogQuery).then(() => {
+        const q = String(state.catalogQuery || '').trim();
+        if (q.length >= 3) {
+          refreshCatalogExternal(q).then(() => {
             if (state.currentPage === 'catalog') render();
           });
         }
@@ -28816,7 +28814,8 @@ function renderOtabotkiCatalog() {
 async function refreshCatalogExternal(query) {
   const q = String(query || '').trim();
   state.catalogExternalError = '';
-  if (!q || q.length < 2) {
+  // меньше 3 символов — не трогаем внешнюю базу (экономия памяти/сети)
+  if (!q || q.length < 3) {
     state.catalogExternal = [];
     state.catalogExternalLoading = false;
     return;
@@ -28827,10 +28826,22 @@ async function refreshCatalogExternal(query) {
     return;
   }
   const local = searchCars(q);
+  // если локально уже достаточно совпадений — внешний поиск не нужен
+  if (local.length >= 8) {
+    state.catalogExternal = [];
+    state.catalogExternalLoading = false;
+    return;
+  }
   const localKeys = new Set(local.map(c => ((c.brand || '') + '|' + (c.model || '')).toLowerCase()));
+  // не запускать параллельно несколько загрузок
+  if (state.catalogExternalLoading) return;
   state.catalogExternalLoading = true;
   try {
-    const remote = await window.ECTCatalogExternal.searchExternalCars(q, { limit: 18 });
+    if (state.currentPage === 'catalog') {
+      try { render(); } catch (_) {}
+    }
+    const remote = await window.ECTCatalogExternal.searchExternalCars(q, { limit: 12 });
+    if (String(state.catalogQuery || '').trim() !== q) return; // запрос устарел
     state.catalogExternal = (remote || []).filter(c => {
       const key = ((c.brand || '') + '|' + (c.model || '')).toLowerCase();
       return !localKeys.has(key);
@@ -35177,10 +35188,15 @@ function bindGlobalEvents() {
       clearTimeout(window._catTimer);
       window._catTimer = setTimeout(async () => {
         if (state.currentPage !== 'catalog') return;
+        // сначала быстрый локальный рендер
+        state.catalogExternal = [];
+        state.catalogExternalLoading = false;
         render();
-        await refreshCatalogExternal(state.catalogQuery || '');
+        const q = String(state.catalogQuery || '').trim();
+        if (q.length < 3) return;
+        await refreshCatalogExternal(q);
         if (state.currentPage === 'catalog') render();
-      }, 280);
+      }, 400);
       return;
     }
     if (id === 'callsSearch') {

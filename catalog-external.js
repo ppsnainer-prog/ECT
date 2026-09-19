@@ -1,47 +1,42 @@
 /**
- * ЕЦТ — внешний автокаталог (fallback, если авто нет в локальной базе)
- * Источник: https://api.cars-base.ru/full (бесплатно, без ключа)
- * 425+ марок, модели, годы, класс, страна (в т.ч. китайские бренды)
+ * ЕЦТ — внешний автокаталог (лёгкий fallback)
+ * Источник: https://api.cars-base.ru/full
+ * Память: компактный массив, без тяжёлого hay в localStorage, поиск чанками.
  */
 (function (global) {
   'use strict';
 
-  const CACHE_KEY = 'ect_carsbase_v1';
-  const CACHE_TS_KEY = 'ect_carsbase_ts_v1';
-  const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 дней
+  const CACHE_KEY = 'ect_carsbase_v2_compact';
+  const CACHE_TS_KEY = 'ect_carsbase_v2_ts';
+  const OLD_KEYS = ['ect_carsbase_v1', 'ect_carsbase_ts_v1'];
+  const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const SOURCE_URL = 'https://api.cars-base.ru/full';
+  const MAX_RESPONSE_BYTES = 2.5 * 1024 * 1024;
+  const SEARCH_CHUNK = 800;
+  const DEFAULT_LIMIT = 12;
+
+  // [brand, brandCyr, model, modelCyr, cls, country, yearFrom, yearTo, id]
+  let _rows = null;
+  let _loading = null;
+  let _searchToken = 0;
 
   const CLASS_TO_BODY = {
-    A: 'Хэтчбек',
-    B: 'Хэтчбек',
-    C: 'Седан',
-    D: 'Седан',
-    E: 'Седан',
-    F: 'Седан',
-    S: 'Купе',
-    M: 'Минивэн',
-    J: 'Внедорожник / SUV',
-    I: 'Внедорожник / SUV',
-    PICKUP: 'Пикап'
+    A: 'Хэтчбек', B: 'Хэтчбек', C: 'Седан', D: 'Седан', E: 'Седан', F: 'Седан',
+    S: 'Купе', M: 'Минивэн', J: 'Внедорожник / SUV', I: 'Внедорожник / SUV', PICKUP: 'Пикап'
   };
 
   const COUNTRY_MAP = {
-    'россия': 'RUS', 'russia': 'RUS', 'russian federation': 'RUS',
+    'россия': 'RUS', 'russia': 'RUS',
     'германия': 'DEU', 'germany': 'DEU',
     'япония': 'JPN', 'japan': 'JPN',
-    'корея': 'KOR', 'южная корея': 'KOR', 'korea': 'KOR', 'south korea': 'KOR',
+    'корея': 'KOR', 'южная корея': 'KOR', 'korea': 'KOR',
     'китай': 'CHN', 'china': 'CHN',
-    'сша': 'USA', 'usa': 'USA', 'united states': 'USA', 'америка': 'USA',
+    'сша': 'USA', 'usa': 'USA',
     'франция': 'FRA', 'france': 'FRA',
     'италия': 'ITA', 'italy': 'ITA',
-    'великобритания': 'GBR', 'англия': 'GBR', 'uk': 'GBR',
-    'швеция': 'SWE', 'sweden': 'SWE',
-    'чехия': 'CZE', 'czech': 'CZE',
-    'испания': 'ESP', 'spain': 'ESP'
+    'великобритания': 'GBR', 'uk': 'GBR',
+    'швеция': 'SWE', 'чехия': 'CZE', 'испания': 'ESP'
   };
-
-  let _index = null; // flat array of models
-  let _loading = null;
 
   function normalize(s) {
     return String(s || '')
@@ -52,12 +47,18 @@
       .trim();
   }
 
+  function clearOldCaches() {
+    try {
+      OLD_KEYS.forEach(function (k) { localStorage.removeItem(k); });
+    } catch (_) {}
+  }
+
   function countryCode(name) {
     const n = normalize(name);
     if (!n) return '';
     if (COUNTRY_MAP[n]) return COUNTRY_MAP[n];
-    for (const [k, v] of Object.entries(COUNTRY_MAP)) {
-      if (n.includes(k)) return v;
+    for (const k of Object.keys(COUNTRY_MAP)) {
+      if (n.indexOf(k) !== -1) return COUNTRY_MAP[k];
     }
     return String(name || '').slice(0, 3).toUpperCase();
   }
@@ -68,68 +69,64 @@
   }
 
   function yearsLabel(from, to) {
-    const a = from || '';
-    const b = to || '';
-    if (a && b && a !== b) return a + '–' + b;
-    return a || b || '';
+    if (from && to && from !== to) return from + '–' + to;
+    return from || to || '';
   }
 
   function autoRuSearchUrl(brand, model) {
-    const q = encodeURIComponent([brand, model].filter(Boolean).join(' '));
-    return 'https://auto.ru/cars/' + encodeURIComponent(String(brand || '').toLowerCase().replace(/\s+/g, '_')) + '/' +
-      encodeURIComponent(String(model || '').toLowerCase().replace(/\s+/g, '_')) + '/all/';
+    const b = encodeURIComponent(String(brand || '').toLowerCase().replace(/\s+/g, '_'));
+    const m = encodeURIComponent(String(model || '').toLowerCase().replace(/\s+/g, '_'));
+    return 'https://auto.ru/cars/' + b + '/' + m + '/all/';
   }
 
   function dromSearchUrl(brand, model) {
-    return 'https://auto.drom.ru/' + encodeURIComponent(String(brand || '').toLowerCase().replace(/\s+/g, '_')) + '/' +
-      encodeURIComponent(String(model || '').toLowerCase().replace(/\s+/g, '_')) + '/';
+    const b = encodeURIComponent(String(brand || '').toLowerCase().replace(/\s+/g, '_'));
+    const m = encodeURIComponent(String(model || '').toLowerCase().replace(/\s+/g, '_'));
+    return 'https://auto.drom.ru/' + b + '/' + m + '/';
   }
 
-  function toCarCard(row) {
-    const brand = row.brandName || row.brand || '';
-    const model = row.modelName || row.model || '';
-    const years = yearsLabel(row.yearFrom, row.yearTo);
-    const body = bodyFromClass(row.cls);
-    const country = countryCode(row.country);
-    const tags = [
-      normalize(brand),
-      normalize(row.brandCyr),
-      normalize(model),
-      normalize(row.modelCyr),
-      normalize(body),
-      normalize(row.country),
-      'external',
-      'внешний'
-    ].filter(Boolean);
+  function rowToCar(row) {
+    const brand = row[0] || '';
+    const brandCyr = row[1] || '';
+    const model = row[2] || '';
+    const modelCyr = row[3] || '';
+    const cls = row[4] || '';
+    const countryName = row[5] || '';
+    const yearFrom = row[6] || null;
+    const yearTo = row[7] || null;
+    const id = row[8] || (brand + '_' + model);
+    const years = yearsLabel(yearFrom, yearTo);
+    const body = bodyFromClass(cls);
+    const country = countryCode(countryName);
 
     return {
-      id: 'ext_' + (row.id || (brand + '_' + model)).replace(/\s+/g, '_'),
+      id: 'ext_' + String(id).replace(/\s+/g, '_'),
       brand: brand,
       model: model,
+      brandCyr: brandCyr,
+      modelCyr: modelCyr,
       price: years ? ('Годы: ' + years) : 'Цена уточняется',
-      transmission: 'уточняется',
-      engine: 'уточняется',
+      transmission: '',
+      engine: '',
       power: '',
-      fuel: 'уточняется',
+      fuel: '',
       bodyType: body,
       country: country,
       description: [
-        row.brandCyr && row.brandCyr !== brand ? (row.brandCyr + ' ' + (row.modelCyr || model)) : '',
+        (brandCyr && brandCyr !== brand) ? (brandCyr + ' ' + (modelCyr || model)) : '',
         years ? ('Годы выпуска: ' + years) : '',
-        row.cls ? ('Класс: ' + row.cls) : '',
-        row.country ? ('Страна: ' + row.country) : '',
-        'Данные из внешнего каталога cars-base. Цены и комплектации уточняйте на Авто.ру / у дилера.'
+        cls ? ('Класс: ' + cls) : '',
+        countryName ? ('Страна: ' + countryName) : '',
+        'Данные из внешнего каталога. Цены и комплектации уточняйте на Авто.ру.'
       ].filter(Boolean).join('. '),
-      tags: tags,
+      tags: [normalize(brand), normalize(brandCyr), normalize(model), normalize(modelCyr)].filter(Boolean),
       trims: [],
       notInAc: false,
       external: true,
       externalSource: 'cars-base.ru',
-      yearFrom: row.yearFrom || null,
-      yearTo: row.yearTo || null,
-      classCode: row.cls || '',
-      brandCyr: row.brandCyr || '',
-      modelCyr: row.modelCyr || '',
+      yearFrom: yearFrom,
+      yearTo: yearTo,
+      classCode: cls,
       links: {
         autoru: autoRuSearchUrl(brand, model),
         drom: dromSearchUrl(brand, model)
@@ -137,80 +134,94 @@
     };
   }
 
-  function buildIndex(payload) {
+  function buildCompact(payload) {
     const brands = (payload && payload.data) || payload || [];
     const out = [];
-    brands.forEach(b => {
-      const brandName = b.name || '';
+    for (let i = 0; i < brands.length; i++) {
+      const b = brands[i];
+      const brand = b.name || '';
       const brandCyr = b.cyrillic_name || '';
       const country = b.country || '';
-      (b.models || []).forEach(m => {
-        out.push({
-          id: m.id || (brandName + '_' + (m.name || '')),
-          brandName,
+      const models = b.models || [];
+      for (let j = 0; j < models.length; j++) {
+        const m = models[j];
+        out.push([
+          brand,
           brandCyr,
-          modelName: m.name || '',
-          modelCyr: m.cyrillic_name || '',
-          yearFrom: m.year_from || b.year_from || null,
-          yearTo: m.year_to || b.year_to || null,
-          cls: m.class || '',
+          m.name || '',
+          m.cyrillic_name || '',
+          m.class || '',
           country,
-          hay: normalize([
-            brandName, brandCyr, m.name, m.cyrillic_name, country, m.class
-          ].join(' '))
-        });
-      });
-    });
+          m.year_from || b.year_from || 0,
+          m.year_to || b.year_to || 0,
+          m.id || ''
+        ]);
+      }
+    }
     return out;
   }
 
-  function loadFromCache() {
+  function loadCache() {
     try {
       const ts = Number(localStorage.getItem(CACHE_TS_KEY) || 0);
       if (!ts || Date.now() - ts > CACHE_TTL_MS) return null;
       const raw = localStorage.getItem(CACHE_KEY);
-      if (!raw) return null;
+      if (!raw || raw.length > 3 * 1024 * 1024) return null;
       const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed) || !parsed.length) return null;
+      if (!Array.isArray(parsed) || !parsed.length || !Array.isArray(parsed[0])) return null;
       return parsed;
     } catch (_) {
       return null;
     }
   }
 
-  function saveCache(index) {
+  function saveCache(rows) {
     try {
-      localStorage.setItem(CACHE_KEY, JSON.stringify(index));
+      const raw = JSON.stringify(rows);
+      if (raw.length > 2.8 * 1024 * 1024) return;
+      localStorage.setItem(CACHE_KEY, raw);
       localStorage.setItem(CACHE_TS_KEY, String(Date.now()));
     } catch (_) {
-      // quota — ignore
+      try {
+        localStorage.removeItem(CACHE_KEY);
+        localStorage.removeItem(CACHE_TS_KEY);
+      } catch (e2) {}
     }
   }
 
-  async function ensureIndex(force) {
-    if (_index && !force) return _index;
+  async function ensureRows(force) {
+    if (_rows && !force) return _rows;
     if (_loading) return _loading;
 
-    const cached = loadFromCache();
-    if (cached && !force) {
-      _index = cached;
-      return _index;
+    clearOldCaches();
+    if (!force) {
+      const cached = loadCache();
+      if (cached) {
+        _rows = cached;
+        return _rows;
+      }
     }
 
-    _loading = (async () => {
+    _loading = (async function () {
       const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      const timer = setTimeout(() => { try { ctrl && ctrl.abort(); } catch (_) {} }, 25000);
+      const timer = setTimeout(function () {
+        try { if (ctrl) ctrl.abort(); } catch (_) {}
+      }, 20000);
       try {
         const res = await fetch(SOURCE_URL, {
           method: 'GET',
-          cache: 'force-cache',
           signal: ctrl ? ctrl.signal : undefined
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
-        const json = await res.json();
-        _index = buildIndex(json);
-        saveCache(_index);
-        return _index;
+        const cl = Number(res.headers.get('content-length') || 0);
+        if (cl && cl > MAX_RESPONSE_BYTES) throw new Error('response too large');
+        const text = await res.text();
+        if (text.length > MAX_RESPONSE_BYTES) throw new Error('response too large');
+        const json = JSON.parse(text);
+        const rows = buildCompact(json);
+        _rows = rows;
+        saveCache(rows);
+        return rows;
       } finally {
         clearTimeout(timer);
         _loading = null;
@@ -220,68 +231,92 @@
     return _loading;
   }
 
-  function searchLocalIndex(index, query, limit) {
-    const q = normalize(query);
-    if (!q || !index) return [];
-    const words = q.split(/\s+/).filter(Boolean);
-    const scored = [];
-    for (let i = 0; i < index.length; i++) {
-      const row = index[i];
-      let ok = true;
-      let score = 0;
-      for (let w = 0; w < words.length; w++) {
-        const word = words[w];
-        if (!row.hay.includes(word)) {
-          ok = false;
-          break;
-        }
-        // точное совпадение модели/марки важнее
-        if (normalize(row.modelName) === word || normalize(row.modelCyr) === word) score += 5;
-        if (normalize(row.brandName) === word || normalize(row.brandCyr) === word) score += 3;
-        score += 1;
-      }
-      if (ok) scored.push({ row, score });
-    }
-    scored.sort((a, b) => b.score - a.score || String(a.row.brandName).localeCompare(String(b.row.brandName), 'ru'));
-    return scored.slice(0, limit || 24).map(s => toCarCard(s.row));
+  function rowHay(row) {
+    return normalize([row[0], row[1], row[2], row[3], row[5], row[4]].join(' '));
   }
 
-  /**
-   * Поиск во внешнем каталоге.
-   * @param {string} query
-   * @param {{limit?: number, force?: boolean}} opts
-   * @returns {Promise<Array>}
-   */
+  function sleep(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+  }
+
   async function searchExternalCars(query, opts) {
     opts = opts || {};
     const q = normalize(query);
     if (!q || q.length < 2) return [];
+    const limit = Math.min(24, opts.limit || DEFAULT_LIMIT);
+    const words = q.split(/\s+/).filter(Boolean);
+    if (!words.length) return [];
+
+    const token = ++_searchToken;
+    let rows;
     try {
-      const index = await ensureIndex(!!opts.force);
-      return searchLocalIndex(index, q, opts.limit || 24);
+      rows = await ensureRows(!!opts.force);
     } catch (e) {
-      console.warn('catalog-external search', e);
+      console.warn('catalog-external load', e);
       return [];
     }
+    if (token !== _searchToken) return [];
+    if (!rows || !rows.length) return [];
+
+    const scored = [];
+    for (let i = 0; i < rows.length; i++) {
+      if (i && (i % SEARCH_CHUNK) === 0) {
+        await sleep(0);
+        if (token !== _searchToken) return [];
+      }
+      const row = rows[i];
+      const hay = rowHay(row);
+      let ok = true;
+      let score = 0;
+      for (let w = 0; w < words.length; w++) {
+        const word = words[w];
+        if (hay.indexOf(word) === -1) {
+          ok = false;
+          break;
+        }
+        if (normalize(row[2]) === word || normalize(row[3]) === word) score += 5;
+        if (normalize(row[0]) === word || normalize(row[1]) === word) score += 3;
+        score += 1;
+      }
+      if (ok) {
+        scored.push({ row: row, score: score });
+        if (scored.length > limit * 8) {
+          scored.sort(function (a, b) { return b.score - a.score; });
+          scored.length = limit * 3;
+        }
+      }
+    }
+
+    if (token !== _searchToken) return [];
+    scored.sort(function (a, b) {
+      if (b.score !== a.score) return b.score - a.score;
+      return String(a.row[0]).localeCompare(String(b.row[0]), 'ru');
+    });
+
+    const out = [];
+    for (let i = 0; i < scored.length && out.length < limit; i++) {
+      out.push(rowToCar(scored[i].row));
+    }
+    return out;
   }
 
-  /** Предзагрузка базы в фоне */
   function prefetchExternalCatalog() {
-    ensureIndex(false).catch(() => {});
+    // отключено: полная предзагрузка валила память
   }
 
   function isExternalCar(car) {
     return !!(car && (car.external || String(car.id || '').indexOf('ext_') === 0));
   }
 
+  clearOldCaches();
+
   global.ECTCatalogExternal = {
-    searchExternalCars,
-    prefetchExternalCatalog,
-    ensureIndex,
-    isExternalCar,
-    toCarCard,
-    autoRuSearchUrl,
-    dromSearchUrl,
-    SOURCE_URL
+    searchExternalCars: searchExternalCars,
+    prefetchExternalCatalog: prefetchExternalCatalog,
+    ensureIndex: ensureRows,
+    isExternalCar: isExternalCar,
+    autoRuSearchUrl: autoRuSearchUrl,
+    dromSearchUrl: dromSearchUrl,
+    SOURCE_URL: SOURCE_URL
   };
 })(typeof window !== 'undefined' ? window : globalThis);
